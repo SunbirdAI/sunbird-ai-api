@@ -13,7 +13,8 @@ def create_payload(audio_file):
     payload = {
         "instances": [
             {
-                "audio": utf_audio
+                "audio": utf_audio,
+                "task": "asr"
             }
         ]
     }
@@ -21,7 +22,7 @@ def create_payload(audio_file):
     return payload
 
 def transcribe(audio_file):
+    # TODO: Handle error cases
     payload = create_payload(audio_file)
-    response = inference_request(payload)
-
-    return response
+    response = inference_request(payload).json()
+    return response['transcripts'][0]
