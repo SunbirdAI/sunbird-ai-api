@@ -1,14 +1,16 @@
 from pydantic import BaseModel, EmailStr
 
-class User(BaseModel):
+class UserBase(BaseModel):
     username: str
     email: EmailStr
 
 
-class UserInDB(User):
-    id: int
+class UserInDB(UserBase):
     hashed_password: str
 
 
-class UserCreate(User):
+class UserCreate(UserBase):
     password: str
+
+class User(UserBase):
+    id: int
