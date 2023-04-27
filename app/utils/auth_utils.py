@@ -1,8 +1,15 @@
 from app.database.db import get_user
+from passlib.context import CryptContext
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def verify_password(plain_password, hashed_password):
-    return f"hashed_{plain_password}" == hashed_password  # TODO: Implement actual hashing
+    return pwd_context.verify(plain_password, hashed_password)
+
+
+def get_password_hash(password: str):
+    return pwd_context.hash(password)
 
 
 def authenticate_user(username: str, password: str):

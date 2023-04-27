@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, status, Depends
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from app.models.users import UserCreate, User, UserInDB, Token
 from app.database.db import db, insert_user
-from app.utils.auth_utils import authenticate_user
+from app.utils.auth_utils import authenticate_user, get_password_hash
 
 router = APIRouter()
 
@@ -10,7 +10,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register(user: UserCreate) -> User:
-    hashed_password = f'hashed_{user.password}'  # TODO: Implement the actual hashing
+    hashed_password = get_password_hash(user.password)  # TODO: Implement the actual hashing
     # TODO: Implement validation
 
     user_db = UserInDB(**user.dict(), hashed_password=hashed_password)
