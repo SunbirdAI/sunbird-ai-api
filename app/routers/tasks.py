@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException, status, File, UploadFile, Form
+from fastapi import APIRouter, HTTPException, status, File, UploadFile, Form, Depends
 from app.models.tasks import STTTranscript, TranslationRequest, TranslationResponse
 from app.inference_services.stt_inference import transcribe
 from app.inference_services.translate_inference import translate
+from app.routers.auth import get_current_user
 
 router = APIRouter()
 
@@ -10,7 +11,8 @@ router = APIRouter()
 async def speech_to_text(
         audio: UploadFile(...) = File(...),
         language: str = Form("Luganda"),
-        return_confidences: bool = Form(False)) -> STTTranscript:  # TODO: Make language an enum
+        return_confidences: bool = Form(False),
+        current_user = Depends(get_current_user)) -> STTTranscript:  # TODO: Make language an enum
 
     response = transcribe(audio)
     return STTTranscript(text=response)
