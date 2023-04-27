@@ -14,4 +14,3 @@ def get_user(username: str) -> UserInDB:
     if username not in db["users"]:
         return None
     return UserInDB(**db["users"][username])
-
