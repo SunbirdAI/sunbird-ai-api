@@ -2,7 +2,7 @@ from datetime import timedelta
 
 from fastapi import APIRouter, HTTPException, status, Depends
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from app.models.users import UserCreate, User, UserBase, UserInDB, Token, TokenData
+from app.schemas.users import UserCreate, User, UserBase, UserInDB, Token, TokenData
 from app.database.db import db, insert_user, get_user
 from app.utils.auth_utils import (
     authenticate_user,

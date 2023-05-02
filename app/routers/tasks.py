@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, status, File, UploadFile, Form, Depends
-from app.models.tasks import STTTranscript, TranslationRequest, TranslationResponse
+from app.schemas.tasks import STTTranscript, TranslationRequest, TranslationResponse
 from app.inference_services.stt_inference import transcribe
 from app.inference_services.translate_inference import translate
 from app.routers.auth import get_current_user

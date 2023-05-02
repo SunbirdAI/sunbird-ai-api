@@ -1,4 +1,4 @@
-from app.models.users import UserInDB, User
+from app.schemas.users import UserInDB, User
 db = {
     "users": {}
 }
