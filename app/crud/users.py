@@ -1,0 +1,15 @@
+from sqlalchemy.orm import Session
+from app.schemas import users as schema
+from app.models import users as models
+
+
+def create_user(db: Session, user: schema.UserInDB) -> schema.User:
+    db_user = models.User(email=user.email, username=user.username, hashed_password=user.hashed_password)
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+
+def get_user(db: Session, username: str):
+    return db.query(models.User).filter(models.User.username == username).first()

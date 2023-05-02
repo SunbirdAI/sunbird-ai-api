@@ -2,8 +2,10 @@ from datetime import timedelta
 
 from fastapi import APIRouter, HTTPException, status, Depends
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from app.schemas.users import UserCreate, User, UserBase, UserInDB, Token, TokenData
-from app.database.db import db, insert_user, get_user
+from app.schemas.users import UserCreate, User, UserInDB, Token, TokenData
+from app.crud.users import create_user, get_user
+from app.deps import get_db
+from sqlalchemy.orm import Session
 from app.utils.auth_utils import (
     authenticate_user,
     get_password_hash,
@@ -20,19 +22,19 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
-async def register(user: UserCreate) -> User:
+def register(user: UserCreate, db: Session = Depends(get_db)) -> User:
     hashed_password = get_password_hash(user.password)
     # TODO: Implement validation
 
     user_db = UserInDB(**user.dict(), hashed_password=hashed_password)
-    user = insert_user(user_db)
+    user = create_user(db, user_db)
     print(db)
     return user
 
 
 @router.post("/token", response_model=Token)
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
-    user = authenticate_user(form_data.username, form_data.password)
+async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    user = authenticate_user(db, form_data.username, form_data.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -51,7 +53,8 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     }
 
 
-async def get_current_user(token: str = Depends(oauth2_scheme)) -> UserBase:
+async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
+    # TODO: Move this to the deps file
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -66,7 +69,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> UserBase:
     except JWTError:
         raise credentials_exception
 
-    user = UserBase(**get_user(token_data.username).dict())
+    user = User.from_orm(get_user(db, token_data.username))
     return user
 
 
