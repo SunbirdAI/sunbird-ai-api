@@ -6,6 +6,7 @@ class UserBase(BaseModel):
 
 
 class UserInDB(UserBase):
+    # TODO: remove this class
     hashed_password: str
 
 
@@ -14,6 +15,10 @@ class UserCreate(UserBase):
 
 class User(UserBase):
     id: int
+    hashed_password: str
+
+    class Config:
+        orm_mode = True
 
 
 class Token(BaseModel):
