@@ -1,9 +1,14 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from functools import partial
 from app.routers.tasks import router as tasks_router
 from app.routers.auth import router as auth_router
+from app.middleware.monitoring_middleware import log_request
 
 
 app = FastAPI()
+
+logging_middleware = partial(log_request)
+app.middleware("http")(logging_middleware)
 
 app.include_router(tasks_router, prefix="/tasks", tags=["AI Tasks"])
 app.include_router(auth_router, prefix="/auth", tags=["Authentication Endpoints"])

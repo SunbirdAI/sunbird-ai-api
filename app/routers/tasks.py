@@ -8,7 +8,7 @@ router = APIRouter()
 
 
 @router.post("/stt")
-async def speech_to_text(
+def speech_to_text(
         audio: UploadFile(...) = File(...),
         language: str = Form("Luganda"),
         return_confidences: bool = Form(False),
@@ -18,7 +18,7 @@ async def speech_to_text(
     return STTTranscript(text=response)
 
 @router.post("/translate", response_model=TranslationResponse)
-async def translate_(translation_request: TranslationRequest, current_user = Depends(get_current_user)):
+def translate_(translation_request: TranslationRequest, current_user = Depends(get_current_user)):
 
     response = translate(translation_request.text, translation_request.source_language, translation_request.target_language)
     return TranslationResponse(text=response)

@@ -33,7 +33,7 @@ def register(user: UserCreate, db: Session = Depends(get_db)) -> User:
 
 
 @router.post("/token", response_model=Token)
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = authenticate_user(db, form_data.username, form_data.password)
     if not user:
         raise HTTPException(
@@ -53,7 +53,7 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     }
 
 
-async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
     # TODO: Move this to the deps file
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -74,5 +74,5 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
 
 
 @router.get("/me")
-async def read_users_me(current_user=Depends(get_current_user)):
+def read_users_me(current_user=Depends(get_current_user)):
     return current_user
