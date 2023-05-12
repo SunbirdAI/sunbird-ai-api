@@ -1,6 +1,6 @@
 from typing import List
-
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from enum import Enum
 
 class STTTranscript(BaseModel):
     text: str
@@ -10,10 +10,18 @@ class TranslationResponse(BaseModel):
     text: str
     confidences: List[int] | None = None
 
+class Language(str, Enum):
+    acholi = "Acholi"
+    ateso = "Ateso"
+    english = "English"
+    luganda = "Luganda"
+    lugbara = "Lugbara"
+    runyankole = "Runyankole"
+
 class TranslationRequest(BaseModel):
-    source_language: str | None = None  # TODO: Make this an enum
-    target_language: str  # TODO: Make this an enum
-    text: str
+    source_language: Language | None = None
+    target_language: Language
+    text: str = Field(min_length=3, max_length=200)
     return_confidences: bool = False
 
 class TranslationBatchRequest(BaseModel):
