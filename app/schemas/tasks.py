@@ -15,3 +15,9 @@ class TranslationRequest(BaseModel):
     target_language: str  # TODO: Make this an enum
     text: str
     return_confidences: bool = False
+
+class TranslationBatchRequest(BaseModel):
+    requests: List[TranslationRequest]  # TODO: What should be the maximum length of this list?
+
+class TranslationBatchResponse(BaseModel):
+    responses: List[TranslationResponse]

@@ -12,7 +12,7 @@ SECRET_KEY
 DATABASE_URL
 ```
 
-- Run the app: `uvicorn api:app --reload`
+- Run the app: `uvicorn app.api:app --reload`
 
 Running the migrations with alembic:
 - After making a change to the models, run the command `alembic revision --autogenerate -m 'message'` to make the migrations.

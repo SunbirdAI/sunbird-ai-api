@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status, File, UploadFile, Form, Depends
-from app.schemas.tasks import STTTranscript, TranslationRequest, TranslationResponse
+from app.schemas.tasks import STTTranscript, TranslationRequest, TranslationResponse, TranslationBatchRequest, TranslationBatchResponse
 from app.inference_services.stt_inference import transcribe
-from app.inference_services.translate_inference import translate
+from app.inference_services.translate_inference import translate, translate_batch
 from app.routers.auth import get_current_user
 
 router = APIRouter()
@@ -22,3 +22,8 @@ def translate_(translation_request: TranslationRequest, current_user = Depends(g
 
     response = translate(translation_request.text, translation_request.source_language, translation_request.target_language)
     return TranslationResponse(text=response)
+
+@router.post("/translate-batch", response_model=TranslationBatchResponse)
+def translate_batch_(translation_batch_request: TranslationBatchRequest, current_user = Depends(get_current_user)):
+    response = translate_batch(translation_batch_request)
+    return TranslationBatchResponse(responses=[TranslationResponse(text=text) for text in response])
