@@ -1,5 +1,4 @@
 from app.inference_services.base import inference_request
-from typing import List
 from app.schemas.tasks import TranslationBatchRequest
 
 
@@ -14,7 +13,8 @@ def create_payload(text, source_language=None, target_language=None):
             {
                 "sentence": text,
                 "task": task,
-                "target_language": target_language
+                "target_language": target_language,
+                "source_language": source_language
             }
         ]
     }
@@ -27,7 +27,8 @@ def create_batch_payload(request: TranslationBatchRequest):
             {
                 "sentence": request.text,
                 "task": get_task(request.target_language),
-                "target_language": request.target_language
+                "target_language": request.target_language,
+                "source_langauge": request.source_language
             }
             for request in request.requests
         ]
