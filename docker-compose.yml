@@ -1,0 +1,20 @@
+version: "3"
+
+services:
+  db:
+    image: postgres:11
+    ports:
+      - "5433:5433"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=test_db
+  web:
+    build: .
+    command: bash -c "alembic upgrade head && uvicorn app.api:app --host 0.0.0.0 --port 8080 --reload"
+    volumes:
+      - .:/code
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
