@@ -3,9 +3,13 @@ from functools import partial
 from app.routers.tasks import router as tasks_router
 from app.routers.auth import router as auth_router
 from app.middleware.monitoring_middleware import log_request
+from app.docs import description
 
 
-app = FastAPI()
+app = FastAPI(
+    title="Sunbird AI API",
+    description=description
+)
 
 logging_middleware = partial(log_request)
 app.middleware("http")(logging_middleware)
