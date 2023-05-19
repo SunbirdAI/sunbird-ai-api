@@ -23,3 +23,14 @@ You can use the interactive documentation below to test out these endpoints and 
 
 Also checkout this repository (TODO) for code samples in Python and Javascript.
 """
+
+tags_metadata = [
+    {
+        "name": "AI Tasks",
+        "description": "Operations for AI inference."
+    },
+    {
+        "name": "Authentication Endpoints",
+        "description": "Operations for Authentication, including Sign up and Login"
+    }
+]

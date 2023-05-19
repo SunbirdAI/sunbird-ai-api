@@ -21,6 +21,9 @@ def speech_to_text(
         language: Language = Form("Luganda"),
         return_confidences: bool = Form(False),
         current_user=Depends(get_current_user)) -> STTTranscript:  # TODO: Make language an enum
+    """
+    We currently only support Luganda.
+    """
 
     response = transcribe(audio)
     return STTTranscript(text=response)
@@ -28,6 +31,10 @@ def speech_to_text(
 
 @router.post("/translate", response_model=TranslationResponse)
 def translate_(translation_request: TranslationRequest, current_user=Depends(get_current_user)):
+    """
+    Source and Target Language can be one of: Acholi, Ateso, English, Luganda, Lugbara, or Runyankole.
+    We currently only support English to Local languages and Local to English languages, so when the source language is one of the Local languages, the target can only be English.
+    """
     response = translate(translation_request.text, translation_request.source_language,
                          translation_request.target_language)
     return TranslationResponse(text=response)
@@ -35,5 +42,8 @@ def translate_(translation_request: TranslationRequest, current_user=Depends(get
 
 @router.post("/translate-batch", response_model=TranslationBatchResponse)
 def translate_batch_(translation_batch_request: TranslationBatchRequest, current_user=Depends(get_current_user)):
+    """
+    Submit multiple translation queries. See the /translate endpoint for caveats.
+    """
     response = translate_batch(translation_batch_request)
     return TranslationBatchResponse(responses=[TranslationResponse(text=text) for text in response])

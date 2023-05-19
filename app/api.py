@@ -3,12 +3,13 @@ from functools import partial
 from app.routers.tasks import router as tasks_router
 from app.routers.auth import router as auth_router
 from app.middleware.monitoring_middleware import log_request
-from app.docs import description
+from app.docs import description, tags_metadata
 
 
 app = FastAPI(
     title="Sunbird AI API",
-    description=description
+    description=description,
+    openapi_tags=tags_metadata
 )
 
 logging_middleware = partial(log_request)
