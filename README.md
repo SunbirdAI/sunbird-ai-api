@@ -1,6 +1,9 @@
 # Sunbird AI API
 This repository contains code for the publicly accessible Sunbird AI APIs.
 
+To get started using the API, [view the tutorial](tutorial.md).
+
+## Getting started locally
 To run the app locally:
 - Create and activate a local environment
 - Install the requirements: `pip install -r requirements.txt`.
@@ -18,3 +21,7 @@ Running the migrations with alembic:
 - After making a change to the models, run the command `alembic revision --autogenerate -m 'message'` to make the migrations.
 - Check the created migration file in `app/alembic/versions` to ensure it does what's expected.
 - Apply the migration with `alembic upgrade head`.
+
+## Deployment
+The app is deployed on Google Cloud Run and is backed by PostgreSQL DB hosted in Google Cloud SQL.
+
