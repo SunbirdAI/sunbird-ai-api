@@ -2,15 +2,8 @@
 This page describes how to use the Sunbird AI API and includes code samples in Python.
 
 ## Part 1: How to authenticate
-1. Create an account if you don't already have one. Send a POST request to the `/auth/register` endpoint with the following JSON payload.
-```json
-{
-  "username": "your_username",
-  "email": "your_email@example.com",
-  "password": "your_password"
-}
-```
-2. To obtain an access token, send a POST request to the `/auth/token` endpoint:
+1. Create an account by emailing us at `info [at] sunbird.ai`. (We're working on a portal where you'll be able to create an account on your own).
+2. We'll send you your credentials and an access token. To obtain another access token, send a POST request to the `/auth/token` endpoint:
 ```python
 import requests
 url = 'https://sunbird-ai-api-5bq6okiwgq-ew.a.run.app'
