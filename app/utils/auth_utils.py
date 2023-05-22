@@ -11,7 +11,7 @@ load_dotenv()
 
 SECRET_KEY = os.getenv('SECRET_KEY')
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 10080  # TODO: Find appropriate length before token expires
+ACCESS_TOKEN_EXPIRE_MINUTES = 52560000
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
