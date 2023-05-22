@@ -17,7 +17,12 @@ async def log_request(request: Request, call_next):
             response = await call_next(request)
             end = time.time()
             # print(current_user.username)
-            endpoint_log = EndpointLog(username=user.username, endpoint=request.url.path, time_taken=(end - start))
+            endpoint_log = EndpointLog(
+                username=user.username,
+                endpoint=request.url.path,
+                organization=user.organization,
+                time_taken=(end - start)
+            )
             create_endpoint_log(db_session, endpoint_log)
         except HTTPException:
             response = await call_next(request)

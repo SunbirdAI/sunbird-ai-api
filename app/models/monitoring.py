@@ -7,5 +7,6 @@ class EndpointLog(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, index=True)
+    organization = Column(String, index=True)
     endpoint = Column(String, index=True)
     time_taken = Column(Float)

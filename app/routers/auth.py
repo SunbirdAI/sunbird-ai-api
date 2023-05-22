@@ -3,7 +3,7 @@ from datetime import timedelta
 from fastapi import APIRouter, HTTPException, status, Depends
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from app.schemas.users import UserCreate, User, UserInDB, Token, TokenData
-from app.crud.users import create_user, get_user
+from app.crud.users import create_user, get_user_by_username, get_user_by_email
 from app.deps import get_db
 from sqlalchemy.orm import Session
 from app.utils.auth_utils import (
@@ -24,11 +24,14 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 def register(user: UserCreate, db: Session = Depends(get_db)) -> User:
     hashed_password = get_password_hash(user.password)
-    # TODO: Implement validation
-
+    db_user = get_user_by_username(db, user.username)
+    if db_user:
+        raise HTTPException(status_code=400, detail="Username already taken, choose another username")
+    db_user = get_user_by_email(db, user.email)
+    if db_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
     user_db = UserInDB(**user.dict(), hashed_password=hashed_password)
     user = create_user(db, user_db)
-    print(db)
     return user
 
 
@@ -69,7 +72,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     except JWTError:
         raise credentials_exception
 
-    user = User.from_orm(get_user(db, token_data.username))
+    user = User.from_orm(get_user_by_username(db, token_data.username))
     return user
 
 

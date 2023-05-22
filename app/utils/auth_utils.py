@@ -1,7 +1,7 @@
 import os
 from datetime import timedelta, datetime
 
-from app.crud.users import get_user
+from app.crud.users import get_user_by_username
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
 from passlib.context import CryptContext
@@ -25,7 +25,7 @@ def get_password_hash(password: str):
 
 
 def authenticate_user(db: Session, username: str, password: str):
-    user = get_user(db, username)
+    user = get_user_by_username(db, username)
     if not user:
         return False
     if not verify_password(password, user.hashed_password):
