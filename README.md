@@ -24,4 +24,3 @@ Running the migrations with alembic:
 
 ## Deployment
 The app is deployed on Google Cloud Run and is backed by PostgreSQL DB hosted in Google Cloud SQL.
-

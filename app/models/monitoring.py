@@ -1,4 +1,5 @@
-from sqlalchemy import Column, String, Float, Integer
+from sqlalchemy import Column, String, Float, Integer, DateTime
+from sqlalchemy.sql import func
 from app.database.db import Base
 
 
@@ -10,3 +11,4 @@ class EndpointLog(Base):
     organization = Column(String, index=True)
     endpoint = Column(String, index=True)
     time_taken = Column(Float)
+    date = Column(DateTime(timezone=True), default=func.now())
