@@ -1,4 +1,8 @@
 # Sunbird AI API
+
+![coverage badge](coverage.svg)
+![tests](https://github.com/SunbirdAI/sunbird-ai-api/actions/workflows/build-test.yml/badge.svg)
+
 This repository contains code for the publicly accessible Sunbird AI APIs.
 
 To get started using the API, [view the tutorial](tutorial.md).
