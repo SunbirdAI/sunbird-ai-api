@@ -5,11 +5,14 @@ from app.schemas.tasks import (
     TranslationResponse,
     TranslationBatchRequest,
     TranslationBatchResponse,
+    TTSRequest,
+    TTSResponse,
     Language
 )
 
 from app.inference_services.stt_inference import transcribe
 from app.inference_services.translate_inference import translate, translate_batch
+from app.inference_services.tts_inference import tts
 from app.routers.auth import get_current_user
 
 router = APIRouter()
@@ -47,3 +50,12 @@ def translate_batch_(translation_batch_request: TranslationBatchRequest, current
     """
     response = translate_batch(translation_batch_request)
     return TranslationBatchResponse(responses=[TranslationResponse(text=text) for text in response])
+
+
+@router.post("/tts", response_model=TTSResponse)
+def tts_(tts_request: TTSRequest, current_user=Depends(get_current_user)):
+    """
+    Text to Speech endpoint. Returns a base64 string, which can be decoded to a .wav file.
+    """
+    response = tts(tts_request)
+    return TranslationResponse(text=response)
