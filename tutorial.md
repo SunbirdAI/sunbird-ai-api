@@ -90,7 +90,6 @@ if response.status_code == 200:
     with open("temp.wav", "wb") as wav_file:
         decoded_audio = base64.decodebytes(base64_string.encode('utf-8'))
         wav_file.write(decoded_audio)
-        wav_file.close()
 else:
     print("Error:", response.status_code, response.text)
 ```
