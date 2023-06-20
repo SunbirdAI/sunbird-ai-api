@@ -53,7 +53,7 @@ def translate_batch_(translation_batch_request: TranslationBatchRequest, current
 
 
 @router.post("/tts", response_model=TTSResponse)
-def tts_(tts_request: TTSRequest, current_user=Depends(get_current_user)):
+def text_to_speech(tts_request: TTSRequest, current_user=Depends(get_current_user)):
     """
     Text to Speech endpoint. Returns a base64 string, which can be decoded to a .wav file.
     """
