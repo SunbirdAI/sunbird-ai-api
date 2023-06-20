@@ -26,6 +26,8 @@ async def log_request(request: Request, call_next):
             create_endpoint_log(db_session, endpoint_log)
         except HTTPException:
             response = await call_next(request)
+        except KeyError:
+            response = await call_next(request)
     else:
         response = await call_next(request)
     return response
