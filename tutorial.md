@@ -1,6 +1,8 @@
 # Sunbird AI API Tutorial
 This page describes how to use the Sunbird AI API and includes code samples in Python.
 
+You can create your own files to try out the code samples, or use [this notebook](Sunbird_API_sample_usage.ipynb) to run them in Google Colab.
+
 ## Part 1: How to authenticate
 1. Create an account by emailing us at `info [at] sunbird.ai`. (We're working on a portal where you'll be able to create an account on your own).
 2. We'll send you your credentials and an access token. To obtain another access token, send a POST request to the `/auth/token` endpoint:
