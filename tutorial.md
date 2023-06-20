@@ -80,7 +80,7 @@ headers = {
 payload = {
     "text": "Oli otya?"
 }
-response = requests.post(f"{url}/tasks/tts", url, headers=headers, json=payload)
+response = requests.post(f"{url}/tasks/tts", headers=headers, json=payload)
 
 if response.status_code == 200:
     base64_string = response.json()["base64_string"]
