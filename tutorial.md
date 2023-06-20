@@ -64,6 +64,35 @@ response = requests.request("POST", url, headers=headers, data=payload, files=fi
 print(response.text)
 ```
 
+## Part 4: How to use the text-to-speech endpoint
+The sample code below receives a base64 encoded string from the endpoint and decodes it into a `temp.wav` audio file containing the speech audio.
+```python
+import requests
+import base64
+
+url = 'https://sunbird-ai-api-5bq6okiwgq-ew.a.run.app'
+
+headers = {
+    "Authorization": "Bearer {access_token}",
+    "Content-Type": "application/json"
+}
+
+payload = {
+    "text": "Oli otya?"
+}
+response = requests.post(f"{url}/tasks/tts", url, headers=headers, json=payload)
+
+if response.status_code == 200:
+    base64_string = response.json()["base64_string"]
+    
+    with open("temp.wav", "wb") as wav_file:
+        decoded_audio = base64.decodebytes(base64_string.encode('utf-8'))
+        wav_file.write(decoded_audio)
+        wav_file.close()
+else:
+    print("Error:", response.status_code, response.text)
+```
+
 You can refer to the [docs](https://sunbird-ai-api-5bq6okiwgq-ew.a.run.app/docs) for more info about the endpoints.
 
 ## Feedback and Questions.
