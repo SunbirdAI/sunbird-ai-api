@@ -34,4 +34,4 @@ class TTSRequest(BaseModel):
     text: str
 
 class TTSResponse(BaseModel):
-    text: str
+    base64_string: str
