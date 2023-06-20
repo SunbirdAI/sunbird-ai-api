@@ -40,7 +40,6 @@ def translate(text, source_language=None, target_language=None):
     payload = create_payload(text, source_language, target_language)
     response = inference_request(payload).json()
     # TODO: Handle error cases i.e if there's an error from the inference server.
-    # print(response)
     if target_language == 'English':
         response = response["to_english_translations"][0]
     else:
