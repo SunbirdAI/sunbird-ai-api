@@ -27,8 +27,8 @@ def create_batch_payload(request: TranslationBatchRequest):
             {
                 "sentence": request.text,
                 "task": get_task(request.target_language),
-                "target_language": request.target_language,
-                "source_langauge": request.source_language
+                "target_language": request.target_language.value,
+                "source_language": request.source_language.value
             }
             for request in request.requests
         ]
