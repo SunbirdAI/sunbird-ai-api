@@ -20,6 +20,8 @@ print(token)
 
 ## Part 2: How to call the translation endpoint
 Refer to the sample code below. Replace `{access_token}` with the token you received from the `/auth/token` endpoint.
+
+**NOTE**: You can pass text with a maximum of 200 characters in the `/translate` endpoint. If you have longer text, you can break it up into strings of <=200 characters and use the `/translate-batch` endpoint and pass the sentences in as a list.
 ```python
 import requests
 
