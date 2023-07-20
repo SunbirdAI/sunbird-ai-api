@@ -14,12 +14,14 @@ from app.inference_services.stt_inference import transcribe
 from app.inference_services.translate_inference import translate, translate_batch
 from app.inference_services.tts_inference import tts
 from app.routers.auth import get_current_user
+from pydub import AudioSegment
+import io
 
 router = APIRouter()
 
 
 @router.post("/stt")
-def speech_to_text(
+async def speech_to_text(
         audio: UploadFile(...) = File(...),
         language: Language = Form("Luganda"),
         return_confidences: bool = Form(False),
@@ -27,6 +29,15 @@ def speech_to_text(
     """
     We currently only support Luganda.
     """
+    if not audio.content_type.startswith("audio"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Invalid file type uploaded. Please upload a valid audio file")
+    if audio.content_type != "audio/wave":
+        # try to convert to wave, if it fails return an error.
+        buf = io.BytesIO()
+        audio_file = audio.file
+        audio = AudioSegment.from_file(audio_file)
+        audio = audio.export(buf, format="wav")
 
     response = transcribe(audio)
     return STTTranscript(text=response)
