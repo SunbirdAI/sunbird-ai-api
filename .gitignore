@@ -6,3 +6,10 @@ __pycache__/
 *.py[cod]
 test.db
 .coverage
+
+# Private JSON files
+service_account_key.json
+
+# Audio files
+*.wav
+
