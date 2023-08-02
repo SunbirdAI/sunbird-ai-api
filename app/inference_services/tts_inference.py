@@ -6,7 +6,6 @@ from google.cloud import storage
 import base64
 import uuid
 import os
-from datetime import timedelta
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -48,6 +47,8 @@ def tts(request: TTSRequest):
         bucket = client.bucket(bucket_name)
         blob = bucket.blob(bucket_file)
         blob.upload_from_filename(local_file)
+
+        os.remove(local_file)
 
         url = f"https://storage.googleapis.com/{bucket_name}/{bucket_file}"
 
