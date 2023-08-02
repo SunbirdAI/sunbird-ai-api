@@ -35,4 +35,4 @@ class TTSRequest(BaseModel):
     return_audio_link: bool = False
 
 class TTSResponse(BaseModel):
-    base64_string: str
+    audio_link: str
