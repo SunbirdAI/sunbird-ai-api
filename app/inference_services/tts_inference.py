@@ -32,7 +32,7 @@ def tts(request: TTSRequest):
 
     b64_audio = response["base64_audio"][0]
 
-    if not request.audio_link:
+    if not request.return_audio_link:
         return b64_audio
     else:
         local_file = "temp.wav"
