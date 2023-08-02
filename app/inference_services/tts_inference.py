@@ -49,11 +49,6 @@ def tts(request: TTSRequest):
         blob = bucket.blob(bucket_file)
         blob.upload_from_filename(local_file)
 
-        # signed_url = blob.generate_signed_url(
-        #         version="v4",
-        #         expiration=timedelta(seconds=120),
-        #         method="GET")
-
         url = f"https://storage.googleapis.com/{bucket_name}/{bucket_file}"
 
-        return url # choose which url to return here, between url and signed_url
+        return url
