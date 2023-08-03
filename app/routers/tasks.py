@@ -69,4 +69,6 @@ def text_to_speech(tts_request: TTSRequest, current_user=Depends(get_current_use
     Text to Speech endpoint. Returns a base64 string, which can be decoded to a .wav file.
     """
     response = tts(tts_request)
-    return TTSResponse(audio_link=response)
+    if tts_request.return_audio_link:
+        return TTSResponse(audio_link=response)
+    return TTSResponse(base64_string=response)
