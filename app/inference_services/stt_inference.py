@@ -4,8 +4,11 @@ from app.inference_services.base import inference_request
 
 
 def create_payload(audio_file):
-    contents = audio_file.file.read()
-    audio_bytes = BytesIO(contents)
+    if isinstance(audio_file, BytesIO):
+        audio_bytes = audio_file
+    else:
+        contents = audio_file.file.read()
+        audio_bytes = BytesIO(contents)
     encoded_audio = base64.b64encode(audio_bytes.read())
 
     utf_audio = encoded_audio.decode('utf-8')
