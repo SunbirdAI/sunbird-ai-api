@@ -32,6 +32,8 @@ class TranslationBatchResponse(BaseModel):
 
 class TTSRequest(BaseModel):
     text: str
+    return_audio_link: bool = False
 
 class TTSResponse(BaseModel):
-    base64_string: str
+    base64_string: str | None = None
+    audio_link: str | None = None
