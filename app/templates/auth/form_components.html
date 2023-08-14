@@ -1,0 +1,37 @@
+{% macro input_field(id, name, type) -%}
+<div class="mt-2">
+    <input id="{{ id }}" name="{{ name }}" type="{{ type }}" required
+        class="block w-full rounded-md border-0 pl-1.5 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-1 focus:ring-inset focus:ring-orange-500 sm:text-sm sm:leading-6">
+</div>
+
+{%- endmacro %}
+
+{% macro input_field_with_label(id, name, type, label_text) -%}
+<div>
+    <label for="{{ id }}" class="block text-sm font-medium leading-6 text-gray-900">{{ label_text }}</label>
+    {{ input_field(id=id, name=name, type=type) }}
+</div>
+{%- endmacro %}
+
+{% macro button(type, text) -%}
+<div>
+    <button type="{{ type }}"
+        class="flex w-full justify-center rounded-md bg-orange-500 px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-orange-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500">
+        {{ text }}
+    </button>
+</div>
+{%- endmacro %}
+
+{% macro auth_intro(text, image_url) -%}
+<div class="sm:mx-auto sm:w-full sm:max-w-sm">
+    <img class="mx-auto h-10 w-auto" src="{{ image_url }}" alt="Sunbird AI">
+    <h2 class="mt-10 text-center text-2xl font-bold leading-9 tracking-tight text-gray-900">{{ text }}</h2>
+</div>
+{%- endmacro %}
+
+{% macro toggle_auth(prompt_text, action_text, path) -%}
+<p class="mt-10 text-center text-sm text-gray-500">
+    {{ prompt_text }}
+    <a href="{{ path }}" class="font-semibold leading-6 text-orange-500 hover:text-orange-400">{{ action_text }}</a>
+</p>
+{%- endmacro %}
