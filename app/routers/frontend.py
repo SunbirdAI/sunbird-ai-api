@@ -14,3 +14,9 @@ async def home(request: Request):
 async def login(request: Request):
     context = {"request": request}
     return templates.TemplateResponse("auth/login.html", context)
+
+
+@router.get("/register")
+async def signup(request: Request):
+    context = {"request": request}
+    return templates.TemplateResponse("auth/register.html", context)
