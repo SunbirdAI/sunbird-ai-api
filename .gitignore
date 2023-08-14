@@ -1,8 +1,10 @@
 venv/
 .idea/
+.vscode
 .env
 app/__pycache__/
 __pycache__/
+**/__pycache__
 *.py[cod]
 test.db
 .coverage
@@ -13,3 +15,5 @@ service_account_key.json
 # Audio files
 *.wav
 
+# frontend
+node_modules
