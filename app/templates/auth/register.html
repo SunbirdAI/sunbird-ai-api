@@ -11,7 +11,8 @@
             {{ forms.input_field_with_label(id="username", name="username", type="text", label_text="Username") }}
             {{ forms.input_field_with_label(id="organization", name="organization", type="text", label_text="Organization") }}
             {{ forms.input_field_with_label(id="password", name="password", type="password", label_text="Password") }}
-            {{ forms.input_field_with_label(id="confirm-password", name="confirm-password", type="password", label_text="Confirm Password") }}
+            {{ forms.input_field_with_label(id="confirm-password", name="confirm_password", type="password", label_text="Confirm Password") }}
+            {{ forms.show_errors(errors) }}
             {{ forms.button(type="Submit", text="Sign up") }}
         </form>
 

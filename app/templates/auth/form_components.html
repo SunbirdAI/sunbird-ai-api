@@ -35,3 +35,9 @@
     <a href="{{ path }}" class="font-semibold leading-6 text-orange-500 hover:text-orange-400">{{ action_text }}</a>
 </p>
 {%- endmacro %}
+
+{% macro show_errors(errors) -%}
+{% for error in errors -%}
+    <p class="text-red-500">{{ error }}</p>
+{% endfor %}
+{%- endmacro %}
