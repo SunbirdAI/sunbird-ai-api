@@ -85,3 +85,12 @@ async def signup(request: Request,
         for item in errors_list:
             errors.append(item.get("loc")[0] + ": " + item.get("msg"))
         return templates.TemplateResponse("auth/register.html", {"request": request, "errors": errors})
+
+
+@router.get("/tokens")
+async def tokens(request: Request):
+    context = {
+        "request": request,
+        "token": request.cookies.get("access_token")
+    }
+    return templates.TemplateResponse("token_page.html", context=context)

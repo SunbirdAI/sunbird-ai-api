@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% include "navbar.html" %}
+
+<div class="flex justify-center">
+    <div class="mx-4 self-center">
+        <p class="font-medium block my-4">Copy the following to the Authorization Headers: </p>
+        <div class="bg-gray-100 w-96 break-all p-4">{{ token }}</div>
+    </div>
+
+</div>
+
+{% endblock content %}
