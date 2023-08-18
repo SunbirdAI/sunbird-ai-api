@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% import 'intro_card.html' as intro_card %}
+
+{% block content %}
+{% include "navbar.html" %}
+
+<div class="flex justify-center">
+    <div class="mx-4 self-center">
+        <h1 class="text-3xl font-bold">Welcome to the Sunbird AI API</h1>
+        <h2 class="text-2xl mt-5 mb-5 font-semibold">Get started</h2>
+        <div class="grid grid-cols-2 grid-flow-row gap-4">
+            {{ intro_card.card("Tutorial", "How to use the API.", "from-indigo-600 to-orange-600") }}
+            {{ intro_card.card("Examples", "View examples on GitHub.", "from-indigo-600 to-yellow-600") }}
+            {{ intro_card.card("Usage", "View your usage stats.", "from-indigo-600 to-red-600") }}
+            {{ intro_card.card("API Tokens", "Manage access tokens.", "from-indigo-600 to-green-600") }}
+        </div>
+    </div>
+</div>
+{% endblock content %}

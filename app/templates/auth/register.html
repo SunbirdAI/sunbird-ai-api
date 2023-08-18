@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% import 'auth/form_components.html' as forms %}
+
+{% block content %}
+<div class="flex min-h-full flex-col justify-center px-6 py-12 lg:px-8">
+    {{ forms.auth_intro(text="Sign up for an account", image_url=url_for('static', path='/media/sunbird-favicon.jpg')) }}
+
+    <div class="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
+        <form class="space-y-6" action="#" method="POST">
+            {{ forms.input_field_with_label(id="email", name="email", type="email", label_text="Email address") }}
+            {{ forms.input_field_with_label(id="username", name="username", type="text", label_text="Username") }}
+            {{ forms.input_field_with_label(id="organization", name="organization", type="text", label_text="Organization") }}
+            {{ forms.input_field_with_label(id="password", name="password", type="password", label_text="Password") }}
+            {{ forms.input_field_with_label(id="confirm-password", name="confirm_password", type="password", label_text="Confirm Password") }}
+            {{ forms.show_errors(errors) }}
+            {{ forms.button(type="Submit", text="Sign up") }}
+        </form>
+
+        {{ forms.toggle_auth(prompt_text="Already have an account?", action_text="Login", path="/login") }}
+    </div>
+</div>
+{% endblock content %}
