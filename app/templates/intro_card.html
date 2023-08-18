@@ -1,0 +1,8 @@
+{% macro card(title, subtitle, color) -%}
+<div class="relative max-w-sm rounded overflow-hidden h-60 w-60 bg-gradient-to-bl {{ color }} hover:shadow-2xl hover:cursor-pointer">
+    <div class="absolute px-6 py-4 inset-x-0 bottom-0 text-white">
+        <div class="font-bold text-xl mb-2">{{ title }}</div>
+        <p class="text-base">{{ subtitle }}</p>
+    </div>
+</div>
+{%- endmacro %}
