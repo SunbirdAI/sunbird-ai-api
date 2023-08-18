@@ -8,12 +8,21 @@ from app.docs import description, tags_metadata
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+import redis.asyncio as redis
+from fastapi_limiter import FastAPILimiter
+
 
 app = FastAPI(
     title="Sunbird AI API",
     description=description,
     openapi_tags=tags_metadata
 )
+
+@app.on_event("startup")
+async def startup():
+    redis_instance = redis.from_url("redis://localhost", encoding="utf-8", decode_responses=True)
+    await FastAPILimiter.init(redis_instance)
+
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
