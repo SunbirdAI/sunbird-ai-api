@@ -3,15 +3,23 @@ import json
 from fastapi import APIRouter, Request, Form, Depends, responses, status
 from fastapi.templating import Jinja2Templates
 from app.deps import get_db
-from app.utils.auth_utils import authenticate_user, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, get_password_hash
+from app.utils.auth_utils import (
+    authenticate_user, 
+    create_access_token, 
+    ACCESS_TOKEN_EXPIRE_MINUTES, 
+    get_password_hash,
+    get_username_from_token,
+    OAuth2PasswordBearerWithCookie
+)
 from sqlalchemy.orm import Session
 from datetime import timedelta
-from app.schemas.users import UserCreate, UserInDB
+from app.schemas.users import UserCreate, UserInDB, User
 from app.crud.users import create_user, get_user_by_username, get_user_by_email
 from pydantic.error_wrappers import ValidationError
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
+oauth2_scheme = OAuth2PasswordBearerWithCookie(tokenUrl="/auth/token")
 
 @router.get("/")
 async def home(request: Request):
@@ -94,3 +102,16 @@ async def tokens(request: Request):
         "token": request.cookies.get("access_token")
     }
     return templates.TemplateResponse("token_page.html", context=context)
+
+
+@router.get("/account")
+async def account(request: Request, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    username = get_username_from_token(token)
+    user = User.from_orm(get_user_by_username(db, username))
+    context = {
+        "request": request,
+        "username": username,
+        "organization": user.organization,
+        "account_type": "Free Tier"  # TODO: Replace with attribute from user object.
+    }
+    return templates.TemplateResponse("account_page.html", context=context)
