@@ -11,10 +11,9 @@ from app.utils.auth_utils import (
     get_password_hash,
     ACCESS_TOKEN_EXPIRE_MINUTES,
     create_access_token,
-    SECRET_KEY,
-    ALGORITHM
+    get_username_from_token
 )
-from jose import jwt, JWTError
+from jose import JWTError
 
 router = APIRouter()
 
@@ -64,8 +63,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         headers={"WWW-Authenticate": "Bearer"}
     )
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
+        username = get_username_from_token(token)
         if username is None:
             raise credentials_exception
         token_data = TokenData(username=username)
