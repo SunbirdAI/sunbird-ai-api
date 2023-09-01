@@ -23,7 +23,7 @@ templates = Jinja2Templates(directory="app/templates")
 oauth2_scheme = OAuth2PasswordBearerWithCookie(tokenUrl="/auth/token")
 
 @router.get("/")
-async def home(request: Request):
+async def home(request: Request, _: str = Depends(oauth2_scheme)):
     context = {"request": request}
     return templates.TemplateResponse("home.html", context)
 
@@ -96,8 +96,15 @@ async def signup(request: Request,
         return templates.TemplateResponse("auth/register.html", {"request": request, "errors": errors})
 
 
+@router.get("/logout")
+async def logout(_: Request):
+    response = responses.RedirectResponse("/login", status_code=302)
+    response.delete_cookie(key="access_token")
+    return response
+
+
 @router.get("/tokens")
-async def tokens(request: Request):
+async def tokens(request: Request, _: str = Depends(oauth2_scheme)):
     context = {
         "request": request,
         "token": request.cookies.get("access_token")
@@ -110,7 +117,6 @@ async def account(request: Request, token: str = Depends(oauth2_scheme), db: Ses
     username = get_username_from_token(token)
     user = User.from_orm(get_user_by_username(db, username))
     aggregates = aggregate_usage_for_user(db, username)
-    print(aggregates)
     context = {
         "request": request,
         "username": username,
