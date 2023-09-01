@@ -18,7 +18,9 @@ PROJECT_ID
 SECRET_KEY
 DATABASE_URL
 ```
-
+- Install [Redis](https://redis.io/), this is required for the Rate Limiting functionality.
+- Start the Redis sever: `sudo service redis-server start` (see docs if you're on Windows without WSL).
+- Also make sure the postgres service is running: `sudo service postgresql start`.
 - Run the app: `uvicorn app.api:app --reload`
 
 Running the migrations with alembic:
