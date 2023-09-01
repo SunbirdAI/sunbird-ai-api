@@ -3,18 +3,27 @@ import json
 from fastapi import APIRouter, Request, Form, Depends, responses, status
 from fastapi.templating import Jinja2Templates
 from app.deps import get_db
-from app.utils.auth_utils import authenticate_user, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, get_password_hash
+from app.utils.auth_utils import (
+    authenticate_user, 
+    create_access_token, 
+    ACCESS_TOKEN_EXPIRE_MINUTES, 
+    get_password_hash,
+    get_username_from_token,
+    OAuth2PasswordBearerWithCookie
+)
 from sqlalchemy.orm import Session
 from datetime import timedelta
-from app.schemas.users import UserCreate, UserInDB
+from app.schemas.users import UserCreate, UserInDB, User
 from app.crud.users import create_user, get_user_by_username, get_user_by_email
 from pydantic.error_wrappers import ValidationError
+from app.utils.monitoring_utils import aggregate_usage_for_user
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
+oauth2_scheme = OAuth2PasswordBearerWithCookie(tokenUrl="/auth/token")
 
 @router.get("/")
-async def home(request: Request):
+async def home(request: Request, _: str = Depends(oauth2_scheme)):
     context = {"request": request}
     return templates.TemplateResponse("home.html", context)
 
@@ -85,3 +94,34 @@ async def signup(request: Request,
         for item in errors_list:
             errors.append(item.get("loc")[0] + ": " + item.get("msg"))
         return templates.TemplateResponse("auth/register.html", {"request": request, "errors": errors})
+
+
+@router.get("/logout")
+async def logout(_: Request):
+    response = responses.RedirectResponse("/login", status_code=302)
+    response.delete_cookie(key="access_token")
+    return response
+
+
+@router.get("/tokens")
+async def tokens(request: Request, _: str = Depends(oauth2_scheme)):
+    context = {
+        "request": request,
+        "token": request.cookies.get("access_token")
+    }
+    return templates.TemplateResponse("token_page.html", context=context)
+
+
+@router.get("/account")
+async def account(request: Request, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    username = get_username_from_token(token)
+    user = User.from_orm(get_user_by_username(db, username))
+    aggregates = aggregate_usage_for_user(db, username)
+    context = {
+        "request": request,
+        "username": username,
+        "organization": user.organization,
+        "account_type": "Free Tier",  # TODO: Replace with attribute from user object.
+        "aggregates": aggregates
+    }
+    return templates.TemplateResponse("account_page.html", context=context)

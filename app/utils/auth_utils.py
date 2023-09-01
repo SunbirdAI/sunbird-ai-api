@@ -1,11 +1,16 @@
 import os
 from datetime import timedelta, datetime
+from typing import Optional, Dict
 
 from app.crud.users import get_user_by_username
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
 from passlib.context import CryptContext
 from jose import jwt
+from fastapi.security import OAuth2
+from fastapi.security.utils import get_authorization_scheme_param
+from fastapi import Request, HTTPException, status
+from fastapi.openapi.models import OAuthFlows as OAuthFlowsModel
 
 load_dotenv()
 
@@ -42,3 +47,39 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
+
+def get_username_from_token(token: str) -> str:
+    payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    username = payload.get("sub")
+    return username
+
+
+class OAuth2PasswordBearerWithCookie(OAuth2):
+    def __init__(
+            self,
+            tokenUrl: str,
+            scheme_name: Optional[str] = None,
+            scopes: Optional[Dict[str, str]] = None,
+            auto_error: bool = True
+    ):
+        if not scopes:
+            scopes = {}
+        flows = OAuthFlowsModel(password={"tokenUrl": tokenUrl, "scopes": scopes})
+        super().__init__(flows=flows, scheme_name=scheme_name, auto_error=auto_error)
+
+    async def __call__(self, request: Request) -> Optional[str]:
+        authorization: str = request.cookies.get("access_token")
+
+        scheme, param = get_authorization_scheme_param(authorization)
+        if not authorization or scheme.lower() != "bearer":
+            if self.auto_error:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Not authenticated",
+                    headers={"WWW-Authenticate": "Bearer"}
+                )
+            else:
+                return None
+
+        return param
