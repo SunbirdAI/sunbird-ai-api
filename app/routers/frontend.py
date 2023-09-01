@@ -16,6 +16,7 @@ from datetime import timedelta
 from app.schemas.users import UserCreate, UserInDB, User
 from app.crud.users import create_user, get_user_by_username, get_user_by_email
 from pydantic.error_wrappers import ValidationError
+from app.utils.monitoring_utils import aggregate_usage_for_user
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -108,10 +109,13 @@ async def tokens(request: Request):
 async def account(request: Request, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     username = get_username_from_token(token)
     user = User.from_orm(get_user_by_username(db, username))
+    aggregates = aggregate_usage_for_user(db, username)
+    print(aggregates)
     context = {
         "request": request,
         "username": username,
         "organization": user.organization,
-        "account_type": "Free Tier"  # TODO: Replace with attribute from user object.
+        "account_type": "Free Tier",  # TODO: Replace with attribute from user object.
+        "aggregates": aggregates
     }
     return templates.TemplateResponse("account_page.html", context=context)
