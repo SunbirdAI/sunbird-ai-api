@@ -39,7 +39,8 @@ def test_register(test_db):
         'username': 'test_user',
         'email': 'test_user@email.com',
         'password': 'test_password',
-        'organization': 'test_organization'
+        'organization': 'test_organization',
+        'account_type': 'Free'
     }
     response = client.post('/auth/register', content=json.dumps(user_data))
     assert response.status_code == 201
