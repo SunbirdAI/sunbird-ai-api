@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 import redis.asyncio as redis
 from fastapi_limiter import FastAPILimiter
 from dotenv import load_dotenv
+from pathlib import Path
 import os
 
 load_dotenv()
@@ -27,8 +28,8 @@ async def startup():
     redis_instance = redis.from_url(os.getenv('REDIS_URL'), encoding="utf-8", decode_responses=True)
     await FastAPILimiter.init(redis_instance)
 
-
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+static_files_directory = Path(__file__).parent.absolute() / "static"
+app.mount("/static", StaticFiles(directory=static_files_directory), name="static")
 
 logging_middleware = partial(log_request)
 app.middleware("http")(logging_middleware)
