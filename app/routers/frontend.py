@@ -48,7 +48,7 @@ async def login(request: Request, username: str = Form(...), password: str = For
     
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.username},
+        data={"sub": user.username, "account_type": user.account_type},
         expires_delta=access_token_expires
     )
     response = responses.RedirectResponse("/?alert=Successfully Logged In", status_code=status.HTTP_302_FOUND)
@@ -121,7 +121,7 @@ async def account(request: Request, token: str = Depends(oauth2_scheme), db: Ses
         "request": request,
         "username": username,
         "organization": user.organization,
-        "account_type": "Free Tier",  # TODO: Replace with attribute from user object.
+        "account_type": user.account_type.value,
         "aggregates": aggregates
     }
     return templates.TemplateResponse("account_page.html", context=context)
