@@ -10,6 +10,10 @@ from fastapi.staticfiles import StaticFiles
 
 import redis.asyncio as redis
 from fastapi_limiter import FastAPILimiter
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 
 app = FastAPI(
@@ -20,7 +24,7 @@ app = FastAPI(
 
 @app.on_event("startup")
 async def startup():
-    redis_instance = redis.from_url("redis://localhost", encoding="utf-8", decode_responses=True)
+    redis_instance = redis.from_url(os.getenv('REDIS_URL'), encoding="utf-8", decode_responses=True)
     await FastAPILimiter.init(redis_instance)
 
 

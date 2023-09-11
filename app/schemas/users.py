@@ -1,9 +1,19 @@
+from enum import Enum
+
 from pydantic import BaseModel, EmailStr
+
+
+class AccountType(str, Enum):
+    free = "Free"
+    premium = "Premium"
+    admin = "Admin"
+
 
 class UserBase(BaseModel):
     username: str
     email: EmailStr
     organization: str
+    account_type: AccountType = AccountType.free
 
 
 class UserInDB(UserBase):
