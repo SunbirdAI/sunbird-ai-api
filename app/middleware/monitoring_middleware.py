@@ -2,8 +2,6 @@ import time
 
 from fastapi import Request
 from fastapi.exceptions import HTTPException
-from app.routers.auth import get_current_user
-from app.deps import get_db
 from app.schemas.monitoring import EndpointLog
 from app.crud.monitoring import create_endpoint_log
 from jose import jwt
@@ -16,7 +14,6 @@ async def log_request(request: Request, call_next):
             header = request.headers['Authorization']
             bearer, _, token = header.partition(' ')
             # token = request.headers['Authorization'].replace('Bearer ', '')
-            db_session = next(get_db())
 
             # TODO: Find another way of getting the current user. This is inefficient as it makes 2 similar database calls which causes problems with the DB pool size
             # user = get_current_user(token, db_session)
@@ -33,7 +30,7 @@ async def log_request(request: Request, call_next):
                 organization=organization,
                 time_taken=(end - start)
             )
-            create_endpoint_log(db_session, endpoint_log)
+            create_endpoint_log(endpoint_log)
         except HTTPException:
             response = await call_next(request)
         except KeyError:
