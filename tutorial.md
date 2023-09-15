@@ -4,24 +4,13 @@ This page describes how to use the Sunbird AI API and includes code samples in P
 You can create your own files to try out the code samples, or use [this notebook](Sunbird_API_sample_usage.ipynb) to run them in Google Colab.
 
 ## Part 1: How to authenticate
-1. Create an account by emailing us at `info [at] sunbird.ai`. (We're working on a portal where you'll be able to create an account on your own).
-2. We'll send you your credentials and an access token. To obtain another access token, send a POST request to the `/auth/token` endpoint:
-```python
-import requests
-url = 'https://sunbird-ai-api-5bq6okiwgq-ew.a.run.app'
-creds = {
-    'username': '{your_username}',
-    'password': '{your_password}'
-}
-response = requests.post(f'{url}/auth/token', data=creds)
-token = response.json()['access_token']
-print(token)
-```
+1. If you don't already have an account, create one at https://sunbird-ai-api-5bq6okiwgq-ew.a.run.app/register and login.
+2. Go to the [tokens page](https://sunbird-ai-api-5bq6okiwgq-ew.a.run.app/tokens) to get your access token which you'll use to authenticate
 
 ## Part 2: How to call the translation endpoint
-Refer to the sample code below. Replace `{access_token}` with the token you received from the `/auth/token` endpoint.
+Refer to the sample code below. Replace `{access_token}` with the token you received above.
 
-**NOTE**: You can pass text with a maximum of 200 characters in the `/translate` endpoint. If you have longer text, you can break it up into strings of <=200 characters and use the `/translate-batch` endpoint and pass the sentences in as a list.
+**NOTE**: For now, you can only pass text with a maximum of 200 characters in the `/translate` endpoint. If you have longer text, you can break it up into strings of <=200 characters and use the `/translate-batch` endpoint and pass the sentences in as a list.
 ```python
 import requests
 
