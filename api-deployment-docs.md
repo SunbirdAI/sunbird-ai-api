@@ -14,6 +14,12 @@ There are 2 major components of the API deployment:
 - Get online predictions from the endpoint.
 
 **Steps 1-3**: Build "Inference-server"
+You can first test that it is working locally by:
+- Build and run the container locally (can use Cloud Workstations to avoid long download times):
+```bash
+docker build -t my-docker-api .
+docker run -it -p 8080:8080 my-docker-api
+```
 - [Use custom-container docs](https://cloud.google.com/vertex-ai/docs/predictions/use-custom-container).
 ```bash
 # Environment variables
