@@ -32,3 +32,7 @@ Running the migrations with alembic:
 
 ## Deployment
 The app is deployed on Google Cloud Run and is backed by PostgreSQL DB hosted in Google Cloud SQL.
+
+## Other docs
+- Checkout the [System design document](https://github.com/SunbirdAI/sunbird-docs/blob/main/06-design-docs/language/API_Framework.md) (you need to part of the Sunbird organization to view this).
+- Checkout the [Deployment Guide](https://github.com/SunbirdAI/sunbird-ai-api/blob/main/api-deployment-docs.md).
