@@ -76,7 +76,7 @@ gcloud ai endpoints deploy-model $ENDPOINT_ID \
 The API inference server uses the following GCP services:
 - **_Cloud Workstations_**: For testing the container locally. (We use this because the models are very heavy to test directly on our machines.)
 - **_Google Container Registry (GCR)_**: For storing the built containers.
-- **_Google Cloud Builds_**: For building the docker image remotely and uploading the 
+- **_Google Cloud Builds_**: For building the docker image remotely and uploading the resulting image/container to GCR.
 - **_Vertex AI models_**: Creating a deployable model from the container.
 - **_Vertex AI endpoints_**: Actual deployment that provides hardware resources to the models and exposes the REST endpoint used by the user-facing API.
 
