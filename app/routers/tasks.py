@@ -87,3 +87,11 @@ def text_to_speech(tts_request: TTSRequest, current_user=Depends(get_current_use
     if tts_request.return_audio_link:
         return TTSResponse(audio_link=response)
     return TTSResponse(base64_string=response)
+
+
+@router.post("/chat", response_model=None, dependencies=None)
+def chat(tts_request: None, current_user=Depends(get_current_user)):
+    """
+    Chat endpoint. Returns .....
+    """
+    pass
