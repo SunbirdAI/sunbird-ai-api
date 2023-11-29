@@ -100,10 +100,10 @@ def chat(chat_request: ChatRequest, current_user=Depends(get_current_user)):
     response = translate(chat_request.text, chat_request.source_language,
                          chat_request.target_language)
     # Send message via chat
-    account_sid = ChatRequest.twilio_sid
-    auth_token = ChatRequest.twilio_token
-    from_number = ChatRequest.from_number
-    to_number = ChatRequest.to_number
+    account_sid = chat_request.twilio_sid
+    auth_token = chat_request.twilio_token
+    from_number = chat_request.from_number
+    to_number = chat_request.to_number
     client = Client(account_sid, auth_token)
 
     message = client.messages.create(
