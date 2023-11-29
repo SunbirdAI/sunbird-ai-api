@@ -37,3 +37,16 @@ class TTSRequest(BaseModel):
 class TTSResponse(BaseModel):
     base64_string: str | None = None
     audio_link: str | None = None
+
+class ChatRequest(BaseModel):
+    source_language: Language | None = None
+    target_language: Language 
+    text: str = Field(min_length=3, max_length=200)
+    from_number: str = Field(min_length=5, max_length=15)
+    to_number: str = Field(min_length=5, max_length=15)
+    twilio_sid: str = Field(min_length=5, max_length=256)
+    twilio_token: str = Field(min_length=5, max_length=256)
+    return_confidences: bool = False
+
+class ChatResponse(BaseModel):
+    chat_response: str = Field(min_length=2)
