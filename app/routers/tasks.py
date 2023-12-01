@@ -112,4 +112,4 @@ def chat(chat_request: ChatRequest, current_user=Depends(get_current_user)):
         to=f"whatsapp:{to_number}"
     )
 
-    return ChatResponse(chat_response=response.text)
+    return ChatResponse(chat_response=response)
