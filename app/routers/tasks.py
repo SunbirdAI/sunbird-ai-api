@@ -92,13 +92,16 @@ def text_to_speech(tts_request: TTSRequest, current_user=Depends(get_current_use
     return TTSResponse(base64_string=response)
 
 
-@router.post("/chat", response_model=None, dependencies=None)
-def chat(chat_request: ChatRequest, current_user=Depends(get_current_user)):
+@router.post("/chat",
+             response_model=ChatResponse,
+             dependencies=[Depends(RateLimiter(times=PER_MINUTE_RATE_LIMIT, seconds=60))])
+async def chat(chat_request: ChatRequest, current_user=Depends(get_current_user)):
     """
     Chat endpoint. Returns a WhatsApp chat response to user text sent in via WhatsApp chat
     """
     response = translate(chat_request.text, chat_request.source_language,
                          chat_request.target_language)
+
     # Send message via chat
     account_sid = chat_request.twilio_sid
     auth_token = chat_request.twilio_token
