@@ -1,5 +1,6 @@
 import os
 import io
+import re
 
 from dotenv import load_dotenv
 
@@ -99,8 +100,12 @@ async def chat(chat_request: ChatRequest, current_user=Depends(get_current_user)
     """
     Chat endpoint. Returns a WhatsApp chat response to user text sent in via WhatsApp chat
     """
-    response = translate(chat_request.text, chat_request.source_language,
-                         chat_request.target_language)
+    # Translate from English to the local language and if it returns 
+    # the same thing, then translate from the local language to English.
+    # Note: This is a temporary solution until language detection is implemented
+    response = translate(chat_request.text, "English", chat_request.local_language)
+    if re.fullmatch(f"{chat_request.text}[.?]?", response):
+        response = translate(chat_request.text, chat_request.local_language, "English")
 
     # Send message via chat
     account_sid = chat_request.twilio_sid
