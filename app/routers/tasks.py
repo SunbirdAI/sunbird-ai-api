@@ -1,8 +1,10 @@
+import json
 import os
 import io
 import re
 
 from dotenv import load_dotenv
+import requests
 
 from fastapi import APIRouter, HTTPException, status, File, UploadFile, Form, Depends
 from app.schemas.tasks import (
@@ -31,6 +33,18 @@ router = APIRouter()
 
 load_dotenv()
 PER_MINUTE_RATE_LIMIT = os.getenv('PER_MINUTE_RATE_LIMIT', 10)
+
+# Access token for your app
+token = os.getenv("WHATSAPP_TOKEN")
+verify_token = os.getenv("VERIFY_TOKEN")
+
+languages_obj = {
+    1: "Luganda",
+    2: "Acholi",
+    3: "Ateso",
+    4: "Lugbara",
+    5: "Runyankole",
+}
 
 @router.post("/stt",
              dependencies=[Depends(RateLimiter(times=PER_MINUTE_RATE_LIMIT, seconds=60))])
@@ -121,3 +135,76 @@ async def chat(chat_request: ChatRequest, current_user=Depends(get_current_user)
     )
 
     return ChatResponse(chat_response=response)
+
+
+@router.post("/webhook")
+async def webhook(payload: dict):
+    try:
+        body = payload
+        whatsapp_response = None
+        print(json.dumps(payload, indent=2))
+
+        if "object" in payload and (
+                        "entry" in payload
+                        and payload["entry"]
+                        and "changes" in payload["entry"][0]
+                        and payload["entry"][0]["changes"]
+                        and payload["entry"][0]["changes"][0]
+                        and "value" in payload["entry"][0]["changes"][0]
+                        and "messages" in payload["entry"][0]["changes"][0]["value"]
+                        and payload["entry"][0]["changes"][0]["value"]["messages"]
+                    ):
+            phone_number_id = payload["entry"][0]["changes"][0]["value"]["metadata"]["phone_number_id"]
+            from_number = payload["entry"][0]["changes"][0]["value"]["messages"][0]["from"]
+            msg_body = payload["entry"][0]["changes"][0]["value"]["messages"][0]["text"]["body"]
+
+            if msg_body.lower() == "hi":
+                whatsapp_response = (
+                    "Hi.\nPlease choose a local language to translate to and from English:\n"
+                    "1: Luganda (default)\n"
+                    "2: Acholi\n"
+                    "3: Ateso\n"
+                    "4: Lugbara\n"
+                    "5: Runyankole"
+                )
+
+            elif msg_body in languages_obj:
+                print(f"User menu choice: {msg_body}: {languages_obj[msg_body]}")
+
+                whatsapp_response = (
+                    f"_Local language set to_ {languages_obj[msg_body]}.\n"
+                    "_Please note that language options might take a few minutes to update._"
+                )
+
+            elif 3 <= len(msg_body) <= 200:
+                translated_text = translate(msg_body, "English", "Luganda")
+                whatsapp_response = translated_text["text"]
+                print(f"Translated Text: {whatsapp_response}")
+            else:
+                whatsapp_response = "_Please send text that contains between 3 and 200 characters (about 30 to 50 words)._"
+            send_whatsapp_message(phone_number_id, from_number, whatsapp_response)
+        return {"status": "success"}
+
+    except Exception as error:
+        print(f"Error in webhook processing: {str(error)}")
+        raise HTTPException(status_code=500, detail="Internal Server Error") from error
+
+
+@router.get("/webhook")
+async def verify_webhook(mode: str, token: str, challenge: str):
+    if mode and token:
+        if mode != "subscribe" or token != verify_token:
+            raise HTTPException(status_code=403, detail="Forbidden")
+
+        print("WEBHOOK_VERIFIED")
+        return {"challenge": challenge}
+    raise HTTPException(status_code=400, detail="Bad Request")
+
+
+async def send_whatsapp_message(phone_number_id, to, text):
+    response = requests.post(
+        f"https://graph.facebook.com/v12.0/{phone_number_id}/messages?access_token={token}",
+        json={"messaging_product": "whatsapp", "to": to, "text": {"body": text}},
+        headers={"Content-Type": "application/json"},
+    )
+    response.raise_for_status()
