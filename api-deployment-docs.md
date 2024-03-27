@@ -66,6 +66,7 @@ gcloud ai endpoints deploy-model $ENDPOINT_ID \
 --max-replica-count=1 \
 --traffic-split=0=100
 ```
+
 - [deploy-model docs ](https://cloud.google.com/sdk/gcloud/reference/ai/endpoints/deploy-model)
 - Get the options for [machine types here](https://cloud.google.com/vertex-ai/docs/predictions/configure-compute).
 - Options for `accelerator-count`: `nvidia-tesla-k80`,  `nvidia-tesla-p100`, `nvidia-tesla-t4`.
@@ -101,6 +102,13 @@ gcloud builds submit --tag $TAG
 - Deploy to cloud run
 ```bash
 gcloud run deploy $APP --image $TAG --platform managed --region $REGION --allow-unauthenticated
+```
+
+You can use the bash script to combine all the commands above to deploy the api in one go. Run the commands below
+
+```sh
+chmod u+x bin/deploy-api
+./bin/deploy-api
 ```
 
 **NOTE**:
