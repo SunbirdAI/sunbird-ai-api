@@ -374,7 +374,7 @@ def send_contacts(contacts: List[Dict[Any, Any]], phone_number_id:str, recipient
         logging.error(f"Response: {r.json()}")
         return r.json()
 
-def upload_media(media: str, phone_number_id:str):
+def upload_media(headers, media: str, phone_number_id:str):
         """
         Uploads a media to the cloud api and returns the id of the media
 
@@ -427,7 +427,7 @@ def delete_media(media_id: str):
         logging.info(f"Response: {r.json()}")
         return None
     
-def mark_as_read(message_id: str, phone_number_id: str):
+def mark_as_read(token, message_id: str, phone_number_id: str):
         """
         Marks a message as read
         
