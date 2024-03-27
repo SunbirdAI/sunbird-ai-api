@@ -21,6 +21,7 @@ Use the `Authorize` button below to login and access the protected endpoints.
 - Use the `/tasks/stt` endpoint for speech to text inference for one audio file.
 - Use the `/tasks/translate` endpoint for translation of one text input.
 - Use the `/tasks/translate-batch` endpoint for translation of multiple text inputs.
+- Use the `tasks/nllb-translate` endpoint for translation of text input with the NLLB model.
 """
 
 tags_metadata = [
