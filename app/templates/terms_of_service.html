@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://sunbird-api-frontend.s3.eu-west-1.amazonaws.com/output.css" rel="stylesheet">
+    <title>Terms of Service</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .topnav {
+            overflow: hidden;
+            background-color: #fff;
+        }
+
+        .topnav a {
+            float: left;
+            color: black;
+            text-align: center;
+            padding: 14px 16px;
+            text-decoration: none;
+            font-size: 17px;
+        }
+
+        .topnav a:hover {
+            background-color: #ddd;
+            color: black;
+        }
+
+        .topnav a.active {
+            background-color: orange;
+            color: white;
+        }
+
+        .content {
+            max-width: 800px;
+            margin: 20px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="topnav">
+        <div class="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-4">
+            <a href="/" class="flex items-center">
+                <img src="{{ url_for('static', path='/media/sunbird-favicon.jpg') }}" size="100x100"
+                    class="rounded-full object-contain h-14 w-14" />
+            </a>
+            <button data-collapse-toggle="navbar-default" type="button"
+                class="inline-flex items-center p-2 w-10 h-10 justify-center text-sm text-gray-500 rounded-lg md:hidden hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 dark:text-gray-400 dark:hover:bg-gray-700 dark:focus:ring-gray-600"
+                aria-controls="navbar-default" aria-expanded="false">
+                <span class="sr-only">Open main menu</span>
+                <svg class="w-5 h-5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none"
+                    viewBox="0 0 17 14">
+                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M1 1h15M1 7h15M1 13h15" />
+                </svg>
+            </button>
+            <div id="navbar-default">
+                <a class="active" href="/login">Login</a>
+                <a href="/privacy_policy">Privacy Policy</a>
+                <a href="/terms_of_service">Terms of Service</a>
+            </div>
+        </div>
+    </div>
+    <div class="content">
+        <h1>Terms of Service</h1>
+        <p><strong>Agreement</strong></p>
+        <p>By accessing or using the services provided by Sunbird AI, you agree to abide by these Terms of Service.
+            These Terms apply to all visitors, users, and others who access or use our services.</p>
+        <p><strong>Use of Services</strong></p>
+        <p>Our services, including the WhatsApp translation bot, are provided on an "as is" and "as available" basis.
+            Users are solely responsible for their use of the services and any consequences thereof.</p>
+        <p><strong>Intellectual Property</strong></p>
+        <p>All intellectual property rights associated with the services provided by Sunbird AI, including but not
+            limited to, the WhatsApp translation bot, are owned by Sunbird AI. Users are granted a limited,
+            non-exclusive, non-transferable license to use the services for personal or non-commercial purposes.</p>
+        <p><strong>Limitation of Liability</strong></p>
+        <p>Sunbird AI shall not be liable for any indirect, incidental, special, consequential, or punitive damages, or
+            any loss of profits or revenues, whether incurred directly or indirectly, or any loss of data, use,
+            goodwill, or other intangible losses resulting from (i) your access to or use of or inability to access or
+            use the services; (ii) any conduct or content of any third party on the services; (iii) any content obtained
+            from the services; or (iv) unauthorized access, use, or alteration of your transmissions or content.</p>
+        <p><strong>Changes to Terms of Service</strong></p>
+        <p>Sunbird AI reserves the right to update or change these Terms of Service at any time. Users will be notified
+            of any changes by posting the new Terms of Service on this page.</p>
+        <p><strong>Contact Us</strong></p>
+        <p>If you have any questions about these Terms of Service, please contact us at info@sunbird.ai</p>
+    </div>
+</body>
+
+</html>
