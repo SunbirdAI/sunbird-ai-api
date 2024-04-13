@@ -1,21 +1,22 @@
 import json
+from datetime import timedelta
 
-from fastapi import APIRouter, Request, Form, Depends, responses, status
+from fastapi import APIRouter, Depends, Form, Request, responses, status
 from fastapi.templating import Jinja2Templates
+from pydantic.error_wrappers import ValidationError
+from sqlalchemy.orm import Session
+
+from app.crud.users import create_user, get_user_by_email, get_user_by_username
 from app.deps import get_db
+from app.schemas.users import User, UserCreate, UserInDB
 from app.utils.auth_utils import (
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+    OAuth2PasswordBearerWithCookie,
     authenticate_user,
     create_access_token,
-    ACCESS_TOKEN_EXPIRE_MINUTES,
     get_password_hash,
     get_username_from_token,
-    OAuth2PasswordBearerWithCookie,
 )
-from sqlalchemy.orm import Session
-from datetime import timedelta
-from app.schemas.users import UserCreate, UserInDB, User
-from app.crud.users import create_user, get_user_by_username, get_user_by_email
-from pydantic.error_wrappers import ValidationError
 from app.utils.monitoring_utils import aggregate_usage_for_user
 
 router = APIRouter()
@@ -36,7 +37,7 @@ async def login(request: Request):  # type: ignore
 
 
 @router.post("/login")
-async def login(
+async def login(  # noqa F811
     request: Request,
     username: str = Form(...),
     password: str = Form(...),
@@ -70,7 +71,7 @@ async def signup(request: Request):
 
 
 @router.post("/register")
-async def signup(
+async def signup(  # noqa F811
     request: Request,
     email: str = Form(...),
     username: str = Form(...),

@@ -1,15 +1,11 @@
-from typing import List
-from pydantic import BaseModel, Field
 from enum import Enum
+from typing import List
+
+from pydantic import BaseModel, Field
 
 
 class STTTranscript(BaseModel):
-    text: str
-    confidences: List[int] | None = None
-
-
-from typing import Optional
-from pydantic import BaseModel
+    audio_transcription: str
 
 
 class NllbResponseOutputData(BaseModel):
