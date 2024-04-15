@@ -1,49 +1,40 @@
 import os
-import io
 import re
+import shutil
+import time
+
 import requests
-
+import runpod
 from dotenv import load_dotenv
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi_limiter.depends import RateLimiter
+from twilio.rest import Client
+from werkzeug.utils import secure_filename
 
-from fastapi import (
-    APIRouter,
-    HTTPException,
-    status,
-    File,
-    UploadFile,
-    Form,
-    Depends,
-    Header,
-)
-from app.schemas.tasks import (
-    STTTranscript,
-    TranslationRequest,
-    TranslationResponse,
-    TranslationBatchRequest,
-    TranslationBatchResponse,
-    NllbTranslationRequest,
-    NllbTranslationResponse,
-    TTSRequest,
-    TTSResponse,
-    ChatRequest,
-    ChatResponse,
-    Language,
-)
-from typing import Annotated
-
-from app.inference_services.stt_inference import transcribe
 from app.inference_services.translate_inference import translate, translate_batch
 from app.inference_services.tts_inference import tts
 from app.routers.auth import get_current_user
-from pydub import AudioSegment
-from fastapi_limiter.depends import RateLimiter
-from twilio.rest import Client
-
+from app.schemas.tasks import (
+    ChatRequest,
+    ChatResponse,
+    NllbLanguage,
+    NllbTranslationRequest,
+    NllbTranslationResponse,
+    STTTranscript,
+    TranslationBatchRequest,
+    TranslationBatchResponse,
+    TranslationRequest,
+    TranslationResponse,
+    TTSRequest,
+    TTSResponse,
+)
+from app.utils.upload_audio_file_gcp import upload_audio_file
 
 router = APIRouter()
 
 load_dotenv()
 PER_MINUTE_RATE_LIMIT = os.getenv("PER_MINUTE_RATE_LIMIT", 10)
+runpod.api_key = os.getenv("RUNPOD_API_KEY")
 
 
 @router.post(
@@ -51,27 +42,47 @@ PER_MINUTE_RATE_LIMIT = os.getenv("PER_MINUTE_RATE_LIMIT", 10)
 )
 async def speech_to_text(
     audio: UploadFile(...) = File(...),
-    language: Language = Form("Luganda"),
-    return_confidences: bool = Form(False),
+    language: NllbLanguage = Form("lug"),
+    adapter: NllbLanguage = Form("lug"),
     current_user=Depends(get_current_user),
-) -> STTTranscript:  # TODO: Make language an enum
+) -> STTTranscript:
     """
-    We currently only support Luganda.
+    Upload an audio file and get the transcription text of the audio
     """
-    if not audio.content_type.startswith("audio"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid file type uploaded. Please upload a valid audio file",
-        )
-    if audio.content_type != "audio/wave":
-        # try to convert to wave, if it fails return an error.
-        buf = io.BytesIO()
-        audio_file = audio.file
-        audio = AudioSegment.from_file(audio_file)
-        audio = audio.export(buf, format="wav")
+    endpoint = runpod.Endpoint(os.getenv("RUNPOD_ENDPOINT_ASR_STT_ID"))
 
-    response = transcribe(audio)
-    return STTTranscript(text=response)
+    filename = secure_filename(audio.filename)
+    file_path = os.path.join("/tmp", filename)
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(audio.file, buffer)
+
+    blob_name = upload_audio_file(file_path=file_path)
+    audio_file = blob_name
+    os.remove(file_path)
+
+    start_time = time.time()
+    try:
+        run_request = endpoint.run_sync(
+            {
+                "input": {
+                    "target_lang": language,
+                    "adapter": adapter,
+                    "audio_file": audio_file,
+                }
+            },
+            timeout=600,  # Timeout in seconds.
+        )
+    except TimeoutError:
+        print("Job timed out.")
+
+    end_time = time.time()
+
+    # Calculate the elapsed time
+    elapsed_time = end_time - start_time
+    print("Elapsed time:", elapsed_time, "seconds")
+    return STTTranscript(
+        audio_transcription=run_request.get("audio_transcription")
+    )
 
 
 # Route for the nllb translation endpoint
@@ -84,8 +95,9 @@ async def nllb_translate(
     translation_request: NllbTranslationRequest, current_user=Depends(get_current_user)
 ):
     """
-    Source and Target Language can be one of: ach(Acholi), teo(Ateso), eng(English), lug(Luganda), lgg(Lugbara), or nyn(Runyankole).
-    We currently only support English to Local languages and Local to English languages, so when the source language is one of the
+    Source and Target Language can be one of: ach(Acholi), teo(Ateso), eng(English),
+    lug(Luganda), lgg(Lugbara), or nyn(Runyankole).We currently only support English to Local
+    languages and Local to English languages, so when the source language is one of the
     languages listed, the target can be any of the other languages.
     """
     # URL for the endpoint
@@ -192,7 +204,7 @@ async def chat(chat_request: ChatRequest, current_user=Depends(get_current_user)
     to_number = chat_request.to_number
     client = Client(account_sid, auth_token)
 
-    message = client.messages.create(
+    _ = client.messages.create(
         from_=f"whatsapp:{from_number}", body=response, to=f"whatsapp:{to_number}"
     )
 
