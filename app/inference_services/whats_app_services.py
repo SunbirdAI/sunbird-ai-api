@@ -545,37 +545,58 @@ def query_media_url(media_id: str):
         logging.info(f"Response: {r.json()}")
         return None
 
-def download_media(media_url: str, mime_type: str, file_path: str = "temp"):
-        """
-        Download media from media url obtained either by manually uploading media or received media
+# def download_media(media_url: str, mime_type: str, file_path: str = "temp"):
+#         """
+#         Download media from media url obtained either by manually uploading media or received media
 
-        Args:
-            media_url[str]: Media url of the media
-            mime_type[str]: Mime type of the media
-            file_path[str]: Path of the file to be downloaded to. Default is "temp"
-                            Do not include the file extension. It will be added automatically.
+#         Args:
+#             media_url[str]: Media url of the media
+#             mime_type[str]: Mime type of the media
+#             file_path[str]: Path of the file to be downloaded to. Default is "temp"
+#                             Do not include the file extension. It will be added automatically.
 
-        Returns:
-            str: Media url
+#         Returns:
+#             str: Media url
 
-        """
-        r = requests.get(media_url, headers=headers)
-        content = r.content
-        extension = mime_type.split("/")[1]
-        # create a temporary file
-        try:
+#         """
+#         r = requests.get(media_url, headers=headers)
+#         content = r.content
+#         extension = mime_type.split("/")[1]
+#         # create a temporary file
+#         try:
 
-            save_file_here = (
-                f"{file_path}.{extension}" if file_path else f"temp.{extension}"
-            )
-            with open(save_file_here, "wb") as f:
-                f.write(content)
-            logging.info(f"Media downloaded to {save_file_here}")
-            return f.name
-        except Exception as e:
-            print(e)
-            logging.info(f"Error downloading media to {save_file_here}")
-            return None
+#             save_file_here = (
+#                 f"{file_path}.{extension}" if file_path else f"temp.{extension}"
+#             )
+#             with open(save_file_here, "wb") as f:
+#                 f.write(content)
+#             logging.info(f"Media downloaded to {save_file_here}")
+#             return f.name
+#         except Exception as e:
+#             print(e)
+#             logging.info(f"Error downloading media to {save_file_here}")
+#             return None
+        
+def download_media(media_url, access_token, file_path="downloaded_media_file"):
+    """
+    Download the media from the media URL obtained from the WhatsApp Business API.
+    
+    :param media_url: The URL of the media file to download.
+    :param access_token: The access token for authenticating with the WhatsApp Business API.
+    :param file_path: The local file path where the media should be saved.
+    :return: The path to the downloaded media file.
+    """
+    headers = {'Authorization': f'Bearer {access_token}'}
+    response = requests.get(media_url, headers=headers, stream=True)
+    
+    if response.status_code == 200:
+        with open(file_path, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+        return file_path
+    else:
+        raise Exception(f"Failed to download media. HTTP Status: {response.status_code}")
+
 
 def preprocess(data):
         """
@@ -794,33 +815,6 @@ def changed_field(data):
         """
         return data["entry"][0]["changes"][0]["field"]
 
-def process_audio_message(message_received):
-    """
-    Process audio message and fetch media URL.
-
-    Parameters:
-    - message_received (str): JSON message containing audio information.
-    - whats_app_business_client: WhatsApp Business API client.
-    - base_url (str): Base URL for the API.
-    - headers (dict): Headers for the API request.
-
-    Returns:
-    - str or None: Media URL if successful, None otherwise.
-    """
-    try:
-        audio_messages = extract_audio_messages(message_received)
-        if not audio_messages:
-            return None
-
-        audio_id = audio_messages[0]['audio']['id']
-        media_url = get_media_url(base_url, headers, audio_id)
-
-        return media_url
-
-    except requests.RequestException as e:
-        handle_request_exception(e)
-        return None
-
 def extract_audio_messages(message_received):
     """
     Extract audio messages from the received message.
@@ -840,26 +834,6 @@ def extract_audio_messages(message_received):
 
     return audio_messages
 
-def get_media_url(base_url, headers, audio_id):
-    """
-    Get the media URL for the audio message.
-
-    Parameters:
-    - base_url (str): Base URL for the API.
-    - headers (dict): Headers for the API request.
-    - audio_id (str): ID of the audio message.
-
-    Returns:
-    - str or None: Media URL if successful, None otherwise.
-    """
-    endpoint = f"{base_url}/media/{audio_id}"
-
-    response = requests.get(endpoint, headers=headers)
-    response.raise_for_status()
-
-    media_url = response.json().get('url')
-    return media_url
-
 def handle_request_exception(exception):
     """
     Handle request exceptions.
@@ -869,3 +843,93 @@ def handle_request_exception(exception):
     """
     print(f"Error fetching media URL: {exception}")
     # Add more specific error handling or logging if needed.
+
+
+def download_audio_file(url, file_path="temp_audio_file.wav"):
+    """
+    Download an audio file from a URL and save it to a local file.
+    :param url: The URL of the audio file.
+    :param file_path: Path where the audio file should be saved.
+    :return: The path to the downloaded audio file.
+    """
+    response = requests.get(url)
+    if response.status_code == 200:
+        with open(file_path, 'wb') as audio_file:
+            audio_file.write(response.content)
+        return file_path
+    else:
+        raise Exception(f"Failed to download audio file from {url}. Status code: {response.status_code}")
+
+
+def process_audio_message(payload):
+    """
+    Extract the audio URL from the WhatsApp message payload.
+    :param payload: The webhook payload from WhatsApp.
+    :return: The URL of the audio file.
+    """
+    # Example path within payload to the audio URL, adjust based on actual payload structure
+    audio_id = payload["entry"][0]["changes"][0]["value"]["messages"][0]["audio"]["id"]
+    return audio_id
+
+
+def fetch_media_url(media_id, token):
+    """
+    Fetch the media URL from the API using the provided media ID.
+    
+    :param api_base_url: Base URL of the API.
+    :param media_id: ID of the media to fetch.
+    :param auth_token: Authentication token for the API.
+    :return: URL of the media file.
+    """
+    url = f"{base_url}/media/{media_id}"  # Adjust the endpoint as necessary
+    headers = {
+        "Authorization": f"Bearer {token}"
+    }
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        # Assuming the API returns a JSON response with the media URL in a field named 'media_url'
+        media_url = response.json().get("media_url")
+        return media_url
+    else:
+        raise Exception(f"Failed to fetch media URL for ID {media_id}. HTTP Status: {response.status_code}")
+    
+
+
+def get_media_url(media_id, token):
+    """
+    Retrieve the media URL for a given media ID from the WhatsApp Business API.
+    
+    :param media_id: The media ID obtained from the webhook payload.
+    :param access_token: The access token for authenticating with the WhatsApp Business API.
+    :return: The URL of the media file.
+    """
+    url = f"https://graph.facebook.com/v19.0/{media_id}/"
+    headers = {'Authorization': f'Bearer {token}'}
+    response = requests.get(url, headers=headers)
+    
+    if response.status_code == 200:
+        media_url = response.json().get('media_url')
+        return media_url
+    else:
+        raise Exception(f"Failed to retrieve media URL. HTTP Status: {response.status_code}, Response: {response.text}")
+
+
+# def download_media(media_url, access_token, file_path="downloaded_media_file"):
+#     """
+#     Download the media from the media URL obtained from the WhatsApp Business API.
+    
+#     :param media_url: The URL of the media file to download.
+#     :param access_token: The access token for authenticating with the WhatsApp Business API.
+#     :param file_path: The local file path where the media should be saved.
+#     :return: The path to the downloaded media file.
+#     """
+#     headers = {'Authorization': f'Bearer {access_token}'}
+#     response = requests.get(media_url, headers=headers, stream=True)
+    
+#     if response.status_code == 200:
+#         with open(file_path, 'wb') as f:
+#             for chunk in response.iter_content(chunk_size=8192):
+#                 f.write(chunk)
+#         return file_path
+#     else:
+#         raise Exception(f"Failed to download media. HTTP Status: {response.status_code}")

@@ -1,15 +1,13 @@
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel, Field
 from enum import Enum
 
 
 class STTTranscript(BaseModel):
     text: str
-    confidences: List[int] | None = None
+    # confidences: List[int] | None = None
+    confidences: Optional[List[int]] = None
 
-
-from typing import Optional
-from pydantic import BaseModel
 
 
 class NllbResponseOutputData(BaseModel):
@@ -31,7 +29,8 @@ class NllbTranslationResponse(BaseModel):
 
 class TranslationResponse(BaseModel):
     text: str
-    confidences: List[int] | None = None
+    # confidences: List[int] | None = None
+    confidences: Optional[List[int]] = None
 
 
 class Language(str, Enum):
@@ -59,7 +58,8 @@ class NllbTranslationRequest(BaseModel):
 
 
 class TranslationRequest(BaseModel):
-    source_language: Language | None = None
+    # source_language: Language | None = None
+    source_language: Optional[Language] = None
     target_language: Language
     text: str = Field(min_length=3, max_length=200)
     return_confidences: bool = False
@@ -81,8 +81,11 @@ class TTSRequest(BaseModel):
 
 
 class TTSResponse(BaseModel):
-    base64_string: str | None = None
-    audio_link: str | None = None
+    # base64_string: str | None = None
+    # audio_link: str | None = None
+    base64_string: Optional[str] = None
+    audio_link: Optional[str] = None
+
 
 
 class ChatRequest(BaseModel):
