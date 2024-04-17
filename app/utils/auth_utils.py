@@ -1,20 +1,21 @@
 import os
-from datetime import timedelta, datetime
-from typing import Optional, Dict
+from datetime import datetime, timedelta
+from typing import Dict, Optional
 
-from app.crud.users import get_user_by_username
-from sqlalchemy.orm import Session
 from dotenv import load_dotenv
-from passlib.context import CryptContext
-from jose import jwt
+from fastapi import HTTPException, Request, status
+from fastapi.openapi.models import OAuthFlows as OAuthFlowsModel
 from fastapi.security import OAuth2
 from fastapi.security.utils import get_authorization_scheme_param
-from fastapi import Request, HTTPException, status
-from fastapi.openapi.models import OAuthFlows as OAuthFlowsModel
+from jose import jwt
+from passlib.context import CryptContext
+from sqlalchemy.orm import Session
+
+from app.crud.users import get_user_by_username
 
 load_dotenv()
 
-SECRET_KEY = os.getenv('SECRET_KEY')
+SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 52560000
 
@@ -58,11 +59,11 @@ def get_username_from_token(token: str) -> str:
 
 class OAuth2PasswordBearerWithCookie(OAuth2):
     def __init__(
-            self,
-            tokenUrl: str,
-            scheme_name: Optional[str] = None,
-            scopes: Optional[Dict[str, str]] = None,
-            auto_error: bool = True
+        self,
+        tokenUrl: str,
+        scheme_name: Optional[str] = None,
+        scopes: Optional[Dict[str, str]] = None,
+        auto_error: bool = True,
     ):
         if not scopes:
             scopes = {}
@@ -78,7 +79,7 @@ class OAuth2PasswordBearerWithCookie(OAuth2):
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Not authenticated",
-                    headers={"WWW-Authenticate": "Bearer"}
+                    headers={"WWW-Authenticate": "Bearer"},
                 )
             else:
                 return None
