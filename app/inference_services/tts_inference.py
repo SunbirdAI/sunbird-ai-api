@@ -1,25 +1,18 @@
-from app.inference_services.base import inference_request
-from app.schemas.tasks import TTSRequest
+import base64
+import os
+import uuid
 
+from dotenv import load_dotenv
 from google.cloud import storage
 
-import base64
-import uuid
-import os
-from dotenv import load_dotenv
+from app.inference_services.base import inference_request
+from app.schemas.tasks import TTSRequest
 
 load_dotenv()
 
 
 def create_payload(text):
-    payload = {
-        "instances": [
-            {
-                "sentence": text,
-                "task": "tts"
-            }
-        ]
-    }
+    payload = {"instances": [{"sentence": text, "task": "tts"}]}
 
     return payload
 
@@ -42,7 +35,7 @@ def tts(request: TTSRequest):
 
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "service_account_key.json"
         bucket_name = os.getenv("GOOGLE_CLOUD_BUCKET_NAME")
-        bucket_file = f"{str(uuid.uuid4())}.wav" # using a uuid for the audio file name
+        bucket_file = f"{str(uuid.uuid4())}.wav"  # using a uuid for the audio file name
         client = storage.Client()
         bucket = client.bucket(bucket_name)
         blob = bucket.blob(bucket_file)

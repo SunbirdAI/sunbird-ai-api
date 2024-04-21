@@ -1,5 +1,5 @@
 description = """
-Welcome to the Sunbird AI API documentation. The Sunbird AI API provides you access to Sunbird's language models. The currently supported models are:
+Welcome to the Sunbird AI API documentation. The Sunbird AI API provides you access to Sunbird's language models. The currently supported models are:  # noqa E501
 - **Translation (English to Multiple)**: translate from English to Acholi, Ateso, Luganda, Lugbara and Runyankole.
 - **Translation (Multiple to English)**: translate from the 5 local language above to English.
 - **Speech To Text (Luganda)**: Convert Luganda speech audio to text.
@@ -25,12 +25,9 @@ Use the `Authorize` button below to login and access the protected endpoints.
 """
 
 tags_metadata = [
-    {
-        "name": "AI Tasks",
-        "description": "Operations for AI inference."
-    },
+    {"name": "AI Tasks", "description": "Operations for AI inference."},
     {
         "name": "Authentication Endpoints",
-        "description": "Operations for Authentication, including Sign up and Login"
-    }
+        "description": "Operations for Authentication, including Sign up and Login",
+    },
 ]
