@@ -28,6 +28,7 @@ from app.schemas.tasks import (
     TTSRequest,
     TTSResponse,
 )
+from app.utils.helper_utils import chunk_text
 from app.utils.upload_audio_file_gcp import upload_audio_file
 
 router = APIRouter()
@@ -80,9 +81,7 @@ async def speech_to_text(
     # Calculate the elapsed time
     elapsed_time = end_time - start_time
     print("Elapsed time:", elapsed_time, "seconds")
-    return STTTranscript(
-        audio_transcription=run_request.get("audio_transcription")
-    )
+    return STTTranscript(audio_transcription=run_request.get("audio_transcription"))
 
 
 # Route for the nllb translation endpoint
@@ -107,24 +106,42 @@ async def nllb_translate(
     # Authorization token
     token = os.getenv("RUNPOD_API_KEY")
 
-    # Data to be sent in the request body
-    data = {
-        "input": {
-            "source_language": translation_request.source_language,
-            "target_language": translation_request.target_language,
-            "text": translation_request.text,
+    # Split text into chunks of 100 words each
+    text = translation_request.text
+    text_chunks = chunk_text(text, chunk_size=100)
+    print(f"text_chunks length: {len(text_chunks)}")
+
+    # Translated chunks will be stored here
+    translated_text_chunks = []
+
+    for chunk in text_chunks:
+        # Data to be sent in the request body
+        data = {
+            "input": {
+                "source_language": translation_request.source_language,
+                "target_language": translation_request.target_language,
+                "text": chunk.strip(),  # Remove leading/trailing spaces
+            }
         }
-    }
 
-    # Headers with authorization token
-    headers = {"Authorization": f"{token}", "Content-Type": "application/json"}
+        # Headers with authorization token
+        headers = {"Authorization": token, "Content-Type": "application/json"}
 
-    response = requests.post(url, headers=headers, json=data)
+        response = requests.post(url, headers=headers, json=data)
 
-    if response.status_code == 200:
-        return response.json()
-    else:
-        raise HTTPException(status_code=response.status_code, detail=response.text)
+        if response.status_code == 200:
+            translated_chunk = response.json()["output"]["data"]["translated_text"]
+            translated_text_chunks.append(translated_chunk)
+        else:
+            raise HTTPException(status_code=response.status_code, detail=response.text)
+
+    # Concatenate translated chunks
+    final_translated_text = " ".join(translated_text_chunks)
+    response = response.json()
+    response["output"]["data"]["text"] = text
+    response["output"]["data"]["translated_text"] = final_translated_text
+
+    return response
 
 
 @router.post(
