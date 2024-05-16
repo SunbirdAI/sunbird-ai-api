@@ -1,23 +1,26 @@
+import io
 import json
 import os
 import re
 import shutil
 import time
-
 import requests
+from app.inference_services.stt_inference import transcribe
+from app.inference_services.user_preference import get_user_preference, save_translation, save_user_preference
+from app.inference_services.whats_app_services import download_media, get_audio, get_document, get_image, get_interactive_response, get_location, get_media_url, get_message_id, get_name, get_video, process_audio_message, send_audio, send_message
 import runpod
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi_limiter.depends import RateLimiter
 from twilio.rest import Client
 from werkzeug.utils import secure_filename
-
 from app.inference_services.translate_inference import translate, translate_batch
 from app.inference_services.tts_inference import tts
 from app.routers.auth import get_current_user
 from app.schemas.tasks import (
     ChatRequest,
     ChatResponse,
+    Language,
     NllbLanguage,
     NllbTranslationRequest,
     NllbTranslationResponse,
@@ -37,6 +40,23 @@ load_dotenv()
 PER_MINUTE_RATE_LIMIT = os.getenv("PER_MINUTE_RATE_LIMIT", 10)
 runpod.api_key = os.getenv("RUNPOD_API_KEY")
 
+# Access token for your app
+token = os.getenv("WHATSAPP_TOKEN")
+verify_token = os.getenv("VERIFY_TOKEN")
+
+languages_obj = {
+    "1": "Luganda",
+    "2": "Acholi",
+    "3": "Ateso",
+    "4": "Lugbara",
+    "5": "Runyankole",
+    "6": "English",
+    "7": "Luganda",
+    "8": "Acholi",
+    "9": "Ateso",
+    "10": "Lugbara",
+    "11": "Runyankole"
+}
 
 @router.post(
     "/stt", dependencies=[Depends(RateLimiter(times=PER_MINUTE_RATE_LIMIT, seconds=60))]
@@ -261,8 +281,9 @@ async def webhook(payload: dict):
                 audio_link = get_media_url(audio_id, token)
                 # Assume `download_audio_file` is a function you implement to download the audio file
                 audio_file_path = download_media(audio_link,token)
+                message = "Speech to text currently not supported"
                 # Now call your speech_to_text service with the downloaded audio file
-                message = await speech_to_text_whatsapp(audio_file_path, Language("Luganda"))
+                # message = await speech_to_text_whatsapp(audio_file_path, Language("Luganda"))
 
 
             # elif audio := get_audio(payload):
@@ -351,15 +372,14 @@ async def webhook(payload: dict):
                         to_lang = target_language 
                         translated_text = translate(msg_body, from_lang, to_lang)
                         message = translated_text
-
-                        if to_lang == "Luganda":
-                            # Generate the audio response
-                            tts_response = text_to_speech_whatsapp(TTSRequest(text=message, return_audio_link=True))
-                            audio_link = tts_response.audio_link  # Assuming this is the URL to the audio file
-                            send_audio(token, audio_link,phone_number_id,from_number)
                     
                         # Save the translation
                         save_translation(from_number, msg_body, message, source_language, target_language)
+                        # if to_lang == "Luganda":
+                        # # Generate the audio response
+                        # # tts_response = text_to_speech_whatsapp(TTSRequest(text=message, return_audio_link=True))
+                        # # audio_link = tts_response.audio_link  # Assuming this is the URL to the audio file
+                        # # send_audio(token, audio_link,phone_number_id,from_number)
                     
                 else:
                     message = "_Please send text that contains between 3 and 200 characters (about 30 to 50 words)._"
@@ -383,33 +403,33 @@ async def verify_webhook(mode: str, token: str, challenge: str):
         return {"challenge": challenge}
     raise HTTPException(status_code=400, detail="Bad Request")
 
-def speech_to_text_whatsapp(
-    audio: UploadFile(...) = File(...),
-    language: Language = Form("Luganda"),
-    return_confidences: bool = Form(False),) -> STTTranscript:  # TODO: Make language an enum
-    """
-    We currently only support Luganda.
-    """
-    if not audio.content_type.startswith("audio"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid file type uploaded. Please upload a valid audio file",
-        )
-    if audio.content_type != "audio/wave":
-        # try to convert to wave, if it fails return an error.
-        buf = io.BytesIO()
-        audio_file = audio.file
-        audio = AudioSegment.from_file(audio_file)
-        audio = audio.export(buf, format="wav")
+# def speech_to_text_whatsapp(
+#     audio: UploadFile(...) = File(...),
+#     language: Language = Form("Luganda"),
+#     return_confidences: bool = Form(False),) -> STTTranscript:  # TODO: Make language an enum
+#     """
+#     We currently only support Luganda.
+#     """
+#     if not audio.content_type.startswith("audio"):
+#         raise HTTPException(
+#             status_code=status.HTTP_400_BAD_REQUEST,
+#             detail="Invalid file type uploaded. Please upload a valid audio file",
+#         )
+#     if audio.content_type != "audio/wave":
+#         # try to convert to wave, if it fails return an error.
+#         buf = io.BytesIO()
+#         audio_file = audio.file
+#         audio = AudioSegment.from_file(audio_file)
+#         audio = audio.export(buf, format="wav")
 
-    response = transcribe(audio)
-    return STTTranscript(text=response)
+#     response = transcribe(audio)
+#     return STTTranscript(text=response)
 
-def text_to_speech_whatsapp(tts_request: TTSRequest):
-    """
-    Text to Speech endpoint. Returns a base64 string, which can be decoded to a .wav file.
-    """
-    response = tts(tts_request)
-    if tts_request.return_audio_link:
-        return TTSResponse(audio_link=response)
-    return TTSResponse(base64_string=response)
+# def text_to_speech_whatsapp(tts_request: TTSRequest):
+#     """
+#     Text to Speech endpoint. Returns a base64 string, which can be decoded to a .wav file.
+#     """
+#     response = tts(tts_request)
+#     if tts_request.return_audio_link:
+#         return TTSResponse(audio_link=response)
+#     return TTSResponse(base64_string=response)
