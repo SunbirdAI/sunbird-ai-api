@@ -9,7 +9,7 @@ This page describes how to use the Sunbird AI API and includes code samples in P
 ## Part 2: How to call the translation endpoint
 Refer to the sample code below. Replace `{access_token}` with the token you received above.
 
-**NOTE**: For now, you can only pass text with a limited maximum of characters in the `/nllb-translate` endpoint. If you have very longer text, you can break it up into strings of <=500 characters and use the `/translate-batch` endpoint and pass the sentences in as a list.
+
 ```python
 import os
 import requests
