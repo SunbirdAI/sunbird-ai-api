@@ -25,6 +25,14 @@ class NllbTranslationResponse(BaseModel):
     status: str
 
 
+class LanguageIdRequest(BaseModel):
+    text: str = Field(min_length=3, max_length=200)
+
+
+class LanguageIdResponse(BaseModel):
+    language: str
+
+
 class TranslationResponse(BaseModel):
     text: str
     confidences: List[int] | None = None

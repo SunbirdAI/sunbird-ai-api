@@ -17,6 +17,8 @@ from app.routers.auth import get_current_user
 from app.schemas.tasks import (
     ChatRequest,
     ChatResponse,
+    LanguageIdRequest,
+    LanguageIdResponse,
     NllbLanguage,
     NllbTranslationRequest,
     NllbTranslationResponse,
@@ -35,7 +37,52 @@ router = APIRouter()
 
 load_dotenv()
 PER_MINUTE_RATE_LIMIT = os.getenv("PER_MINUTE_RATE_LIMIT", 10)
+RUNPOD_ENDPOINT_LANGUAGE_ID_ID = os.getenv("RUNPOD_ENDPOINT_LANGUAGE_ID_ID")
+# Set RunPod API Key
 runpod.api_key = os.getenv("RUNPOD_API_KEY")
+
+# Route for the Language identification endpoint
+@router.post(
+    "/language_id",
+    response_model=LanguageIdResponse,
+    dependencies=[Depends(RateLimiter(times=PER_MINUTE_RATE_LIMIT, seconds=60))],
+)
+async def language_id(
+    languageId_request: LanguageIdRequest, current_user=Depends(get_current_user)
+):
+    """
+    This endpoint identifies the language of a given text. It supports a limited 
+    set of local languages including Acholi (ach), Ateso (teo), English (eng),
+    Luganda (lug), Lugbara (lgg), and Runyankole (nyn).
+    """
+
+    # Define the endpoint ID for language identification
+    endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_LANGUAGE_ID_ID)
+
+    try:
+        # Run the language identification request asynchronously
+        run_request = endpoint.run_sync(
+            {
+                "input": {
+                    "text": languageId_request.text,
+                }
+            },
+            timeout=60,  # Timeout in seconds.
+        )
+
+        # Log the request for debugging purposes
+        print(run_request)
+
+    except TimeoutError:
+        # Handle timeout error and return a meaningful message to the user
+        print("Job timed out.")
+        raise HTTPException(
+            status_code=408,
+            detail="The language identification job timed out. Please try again later.",
+        )
+
+    # Return the result of the language identification request
+    return run_request
 
 
 @router.post(
