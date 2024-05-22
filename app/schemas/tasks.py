@@ -13,15 +13,11 @@ class NllbResponseOutputData(BaseModel):
     translated_text: str
 
 
-class NllbOutput(BaseModel):
-    data: NllbResponseOutputData
-
-
 class NllbTranslationResponse(BaseModel):
     delayTime: int
     executionTime: int
     id: str
-    output: NllbOutput
+    output: NllbResponseOutputData
     status: str
 
 
