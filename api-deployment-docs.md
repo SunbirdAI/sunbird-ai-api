@@ -7,11 +7,12 @@ There are 2 major components of the API deployment:
 
 ## Part A: What is Runpod
 -Runpod is a cloud computing platform designed for Machine Learning and AI Applications and general compute.
--Execute your code utilising  both GPU and CPU resources through -[Pods](https://docs.runpod.io/pods/overview) and -[Serverless](https://docs.runpod.io/serverless/overview) options
--You will need to create an account and get invited by a team member to use RunPod. Sign up for an account at -[Runpod.io](https://www.runpod.io/) and for advanced account and permissions management you can use this link [here](https://docs.runpod.io/get-started/manage-accounts)
+-Execute your code utilising  both GPU and CPU resources through [Pods](https://docs.runpod.io/pods/overview) and
+[Serverless](https://docs.runpod.io/serverless/overview) options
+-You will need to create an account and get invited by a team member to use RunPod. Sign up for an account at [Runpod.io](https://www.runpod.io/) and for advanced account and permissions management you can use this link [here](https://docs.runpod.io/get-started/manage-accounts)
 
-## What is Serverless?
--Serverless offers pay-per-second serverless GPU computing, bringing autoscaling to your production environment.The Serverless offering allows users to define a Worker, create a REST API Endpoint for it which queue jobs and autoscales to fill demand. This service, part of the Secure Cloud offering, guarantees low-cold start times and stringent security measures.
+## What is RunPod Serverless?
+- Runpod Serverless offers pay-per-second serverless GPU computing, bringing autoscaling to your production environment.The Serverless offering allows users to define a Worker, create a REST API Endpoint for it which queue jobs and autoscales to fill demand. This service, part of the Secure Cloud offering, guarantees low-cold start times and stringent security measures.
 
 ## How does RunPod Work?
 - We can interact with Runpod through the following ways
@@ -20,7 +21,8 @@ There are 2 major components of the API deployment:
 -SDKs
 
 ## How to use CLI using the runpodctl
--runpodctl is an open source -[open source command-line-interface(CLI)](https://github.com/runpod/runpodctl). You can use runpodctl to work with pods and RunPod Projects.
+-runpodctl is an open source [open source command-line-interface(CLI)](https://github.com/runpod/runpodctl). You can use runpodctl to work with pods and RunPod Projects.
+
 -Follow this [link](https://docs.runpod.io/cli/install-runpodctl) to be able to install and configure runpod CLI tool.
 
 ## How to interact with Runpod Serverless
@@ -31,8 +33,7 @@ RunPod generates an Endpoint ID that allows you to interact with your Serverless
 The Endpoint URL follows this structure:
 - Base URL: `https://api.runpod.ai`
 - API Version: `v2`
-- Endpoint ID: The ID of the Serverless point
-
+- Endpoint ID: `The ID of the Serverless point`
 Example Endpoint URL: `https://api.runpod.ai/v2/{endpoint_id}/{operation}`
 
 ### Operations
