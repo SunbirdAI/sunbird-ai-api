@@ -1,9 +1,9 @@
 # Deployment Guide for the Sunbird AI API
 There are 2 major components of the API deployment:
 - The "inference server" which connects the models to hardware resources. (Currently deployed to Runpod-Read more about Runpod below)
-- [new-inference-server repo](https://github.com/SunbirdAI/sunbirdai-model-inferences)
+    - [new-inference-server repo](https://github.com/SunbirdAI/sunbirdai-model-inferences)
 - The user-facing API. (currently deployed on Cloud Run)
-- [sunbird-ai-api repo](https://github.com/SunbirdAI/sunbird-ai-api)
+    - [sunbird-ai-api repo](https://github.com/SunbirdAI/sunbird-ai-api)
 
 ## Part A: What is Runpod
 -Runpod is a cloud computing platform designed for Machine Learning and AI Applications and general compute.
