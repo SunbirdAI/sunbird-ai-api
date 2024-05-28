@@ -29,6 +29,14 @@ class LanguageIdResponse(BaseModel):
     language: str
 
 
+class SummarisationRequest(BaseModel):
+    text: str
+
+
+class SummarisationResponse(BaseModel):
+    summarized_text: str
+
+
 class TranslationResponse(BaseModel):
     text: str
     confidences: List[int] | None = None

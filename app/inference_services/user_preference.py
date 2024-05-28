@@ -24,6 +24,7 @@ firebase_admin.initialize_app(cred)
 # Get Firestore database instance
 db = firestore.client()
 
+
 # Helper function to get user preferences
 def get_user_preference(user_id):
     # Retrieve user's source and target language preferences from Firestore

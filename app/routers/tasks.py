@@ -24,6 +24,8 @@ from app.schemas.tasks import (
     NllbTranslationRequest,
     NllbTranslationResponse,
     STTTranscript,
+    SummarisationRequest,
+    SummarisationResponse,
     TranslationBatchRequest,
     TranslationBatchResponse,
     TranslationRequest,
@@ -83,6 +85,46 @@ async def language_id(
         raise HTTPException(
             status_code=408,
             detail="The language identification job timed out. Please try again later.",
+        )
+
+    return request_response
+
+
+@router.post(
+    "/summarise",
+    response_model=SummarisationResponse,
+    dependencies=[Depends(RateLimiter(times=PER_MINUTE_RATE_LIMIT, seconds=60))],
+)
+async def summarise(
+    input_text: SummarisationRequest, current_user=Depends(get_current_user)
+):
+    """
+    This endpoint does anonymised summarisation of a given text. The text languages
+    supported for now are English (eng) and Luganda (lug).
+    """
+
+    endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
+    request_response = {}
+
+    try:
+        request_response = endpoint.run_sync(
+            {
+                "input": {
+                    "task": "summarise",
+                    "text": input_text.text,
+                }
+            },
+            timeout=600,  # Timeout in seconds.
+        )
+
+        # Log the request for debugging purposes
+        logging.info(f"Request response: {request_response}")
+
+    except TimeoutError:
+        logging.error("Job timed out.")
+        raise HTTPException(
+            status_code=408,
+            detail="The summarisation job timed out. Please try again later.",
         )
 
     return request_response
