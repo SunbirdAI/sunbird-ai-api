@@ -1,11 +1,11 @@
-# Deployment Guide for the Sunbird AI API
+# Deployment Guide for the Sunbird AI Interference and API
 There are 2 major components of the API deployment:
 - The "inference server" which connects the models to hardware resources. (Currently deployed to Runpod-Read more about Runpod below)
     - [new-inference-server repo](https://github.com/SunbirdAI/sunbirdai-model-inferences)
 - The user-facing API. (currently deployed on Cloud Run)
     - [sunbird-ai-api repo](https://github.com/SunbirdAI/sunbird-ai-api)
 
-## Part A: What is Runpod
+## Part A: Interference Deployment with Runpod
 -Runpod is a cloud computing platform designed for Machine Learning and AI Applications and general compute.
 -Execute your code utilising  both GPU and CPU resources through [Pods](https://docs.runpod.io/pods/overview) and
 [Serverless](https://docs.runpod.io/serverless/overview) options
