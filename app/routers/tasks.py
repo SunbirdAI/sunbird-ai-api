@@ -12,8 +12,7 @@ from fastapi_limiter.depends import RateLimiter
 from twilio.rest import Client
 from werkzeug.utils import secure_filename
 
-from app.inference_services.translate_inference import translate, translate_batch
-from app.inference_services.tts_inference import tts
+from app.inference_services.translate_inference import translate
 from app.routers.auth import get_current_user
 from app.schemas.tasks import (
     ChatRequest,
@@ -26,12 +25,6 @@ from app.schemas.tasks import (
     STTTranscript,
     SummarisationRequest,
     SummarisationResponse,
-    TranslationBatchRequest,
-    TranslationBatchResponse,
-    TranslationRequest,
-    TranslationResponse,
-    TTSRequest,
-    TTSResponse,
 )
 from app.utils.helper_utils import chunk_text
 from app.utils.upload_audio_file_gcp import upload_audio_file
@@ -241,60 +234,6 @@ async def nllb_translate(
     response["output"]["translated_text"] = final_translated_text
 
     return response
-
-
-@router.post(
-    "/translate",
-    response_model=TranslationResponse,
-    dependencies=[Depends(RateLimiter(times=PER_MINUTE_RATE_LIMIT, seconds=60))],
-)
-def translate_(
-    translation_request: TranslationRequest, current_user=Depends(get_current_user)
-):
-    """
-    Source and Target Language can be one of: Acholi, Ateso, English, Luganda, Lugbara, or Runyankole.
-    We currently only support English to Local languages and Local to English languages, so when the
-    source language is one of the Local languages, the target can only be English.
-    """
-    response = translate(
-        translation_request.text,
-        translation_request.source_language,
-        translation_request.target_language,
-    )
-    return TranslationResponse(text=response)
-
-
-@router.post(
-    "/translate-batch",
-    response_model=TranslationBatchResponse,
-    dependencies=[Depends(RateLimiter(times=PER_MINUTE_RATE_LIMIT, seconds=60))],
-)
-def translate_batch_(
-    translation_batch_request: TranslationBatchRequest,
-    current_user=Depends(get_current_user),
-):
-    """
-    Submit multiple translation queries. See the /translate endpoint for caveats.
-    """
-    response = translate_batch(translation_batch_request)
-    return TranslationBatchResponse(
-        responses=[TranslationResponse(text=text) for text in response]
-    )
-
-
-@router.post(
-    "/tts",
-    response_model=TTSResponse,
-    dependencies=[Depends(RateLimiter(times=PER_MINUTE_RATE_LIMIT, seconds=60))],
-)
-def text_to_speech(tts_request: TTSRequest, current_user=Depends(get_current_user)):
-    """
-    Text to Speech endpoint. Returns a base64 string, which can be decoded to a .wav file.
-    """
-    response = tts(tts_request)
-    if tts_request.return_audio_link:
-        return TTSResponse(audio_link=response)
-    return TTSResponse(base64_string=response)
 
 
 @router.post(
