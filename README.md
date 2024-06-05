@@ -7,17 +7,33 @@ This repository contains code for the publicly accessible Sunbird AI APIs.
 
 To get started using the API, [view the tutorial](tutorial.md).
 
-## Getting started locally
+## Getting started locally for Windows
+
+[How to install wsl on Windows](https://learn.microsoft.com/en-us/windows/wsl/install)
+After successfully installing `wsl`:
+
+- Press windows button and in the search bar type `windows features on or off`
+- Click on `Turn Windows features on or off` and a pop-up window will appear
+- Ensure option `Windows Subsystem for Linux` is checked
+- Restart your computer and launch `Ubuntu` and continue with the Linux installation
+
+### Ensure your windows is fully updated.
+
+## Getting started locally for Linux / MacOS
+
 To run the app locally:
+
 - Create and activate a local environment
 - Install the requirements: `pip install -r requirements.txt`.
 - Set the environment variables in a `.env` file, the following variables are required:
+
 ```
 ENDPOINT_ID
 PROJECT_ID
 SECRET_KEY
 DATABASE_URL
 ```
+
 - Install [Redis](https://redis.io/), this is required for the Rate Limiting functionality.
 - Start the Redis sever: `sudo service redis-server start` (see docs if you're on Windows without WSL).
 - Also make sure the postgres service is running: `sudo service postgresql start`.
@@ -26,13 +42,16 @@ DATABASE_URL
 - Run the app: `uvicorn app.api:app --reload`.
 
 Running the migrations with alembic:
+
 - After making a change to the models, run the command `alembic revision --autogenerate -m 'message'` to make the migrations.
 - Check the created migration file in `app/alembic/versions` to ensure it does what's expected.
 - Apply the migration with `alembic upgrade head`.
 
 ## Deployment
+
 The app is deployed on Google Cloud Run and is backed by PostgreSQL DB hosted in Google Cloud SQL.
 
 ## Other docs
+
 - Checkout the [System design document](https://github.com/SunbirdAI/sunbird-docs/blob/main/06-design-docs/language/API_Framework.md) (you need to part of the Sunbird organization to view this).
 - Checkout the [Deployment Guide](https://github.com/SunbirdAI/sunbird-ai-api/blob/main/api-deployment-docs.md).
