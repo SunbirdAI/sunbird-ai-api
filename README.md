@@ -7,7 +7,24 @@ This repository contains code for the publicly accessible Sunbird AI APIs.
 
 To get started using the API, [view the tutorial](tutorial.md).
 
-## Getting started locally
+## Getting started locally for Windows
+
+#### Ensure virtualization is enabled on your computer.
+
+This is required because CPU virtualization is needed for Windows to emulate Linux. For more on enabling [virtualization](https://www.ninjaone.com/blog/enable-hyper-v-on-windows/).
+
+#### Ensure your windows is fully updated.
+Install [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) (Windows Subsystem for Linux).
+This is required because redis is not officially supported on Windows.
+
+After successfully installing `wsl`:
+
+- Press windows button and in the search bar type `windows features on or off`
+- Click on `Turn Windows features on or off` and a pop-up window will appear
+- Ensure option `Windows Subsystem for Linux` is checked
+- Restart your computer and launch `Ubuntu` and continue with `Getting started locally on Linux`
+
+## Getting started locally on Linux
 To run the app locally:
 - Create and activate a local environment
 - Install the requirements: `pip install -r requirements.txt`.
