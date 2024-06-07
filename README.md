@@ -63,8 +63,6 @@ To run the app locally:
     ```
 - Set the environment variables in a `.env` file, the following variables are required:
     ```
-    ENDPOINT_ID
-    PROJECT_ID
     SECRET_KEY
     DATABASE_URL
     RUNPOD_API_KEY
@@ -72,6 +70,9 @@ To run the app locally:
     RUNPOD_ENDPOINT
     AUDIO_CONTENT_BUCKET_NAME
     ```
+    **NB: Reach out to the engineering team to get these environment variables.**
+ 
+ 
  ### Install [Redis](https://redis.io/), this is required for the Rate Limiting functionality.
 ```bash
 sudo apt update && sudo apt install redis-server
@@ -87,7 +88,7 @@ sudo apt update && sudo apt install redis-server
     ```
 
 
-### Setting Up and Configuring PostgreSQL Server on WSL
+### Setting Up and Configuring PostgreSQL Server
 - Install PostgreSQL:
     ```bash
   sudo apt-get install postgresql postgresql-contrib
@@ -126,7 +127,7 @@ This step is only necessary if you're going to make changes to the frontend code
     ```
 - Navigate to the API repository directory and run Alembic migrations:
     ```bash
-    cd /mnt/c/your-directory/sunbird-ai-api
+    cd your-directory/sunbird-ai-api
     alembic upgrade head
     ```
 - Run the app:
