@@ -1,5 +1,6 @@
 import io
 import json
+import logging
 import os
 import re
 import shutil
@@ -14,30 +15,32 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi_limiter.depends import RateLimiter
 from twilio.rest import Client
 from werkzeug.utils import secure_filename
-from app.inference_services.translate_inference import translate, translate_batch
-from app.inference_services.tts_inference import tts
+
+from app.inference_services.translate_inference import translate
 from app.routers.auth import get_current_user
 from app.schemas.tasks import (
     ChatRequest,
     ChatResponse,
-    Language,
+    LanguageIdRequest,
+    LanguageIdResponse,
     NllbLanguage,
     NllbTranslationRequest,
     NllbTranslationResponse,
     STTTranscript,
-    TranslationBatchRequest,
-    TranslationBatchResponse,
-    TranslationRequest,
-    TranslationResponse,
-    TTSRequest,
-    TTSResponse,
+    SummarisationRequest,
+    SummarisationResponse,
 )
+from app.utils.helper_utils import chunk_text
 from app.utils.upload_audio_file_gcp import upload_audio_file
 
 router = APIRouter()
 
 load_dotenv()
+logging.basicConfig(level=logging.INFO)
+
 PER_MINUTE_RATE_LIMIT = os.getenv("PER_MINUTE_RATE_LIMIT", 10)
+RUNPOD_ENDPOINT_ID = os.getenv("RUNPOD_ENDPOINT_ID")
+# Set RunPod API Key
 runpod.api_key = os.getenv("RUNPOD_API_KEY")
 
 # Access token for your app
@@ -58,6 +61,89 @@ languages_obj = {
     "11": "Runyankole"
 }
 
+# Route for the Language identification endpoint
+@router.post(
+    "/language_id",
+    response_model=LanguageIdResponse,
+    dependencies=[Depends(RateLimiter(times=PER_MINUTE_RATE_LIMIT, seconds=60))],
+)
+async def language_id(
+    languageId_request: LanguageIdRequest, current_user=Depends(get_current_user)
+):
+    """
+    This endpoint identifies the language of a given text. It supports a limited
+    set of local languages including Acholi (ach), Ateso (teo), English (eng),
+    Luganda (lug), Lugbara (lgg), and Runyankole (nyn).
+    """
+
+    endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
+    request_response = {}
+
+    try:
+        request_response = endpoint.run_sync(
+            {
+                "input": {
+                    "task": "auto_detect_language",
+                    "text": languageId_request.text,
+                }
+            },
+            timeout=60,  # Timeout in seconds.
+        )
+
+        # Log the request for debugging purposes
+        logging.info(f"Request response: {request_response}")
+
+    except TimeoutError:
+        # Handle timeout error and return a meaningful message to the user
+        logging.error("Job timed out.")
+        raise HTTPException(
+            status_code=408,
+            detail="The language identification job timed out. Please try again later.",
+        )
+
+    return request_response
+
+
+@router.post(
+    "/summarise",
+    response_model=SummarisationResponse,
+    dependencies=[Depends(RateLimiter(times=PER_MINUTE_RATE_LIMIT, seconds=60))],
+)
+async def summarise(
+    input_text: SummarisationRequest, current_user=Depends(get_current_user)
+):
+    """
+    This endpoint does anonymised summarisation of a given text. The text languages
+    supported for now are English (eng) and Luganda (lug).
+    """
+
+    endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
+    request_response = {}
+
+    try:
+        request_response = endpoint.run_sync(
+            {
+                "input": {
+                    "task": "summarise",
+                    "text": input_text.text,
+                }
+            },
+            timeout=600,  # Timeout in seconds.
+        )
+
+        # Log the request for debugging purposes
+        logging.info(f"Request response: {request_response}")
+
+    except TimeoutError:
+        logging.error("Job timed out.")
+        raise HTTPException(
+            status_code=408,
+            detail="The summarisation job timed out. Please try again later.",
+        )
+
+    return request_response
+
+
 @router.post(
     "/stt", dependencies=[Depends(RateLimiter(times=PER_MINUTE_RATE_LIMIT, seconds=60))]
 )
@@ -70,7 +156,7 @@ async def speech_to_text(
     """
     Upload an audio file and get the transcription text of the audio
     """
-    endpoint = runpod.Endpoint(os.getenv("RUNPOD_ENDPOINT_ASR_STT_ID"))
+    endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
 
     filename = secure_filename(audio.filename)
     file_path = os.path.join("/tmp", filename)
@@ -80,12 +166,14 @@ async def speech_to_text(
     blob_name = upload_audio_file(file_path=file_path)
     audio_file = blob_name
     os.remove(file_path)
+    request_response = {}
 
     start_time = time.time()
     try:
-        run_request = endpoint.run_sync(
+        request_response = endpoint.run_sync(
             {
                 "input": {
+                    "task": "transcribe",
                     "target_lang": language,
                     "adapter": adapter,
                     "audio_file": audio_file,
@@ -94,15 +182,16 @@ async def speech_to_text(
             timeout=600,  # Timeout in seconds.
         )
     except TimeoutError:
-        print("Job timed out.")
+        logging.error("Job timed out.")
 
     end_time = time.time()
+    logging.info(f"Response: {request_response}")
 
     # Calculate the elapsed time
     elapsed_time = end_time - start_time
-    print("Elapsed time:", elapsed_time, "seconds")
+    logging.info(f"Elapsed time: {elapsed_time} seconds")
     return STTTranscript(
-        audio_transcription=run_request.get("audio_transcription")
+        audio_transcription=request_response.get("audio_transcription")
     )
 
 
@@ -122,84 +211,50 @@ async def nllb_translate(
     languages listed, the target can be any of the other languages.
     """
     # URL for the endpoint
-    ENDPOINT_ID = os.getenv("RUNPOD_ENDPOINT_ID")
-    url = f"https://api.runpod.ai/v2/{ENDPOINT_ID}/runsync"
+    url = f"https://api.runpod.ai/v2/{RUNPOD_ENDPOINT_ID}/runsync"
 
     # Authorization token
     token = os.getenv("RUNPOD_API_KEY")
 
-    # Data to be sent in the request body
-    data = {
-        "input": {
-            "source_language": translation_request.source_language,
-            "target_language": translation_request.target_language,
-            "text": translation_request.text,
+    # Split text into chunks of 100 words each
+    text = translation_request.text
+    text_chunks = chunk_text(text, chunk_size=100)
+    logging.info(f"text_chunks length: {len(text_chunks)}")
+
+    # Translated chunks will be stored here
+    translated_text_chunks = []
+
+    for chunk in text_chunks:
+        # Data to be sent in the request body
+        data = {
+            "input": {
+                "task": "translate",
+                "source_language": translation_request.source_language,
+                "target_language": translation_request.target_language,
+                "text": chunk.strip(),  # Remove leading/trailing spaces
+            }
         }
-    }
 
-    # Headers with authorization token
-    headers = {"Authorization": f"{token}", "Content-Type": "application/json"}
+        # Headers with authorization token
+        headers = {"Authorization": token, "Content-Type": "application/json"}
 
-    response = requests.post(url, headers=headers, json=data)
+        response = requests.post(url, headers=headers, json=data)
+        logging.info(f"response: {response.json()}")
 
-    if response.status_code == 200:
-        return response.json()
-    else:
-        raise HTTPException(status_code=response.status_code, detail=response.text)
+        if response.status_code == 200:
+            translated_chunk = response.json()["output"]["translated_text"]
+            translated_text_chunks.append(translated_chunk)
+        else:
+            raise HTTPException(status_code=response.status_code, detail=response.text)
 
+    logging.info(f"translated_text_chunks: {translated_text_chunks}")
+    # Concatenate translated chunks
+    final_translated_text = " ".join(translated_text_chunks)
+    response = response.json()
+    response["output"]["text"] = text
+    response["output"]["translated_text"] = final_translated_text
 
-@router.post(
-    "/translate",
-    response_model=TranslationResponse,
-    dependencies=[Depends(RateLimiter(times=PER_MINUTE_RATE_LIMIT, seconds=60))],
-)
-def translate_(
-    translation_request: TranslationRequest, current_user=Depends(get_current_user)
-):
-    """
-    Source and Target Language can be one of: Acholi, Ateso, English, Luganda, Lugbara, or Runyankole.
-    We currently only support English to Local languages and Local to English languages, so when the
-    source language is one of the Local languages, the target can only be English.
-    """
-    response = translate(
-        translation_request.text,
-        translation_request.source_language,
-        translation_request.target_language,
-    )
-    return TranslationResponse(text=response)
-
-
-@router.post(
-    "/translate-batch",
-    response_model=TranslationBatchResponse,
-    dependencies=[Depends(RateLimiter(times=PER_MINUTE_RATE_LIMIT, seconds=60))],
-)
-def translate_batch_(
-    translation_batch_request: TranslationBatchRequest,
-    current_user=Depends(get_current_user),
-):
-    """
-    Submit multiple translation queries. See the /translate endpoint for caveats.
-    """
-    response = translate_batch(translation_batch_request)
-    return TranslationBatchResponse(
-        responses=[TranslationResponse(text=text) for text in response]
-    )
-
-
-@router.post(
-    "/tts",
-    response_model=TTSResponse,
-    dependencies=[Depends(RateLimiter(times=PER_MINUTE_RATE_LIMIT, seconds=60))],
-)
-def text_to_speech(tts_request: TTSRequest, current_user=Depends(get_current_user)):
-    """
-    Text to Speech endpoint. Returns a base64 string, which can be decoded to a .wav file.
-    """
-    response = tts(tts_request)
-    if tts_request.return_audio_link:
-        return TTSResponse(audio_link=response)
-    return TTSResponse(base64_string=response)
+    return response
 
 
 @router.post(

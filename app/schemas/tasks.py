@@ -13,16 +13,28 @@ class NllbResponseOutputData(BaseModel):
     translated_text: str
 
 
-class NllbOutput(BaseModel):
-    data: NllbResponseOutputData
-
-
 class NllbTranslationResponse(BaseModel):
     delayTime: int
     executionTime: int
     id: str
-    output: NllbOutput
+    output: NllbResponseOutputData
     status: str
+
+
+class LanguageIdRequest(BaseModel):
+    text: str = Field(min_length=3, max_length=200)
+
+
+class LanguageIdResponse(BaseModel):
+    language: str
+
+
+class SummarisationRequest(BaseModel):
+    text: str
+
+
+class SummarisationResponse(BaseModel):
+    summarized_text: str
 
 
 class TranslationResponse(BaseModel):

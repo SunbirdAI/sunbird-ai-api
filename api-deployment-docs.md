@@ -1,85 +1,56 @@
-# Deployment Guide for the Sunbird AI API
+# Deployment Guide for the Sunbird AI Interference and API
 There are 2 major components of the API deployment:
-- The "inference server" which connects the models to hardware resources. (Currently deployed to Vertex AI)
-  - [inference-server repo](https://github.com/SunbirdAI/api-inference-server)
+- The "inference server" which connects the models to hardware resources. (Currently deployed to Runpod-Read more about Runpod below)
+    - [new-inference-server repo](https://github.com/SunbirdAI/sunbirdai-model-inferences)
 - The user-facing API. (currently deployed on Cloud Run)
-  - [sunbird-ai-api repo](https://github.com/SunbirdAI/sunbird-ai-api)
+    - [sunbird-ai-api repo](https://github.com/SunbirdAI/sunbird-ai-api)
 
-## Part A: Inference-server high-level deployment steps
-- Build the "inference-server" container. (try to see if you can use gcloud builds for this)
-- Create a repository on "Artifact Registry" or "Container Registry". 
-- Push the container to "Artifact Registry" or "Container Registry".
-- Create a Vertex AI "Model" that uses the custom container.
-- Deploy the "Model" to an endpoint.
-- Get online predictions from the endpoint.
+## Part A: Interference Deployment with Runpod
+-Runpod is a cloud computing platform designed for Machine Learning and AI Applications and general compute.
+-Execute your code utilising  both GPU and CPU resources through [Pods](https://docs.runpod.io/pods/overview) and
+[Serverless](https://docs.runpod.io/serverless/overview) options
+-You will need to create an account and get invited by a team member to use RunPod. Sign up for an account at [Runpod.io](https://www.runpod.io/) and for advanced account and permissions management you can use this link [here](https://docs.runpod.io/get-started/manage-accounts)
 
-**Steps 1-3**: Build "Inference-server"
-You can first test that it is working locally by:
-- Build and run the container locally (can use Cloud Workstations to avoid long download times):
-```bash
-docker build -t my-docker-api .
-docker run -it -p 8080:8080 my-docker-api
-```
-- [Use custom-container docs](https://cloud.google.com/vertex-ai/docs/predictions/use-custom-container).
-```bash
-# Environment variables
-export APP=api-inference-server
-export TAG="gcr.io/sb-gcp-project-01/$APP"
-export REGION=europe-west1
+## What is RunPod Serverless?
+- Runpod Serverless offers pay-per-second serverless GPU computing, bringing autoscaling to your production environment.The Serverless offering allows users to define a Worker, create a REST API Endpoint for it which queue jobs and autoscales to fill demand. This service, part of the Secure Cloud offering, guarantees low-cold start times and stringent security measures.
 
-# Use Google Cloud Build to build the container (and push it )
-gcloud builds submit --tag $TAG
-```
-**Steps 4**: Create a Vertex AI "Model" from the container above
-```bash
-gcloud ai models upload \
---region=$REGION \
---display-name=api-inference-server-model \
---container-image-uri=$TAG \
---container-health-route="/isalive" \
---container-predict-route="/predict"
-```
-Note: add a `--parent-model` field when updating the model.
-**Steps 5**: Deploy the "Model" to an endpoint
-- Create an endpoint:
-```bash
-gcloud ai endpoints create \
---region=$REGION \
---display-name=api-inference-server-endpoint
-```
-- Retrieve the endpoint ID
-```bash
-gcloud ai endpoints list \
---region=$REGION \
---filter=display_name=api-inference-server-endpoint
-```
-(note: can use the same method above to get the MODEL_ID)
-- Deploy the model:
-```bash
-gcloud ai endpoints deploy-model $ENDPOINT_ID \
---region=$REGION \
---model=$MODEL_ID \
---display-name=api-inference-server-model \
---machine-type=n1-standard-4 \
---accelerator=count=1,type=nvidia-tesla-t4 \
---min-replica-count=1 \
---max-replica-count=1 \
---traffic-split=0=100
-```
+## How does RunPod Work?
+- We can interact with Runpod through the following ways
+-API
+-CLI
+-SDKs
 
-- [deploy-model docs ](https://cloud.google.com/sdk/gcloud/reference/ai/endpoints/deploy-model)
-- Get the options for [machine types here](https://cloud.google.com/vertex-ai/docs/predictions/configure-compute).
-- Options for `accelerator-count`: `nvidia-tesla-k80`,  `nvidia-tesla-p100`, `nvidia-tesla-t4`.
-- [Pricing](https://cloud.google.com/vertex-ai/pricing#custom-trained_models)
+## How to use CLI using the runpodctl
+-runpodctl is an open source [open source command-line-interface(CLI)](https://github.com/runpod/runpodctl). You can use runpodctl to work with pods and RunPod Projects.
 
+-Follow this [link](https://docs.runpod.io/cli/install-runpodctl) to be able to install and configure runpod CLI tool.
 
-#### GCP Services used
-The API inference server uses the following GCP services:
-- **_Cloud Workstations_**: For testing the container locally. (We use this because the models are very heavy to test directly on our machines.)
-- **_Google Container Registry (GCR)_**: For storing the built containers.
-- **_Google Cloud Builds_**: For building the docker image remotely and uploading the resulting image/container to GCR.
-- **_Vertex AI models_**: Creating a deployable model from the container.
-- **_Vertex AI endpoints_**: Actual deployment that provides hardware resources to the models and exposes the REST endpoint used by the user-facing API.
+## How to interact with Runpod Serverless
+
+RunPod generates an Endpoint ID that allows you to interact with your Serverless Pod. Pass in your Endpoint ID to the Endpoint URL and provide an operation.
+
+### Endpoint URL
+The Endpoint URL follows this structure:
+- Base URL: `https://api.runpod.ai`
+- API Version: `v2`
+- Endpoint ID: `The ID of the Serverless point`
+Example Endpoint URL: `https://api.runpod.ai/v2/{endpoint_id}/{operation}`
+
+### Operations
+You can perform various operations on the Serverless Endpoint using the following options:
+
+- `run`: Start the Serverless Pod.
+- `runsync`: Start the Serverless Pod synchronously.
+- `status`: Check the status of the Serverless Pod.
+- `cancel`: Cancel the operation of the Serverless Pod.
+- `health`: Check the health status of the Serverless Pod.
+- `purge-queue`: Purge the queue of the Serverless Pod.
+
+Choose the appropriate operation based on your requirements.
+
+## Are you good to go?
+If you are still not getting it use this link on our GitHub that takes you through the whole process with Dockers and few Images on what should appear on your screen.[Here](https://github.com/SunbirdAI/sunbirdai-model-inferences/tree/main/deploy-docs)
+
 
 ## Part B: User-facing API high-level deployment steps
 The user facing API is a FastAPI app that is deployed on Google Cloud Run. The following are the steps required to deploy it
@@ -111,6 +82,4 @@ chmod u+x bin/deploy-api
 ./bin/deploy-api
 ```
 
-**NOTE**:
-If you deploy to a different Vertex AI endpoint in "Part A: Step 5" above, then on cloud run, you'll need to update the `ENDPOINT_ID` environment variable to point to the new endpoint's ID.
-This can be done on the GCP console.
+

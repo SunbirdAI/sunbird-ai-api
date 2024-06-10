@@ -8,9 +8,11 @@ __pycache__/
 *.py[cod]
 test.db
 .coverage
+env/
 
 # Private JSON files
 service_account_key.json
+credentials.json
 
 # Audio files
 *.wav

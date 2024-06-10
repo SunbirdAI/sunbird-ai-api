@@ -2,7 +2,7 @@ description = """
 Welcome to the Sunbird AI API documentation. The Sunbird AI API provides you access to Sunbird's language models. The currently supported models are:  # noqa E501
 - **Translation (English to Multiple)**: translate from English to Acholi, Ateso, Luganda, Lugbara and Runyankole.
 - **Translation (Multiple to English)**: translate from the 5 local language above to English.
-- **Speech To Text (Luganda)**: Convert Luganda speech audio to text.
+- **Speech To Text**: Convert speech audio to text. Currently the supported languages are (**English**, **Acholi**, **Ateso**, **Luganda**, **Lugbara** and **Runyankole**)
 
 You can create an account and test the endpoints directly on this page.
 
@@ -19,9 +19,14 @@ Use the `Authorize` button below to login and access the protected endpoints.
 
 ### AI Tasks
 - Use the `/tasks/stt` endpoint for speech to text inference for one audio file.
-- Use the `/tasks/translate` endpoint for translation of one text input.
-- Use the `/tasks/translate-batch` endpoint for translation of multiple text inputs.
 - Use the `tasks/nllb-translate` endpoint for translation of text input with the NLLB model.
+- Use the `/tasks/language_id` endpoint for auto language detection of text input. 
+This endpoint identifies the language of a given text. It supports a limited set 
+of local languages including Acholi (ach), Ateso (teo), English (eng),Luganda (lug), 
+Lugbara (lgg), and Runyankole (nyn).
+- Use the `/tasks/summarise` endpoint for anonymised summarization of text input. 
+This endpoint does anonymised summarisation of a given text. The text languages
+supported for now are English (eng) and Luganda (lug).
 """
 
 tags_metadata = [
