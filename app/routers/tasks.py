@@ -1,10 +1,14 @@
+import io
+import json
 import logging
 import os
 import re
 import shutil
 import time
-
 import requests
+from app.inference_services.stt_inference import transcribe
+from app.inference_services.user_preference import get_user_preference, save_translation, save_user_preference
+from app.inference_services.whats_app_services import download_media, get_audio, get_document, get_image, get_interactive_response, get_location, get_media_url, get_message, get_message_id, get_name, get_video, process_audio_message, send_audio, send_message
 import runpod
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -39,6 +43,23 @@ RUNPOD_ENDPOINT_ID = os.getenv("RUNPOD_ENDPOINT_ID")
 # Set RunPod API Key
 runpod.api_key = os.getenv("RUNPOD_API_KEY")
 
+# Access token for your app
+whatsapp_token = os.getenv("WHATSAPP_TOKEN")
+verify_token = os.getenv("VERIFY_TOKEN")
+
+languages_obj = {
+    "1": "lug",
+    "2": "ach",
+    "3": "teo",
+    "4": "lgg",
+    "5": "nyn",
+    "6": "eng",
+    "7": "lug",
+    "8": "ach",
+    "9": "teo",
+    "10": "lgg",
+    "11": "nyn"
+}
 
 # Route for the Language identification endpoint
 @router.post(
@@ -264,3 +285,200 @@ async def chat(chat_request: ChatRequest, current_user=Depends(get_current_user)
     )
 
     return ChatResponse(chat_response=response)
+
+
+@router.post("/webhook")
+async def webhook(payload: dict):
+    try:
+        logging.info(f"Received payload: {json.dumps(payload, indent=2)}")
+        
+        if valid_payload(payload):
+            phone_number_id = get_phone_number_id(payload)
+            from_number = get_from_number(payload)
+            sender_name = get_name(payload)
+            source_language, target_language = get_user_preference(from_number)
+
+            message = None
+
+            if interactive_response := get_interactive_response(payload):
+                message = f"Dear {sender_name}, Thanks for that response."
+            elif location := get_location(payload):
+                message = f"Dear {sender_name}, We have no support for messages of type locations"
+            elif image := get_image(payload):
+                message = f"Dear {sender_name}, We have no support for messages of type image"
+            elif video := get_video(payload):
+                message = f"Dear {sender_name}, We have no support for messages of type video"
+            elif docs := get_document(payload):
+                message = f"Dear {sender_name}, We do not support documents"
+            elif audio := get_audio(payload):
+                message = f"Dear {sender_name}, We do not support audio"
+            else:
+                msg_body = get_message(payload)
+
+                if target_language is None or source_language is None:
+                    set_default_target_language(from_number)
+                    message = welcome_message()
+                elif msg_body.lower() in ["hi", "start"]:
+                    message = welcome_message(sender_name)
+                elif msg_body.isdigit() and msg_body in languages_obj:
+                    message = handle_language_selection(from_number, msg_body,source_language)
+                elif msg_body.lower() == "help":
+                    message = "Help: Reply 'hi' to choose another language. Send text to translate."
+                elif 3 <= len(msg_body) <= 200:
+                    detected_language = detect_language(msg_body)
+                    message = translate_text(msg_body, detected_language, target_language)
+                    save_translation(from_number, msg_body, message, detected_language, target_language)
+                    save_user_preference(from_number, detected_language, target_language)
+                else:
+                    message = "_Please send text that contains between 3 and 200 characters (about 30 to 50 words)._"
+            send_message(message, os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id)
+        
+        return {"status": "success"}
+    except Exception as error:
+        logging.error(f"Error in webhook processing: {str(error)}")
+        raise HTTPException(status_code=500, detail="Internal Server Error") from error
+
+
+@router.get("/webhook")
+async def verify_webhook(mode: str, token: str, challenge: str):
+    if mode and token:
+        if mode != "subscribe" or token != verify_token:
+            raise HTTPException(status_code=403, detail="Forbidden")
+
+        print("WEBHOOK_VERIFIED")
+        return {"challenge": challenge}
+    raise HTTPException(status_code=400, detail="Bad Request")
+
+def valid_payload(payload):
+    return "object" in payload and (
+        "entry" in payload
+        and payload["entry"]
+        and "changes" in payload["entry"][0]
+        and payload["entry"][0]["changes"]
+        and payload["entry"][0]["changes"][0]
+        and "value" in payload["entry"][0]["changes"][0]
+        and "messages" in payload["entry"][0]["changes"][0]["value"]
+        and payload["entry"][0]["changes"][0]["value"]["messages"]
+    )
+
+def get_phone_number_id(payload):
+    return payload["entry"][0]["changes"][0]["value"]["metadata"]["phone_number_id"]
+
+def get_from_number(payload):
+    return payload["entry"][0]["changes"][0]["value"]["messages"][0]["from"]
+
+# def get_message(payload):
+#     return payload["entry"][0]["changes"][0]["value"]["messages"][0]["text"]["body"]
+
+
+def detect_language(text):
+    endpoint = runpod.Endpoint(os.getenv("RUNPOD_ENDPOINT_ID"))
+    request_response = {}
+
+    try:
+        request_response = endpoint.run_sync(
+            {
+                "input": {
+                    "task": "auto_detect_language",
+                    "text": text,
+                }
+            },
+            timeout=60,  # Timeout in seconds.
+        )
+
+        logging.info(f"Request response: {request_response}")
+
+        if request_response:
+            return request_response["language"]
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail="Language detection failed. No output from the service."
+            )
+
+    except TimeoutError:
+        logging.error("Job timed out.")
+        raise HTTPException(
+            status_code=408,
+            detail="The language identification job timed out. Please try again later.",
+        )
+
+
+def welcome_message(sender_name=""):
+    return (
+        f"Hello {sender_name},\n\n"
+        "Welcome to our translation service! 🌍\n\n"
+        "Reply 'help' anytime for instructions on how to use this service.\n\n"
+        "Please choose the language you prefer to translate to:\n"
+        "1: Luganda (default)\n"
+        "2: Acholi\n"
+        "3: Ateso\n"
+        "4: Lugbara\n"
+        "5: Runyankole\n"
+        "6: English\n"
+        "More options coming soon!.\n"
+    )
+
+def set_default_target_language(user_id):
+    default_target_language = "Luganda"
+    defualt_source_language = "English"
+    save_user_preference(user_id, defualt_source_language, default_target_language)
+
+def handle_language_selection(user_id, selection, source_language):
+    if int(selection) == 6:
+        save_user_preference(user_id, source_language, languages_obj[selection])
+        return f"Language set to {languages_obj[selection]}. You can now send texts to translate."
+    else:
+        save_user_preference(user_id, source_language, languages_obj[selection])
+        return f"Language set to {languages_obj[selection]}. You can now send texts to translate."
+
+def translate_text(text, source_language, target_language):
+    """
+    Translates the given text from source_language to target_language.
+    
+    :param text: The text to be translated.
+    :param source_language: The source language code.
+    :param target_language: The target language code.
+    :return: The translated text.
+    """
+    logging.info("Starting translation process")
+    
+    # URL for the endpoint
+    url = f"https://api.runpod.ai/v2/{RUNPOD_ENDPOINT_ID}/runsync"
+    logging.info(f"Endpoint URL: {url}")
+
+    # Authorization token
+    token = os.getenv("RUNPOD_API_KEY")
+    logging.info("Authorization token retrieved")
+
+    # Data to be sent in the request body
+    data = {
+        "input": {
+            "task": "translate",
+            "source_language": source_language,
+            "target_language": target_language,
+            "text": text.strip(),
+        }
+    }
+    logging.info(f"Request data prepared: {data}")
+
+    # Headers with authorization token
+    headers = {"Authorization": token, "Content-Type": "application/json"}
+    logging.info(f"Request headers prepared: {headers}")
+
+    # Sending the request to the API
+    logging.info("Sending request to the translation API")
+    response = requests.post(url, headers=headers, json=data)
+    logging.info(f"Response received: {response.json()}")
+
+    # Handling the response
+    if response.status_code == 200:
+        translated_text = response.json()["output"]["translated_text"]
+        logging.info(f"Translation successful: {translated_text}")
+    else:
+        logging.error(f"Error {response.status_code}: {response.text}")
+        raise Exception(f"Error {response.status_code}: {response.text}")
+
+    return translated_text
+
+
