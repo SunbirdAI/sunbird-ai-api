@@ -97,7 +97,6 @@ class TTSResponse(BaseModel):
     audio_link: Optional[str] = None
 
 
-
 class ChatRequest(BaseModel):
     local_language: Language
     text: str = Field(min_length=3, max_length=200)
