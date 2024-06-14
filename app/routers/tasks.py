@@ -103,6 +103,81 @@ async def language_id(
 
     return request_response
 
+# Route for the Language identification endpoint
+@router.post(
+    "/classify_language",
+    response_model=LanguageIdResponse,
+    dependencies=[Depends(RateLimiter(times=PER_MINUTE_RATE_LIMIT, seconds=60))],
+)
+async def classify_language(
+    languageId_request: LanguageIdRequest, current_user=Depends(get_current_user)
+):
+    """
+    This endpoint identifies the language of a given text. It supports a limited
+    set of local languages including Acholi (ach), Ateso (teo), English (eng),
+    Luganda (lug), Lugbara (lgg), and Runyankole (nyn).
+    """
+
+    endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
+    request_response = {}
+
+    try:
+        request_response = endpoint.run_sync(
+            {
+                "input": {
+                    "task": "language_classify",
+                    "text": languageId_request.text,
+                }
+            },
+            timeout=60,  # Timeout in seconds.
+        )
+
+        # Log the request for debugging purposes
+        logging.info(f"Request response: {request_response}")
+
+    except TimeoutError:
+        # Handle timeout error and return a meaningful message to the user
+        logging.error("Job timed out.")
+        raise HTTPException(
+            status_code=408,
+            detail="The language identification job timed out. Please try again later.",
+        )
+
+    except Exception as e:
+        # Handle any other exceptions and log them
+        logging.error(f"An error occurred: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="An error occurred while processing the language identification request."
+        )
+
+    # Extract predictions from the response
+    if isinstance(request_response, dict) and 'predictions' in request_response:
+        predictions = request_response['predictions']
+        
+        # Find the language with the highest probability above the threshold
+        threshold = 0.9
+        detected_language = "language not detected"
+        highest_prob = 0.0
+
+        for language, probability in predictions.items():
+            if probability > highest_prob:
+                highest_prob = probability
+                detected_language = language
+
+        if highest_prob < threshold:
+            detected_language = "language not detected"
+
+    else:
+        # Handle case where response format is unexpected
+        logging.error(f"Unexpected response format: {request_response}")
+        raise HTTPException(
+            status_code=500,
+            detail="Unexpected response format from the language identification service.",
+        )
+
+    return {"language": detected_language}
+
 
 @router.post(
     "/summarise",
@@ -312,6 +387,8 @@ async def webhook(payload: dict):
                 message = f"Dear {sender_name}, We do not support documents"
             elif audio := get_audio(payload):
                 message = f"Dear {sender_name}, We do not support audio"
+            elif reaction := get_reaction(payload):
+                message = f"Dear {sender_name}, Thanks for your feedback."
             else:
                 msg_body = get_message(payload)
 
@@ -400,6 +477,13 @@ def detect_language(text):
             detail="The language identification job timed out. Please try again later.",
         )
 
+def get_reaction(payload):
+    # Check if the payload contains a reaction
+    messages = payload["entry"][0]["changes"][0]["value"]["messages"]
+    for message in messages:
+        if "reaction" in message:
+            return message["reaction"]
+    return None
 
 def welcome_message(sender_name=""):
     return (
