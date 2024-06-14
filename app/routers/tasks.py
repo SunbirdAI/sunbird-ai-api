@@ -8,7 +8,7 @@ import time
 import requests
 from app.inference_services.stt_inference import transcribe
 from app.inference_services.user_preference import get_user_preference, save_translation, save_user_preference
-from app.inference_services.whats_app_services import download_media, get_audio, get_document, get_image, get_interactive_response, get_location, get_media_url, get_message_id, get_name, get_video, process_audio_message, send_audio, send_message
+from app.inference_services.whats_app_services import download_media, get_audio, get_document, get_image, get_interactive_response, get_location, get_media_url, get_message, get_message_id, get_name, get_video, process_audio_message, send_audio, send_message
 import runpod
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -44,21 +44,21 @@ RUNPOD_ENDPOINT_ID = os.getenv("RUNPOD_ENDPOINT_ID")
 runpod.api_key = os.getenv("RUNPOD_API_KEY")
 
 # Access token for your app
-token = os.getenv("WHATSAPP_TOKEN")
+whatsapp_token = os.getenv("WHATSAPP_TOKEN")
 verify_token = os.getenv("VERIFY_TOKEN")
 
 languages_obj = {
-    "1": "Luganda",
-    "2": "Acholi",
-    "3": "Ateso",
-    "4": "Lugbara",
-    "5": "Runyankole",
-    "6": "English",
-    "7": "Luganda",
-    "8": "Acholi",
-    "9": "Ateso",
-    "10": "Lugbara",
-    "11": "Runyankole"
+    "1": "lug",
+    "2": "ach",
+    "3": "teo",
+    "4": "lgg",
+    "5": "nyn",
+    "6": "eng",
+    "7": "lug",
+    "8": "ach",
+    "9": "teo",
+    "10": "lgg",
+    "11": "nyn"
 }
 
 # Route for the Language identification endpoint
@@ -290,161 +290,52 @@ async def chat(chat_request: ChatRequest, current_user=Depends(get_current_user)
 @router.post("/webhook")
 async def webhook(payload: dict):
     try:
-        body = payload
-        print(json.dumps(payload, indent=2))
-
-        if "object" in payload and (
-                        "entry" in payload
-                        and payload["entry"]
-                        and "changes" in payload["entry"][0]
-                        and payload["entry"][0]["changes"]
-                        and payload["entry"][0]["changes"][0]
-                        and "value" in payload["entry"][0]["changes"][0]
-                        and "messages" in payload["entry"][0]["changes"][0]["value"]
-                        and payload["entry"][0]["changes"][0]["value"]["messages"]
-                    ):
-            phone_number_id = payload["entry"][0]["changes"][0]["value"]["metadata"]["phone_number_id"]
-            from_number = payload["entry"][0]["changes"][0]["value"]["messages"][0]["from"]
-            message_id = get_message_id(payload)
-            
-            # Get user's whatsapp username.
-            sender_name = get_name(body)
-
-            # Get user's language preference
-            # Welcome Message and Onboarding
+        logging.info(f"Received payload: {json.dumps(payload, indent=2)}")
+        
+        if valid_payload(payload):
+            phone_number_id = get_phone_number_id(payload)
+            from_number = get_from_number(payload)
+            sender_name = get_name(payload)
             source_language, target_language = get_user_preference(from_number)
 
             message = None
 
             if interactive_response := get_interactive_response(payload):
                 message = f"Dear {sender_name}, Thanks for that response."
-
             elif location := get_location(payload):
                 message = f"Dear {sender_name}, We have no support for messages of type locations"
-
             elif image := get_image(payload):
                 message = f"Dear {sender_name}, We have no support for messages of type image"
-
             elif video := get_video(payload):
                 message = f"Dear {sender_name}, We have no support for messages of type video"
-
             elif docs := get_document(payload):
                 message = f"Dear {sender_name}, We do not support documents"
-
             elif audio := get_audio(payload):
-                audio_id = process_audio_message(payload)
-                audio_link = get_media_url(audio_id, token)
-                # Assume `download_audio_file` is a function you implement to download the audio file
-                audio_file_path = download_media(audio_link,token)
-                message = "Speech to text currently not supported"
-                # Now call your speech_to_text service with the downloaded audio file
-                # message = await speech_to_text_whatsapp(audio_file_path, Language("Luganda"))
-
-
-            # elif audio := get_audio(payload):
-            #     audio_link = process_audio_message(payload)
-            #     message = f"Dear {sender_name}, Your audio file has been recivced but the functionality is under improvement. Here is your audio Url: {audio_link}"
-
+                message = f"Dear {sender_name}, We do not support audio"
             else:
-                msg_body = payload["entry"][0]["changes"][0]["value"]["messages"][0]["text"]["body"]
+                msg_body = get_message(payload)
 
-                # Check if either source or target language is None, indicating a new user
-                if source_language is None or target_language is None:
-                    # Set default languages for a new user
-                    default_source_language = "English"  # Example default source language
-                    default_target_language = "Luganda"  # Example default target language
-                    save_user_preference(from_number, default_source_language, default_target_language)
-
-                    # Indicate new user for welcome message
-                    # You can send a welcome message here, explaining how to set their preferred languages
-                    message = "🌟 Welcome to Sunbird AI Translation Service! 🌟\nWe're delighted to have you here! Whether you need help or want to get started, we're here for you.\nType 'help' for assistance or select your preferred language by typing its corresponding number:\n1: Luganda\n2: Acholi\n3: Ateso\n4: Lugbara\n5: Runyankole"
-
+                if target_language is None or source_language is None:
+                    set_default_target_language(from_number)
+                    message = welcome_message()
                 elif msg_body.lower() in ["hi", "start"]:
-                    message = (
-                        f"Hello {sender_name},\n\n"
-                        "Welcome to our translation service! 🌍\n\n"
-                        "Reply 'help' anytime for instructions on how to use this service.\n\n"
-                        "Please choose the language you prefer to translate to:\n"
-                        "1: Luganda (default)\n"
-                        "2: Acholi\n"
-                        "3: Ateso\n"
-                        "4: Lugbara\n"
-                        "5: Runyankole\n"
-                        "6: English\n"
-                        "More options coming soon!.\n"
-                        "Note\n"
-                        "For options 1 to 5 you should transalting from English."
-                        )
-
-
+                    message = welcome_message(sender_name)
                 elif msg_body.isdigit() and msg_body in languages_obj:
-                    
-                    if int(msg_body) == 6:
-                        save_user_preference(from_number, "Not Set",languages_obj[msg_body])
-                        message = (
-                            "Please choose a language you are going to translate from:\n"
-                            "Reply 'help' anytime for instructions on how to use this service.\n"
-                            "7: Luganda\n"
-                            "8: Acholi\n"
-                            "9: Ateso\n"
-                            "10: Lugbara\n"
-                            "11: Runyankole\n"
-                            "More options coming soon!"
-                        )
-                    # elif msg_body.isdigit() and int(msg_body) == 7:
-                    #     save_user_preference(from_number, languages_obj[msg_body],target_language)
-                    #     message = (
-                    #         f"Your options now set to {languages_obj[msg_body]}. You can now send texts that will be translated to audio."
-                    #     )
-
-                    elif msg_body.isdigit() and int(msg_body) > 6:
-                        save_user_preference(from_number,languages_obj[msg_body],"English")
-                        message = (
-                            f"You are now translating from {languages_obj[msg_body]} to English. You can now send texts to translate."
-                        )
-
-                    else:
-                        save_user_preference(from_number, "English",languages_obj[msg_body])
-                        message = (
-                            f"Language set to {languages_obj[msg_body]}. You can now send texts to translate."
-                        )
-
+                    message = handle_language_selection(from_number, msg_body,source_language)
                 elif msg_body.lower() == "help":
                     message = "Help: Reply 'hi' to choose another language. Send text to translate."
-
-                elif source_language == "Text to Speech Translations":
-                    # Create a TTSRequest object
-                    request = TTSRequest(text=message, return_audio_link=True)
-                    audio_link = tts(request=request)
-                    send_audio(token,audio_link,phone_number_id,from_number)
-
                 elif 3 <= len(msg_body) <= 200:
-                    if source_language == "Not Set":
-                        message = "Please set your source language first."
-                    else:
-                        # Translation Feature
-                        from_lang = source_language  # Placeholder for auto-detection
-                        to_lang = target_language 
-                        translated_text = translate(msg_body, from_lang, to_lang)
-                        message = translated_text
-                    
-                        # Save the translation
-                        save_translation(from_number, msg_body, message, source_language, target_language)
-                        # if to_lang == "Luganda":
-                        # # Generate the audio response
-                        # # tts_response = text_to_speech_whatsapp(TTSRequest(text=message, return_audio_link=True))
-                        # # audio_link = tts_response.audio_link  # Assuming this is the URL to the audio file
-                        # # send_audio(token, audio_link,phone_number_id,from_number)
-                    
+                    detected_language = detect_language(msg_body)
+                    message = translate_text(msg_body, detected_language, target_language)
+                    save_translation(from_number, msg_body, message, detected_language, target_language)
+                    save_user_preference(from_number, detected_language, target_language)
                 else:
                     message = "_Please send text that contains between 3 and 200 characters (about 30 to 50 words)._"
-            
-            send_message(message, token, from_number, phone_number_id)
-            
+            send_message(message, os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id)
+        
         return {"status": "success"}
-
     except Exception as error:
-        print(f"Error in webhook processing: {str(error)}")
+        logging.error(f"Error in webhook processing: {str(error)}")
         raise HTTPException(status_code=500, detail="Internal Server Error") from error
 
 
@@ -458,33 +349,136 @@ async def verify_webhook(mode: str, token: str, challenge: str):
         return {"challenge": challenge}
     raise HTTPException(status_code=400, detail="Bad Request")
 
-# def speech_to_text_whatsapp(
-#     audio: UploadFile(...) = File(...),
-#     language: Language = Form("Luganda"),
-#     return_confidences: bool = Form(False),) -> STTTranscript:  # TODO: Make language an enum
-#     """
-#     We currently only support Luganda.
-#     """
-#     if not audio.content_type.startswith("audio"):
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail="Invalid file type uploaded. Please upload a valid audio file",
-#         )
-#     if audio.content_type != "audio/wave":
-#         # try to convert to wave, if it fails return an error.
-#         buf = io.BytesIO()
-#         audio_file = audio.file
-#         audio = AudioSegment.from_file(audio_file)
-#         audio = audio.export(buf, format="wav")
+def valid_payload(payload):
+    return "object" in payload and (
+        "entry" in payload
+        and payload["entry"]
+        and "changes" in payload["entry"][0]
+        and payload["entry"][0]["changes"]
+        and payload["entry"][0]["changes"][0]
+        and "value" in payload["entry"][0]["changes"][0]
+        and "messages" in payload["entry"][0]["changes"][0]["value"]
+        and payload["entry"][0]["changes"][0]["value"]["messages"]
+    )
 
-#     response = transcribe(audio)
-#     return STTTranscript(text=response)
+def get_phone_number_id(payload):
+    return payload["entry"][0]["changes"][0]["value"]["metadata"]["phone_number_id"]
 
-# def text_to_speech_whatsapp(tts_request: TTSRequest):
-#     """
-#     Text to Speech endpoint. Returns a base64 string, which can be decoded to a .wav file.
-#     """
-#     response = tts(tts_request)
-#     if tts_request.return_audio_link:
-#         return TTSResponse(audio_link=response)
-#     return TTSResponse(base64_string=response)
+def get_from_number(payload):
+    return payload["entry"][0]["changes"][0]["value"]["messages"][0]["from"]
+
+# def get_message(payload):
+#     return payload["entry"][0]["changes"][0]["value"]["messages"][0]["text"]["body"]
+
+
+def detect_language(text):
+    endpoint = runpod.Endpoint(os.getenv("RUNPOD_ENDPOINT_ID"))
+    request_response = {}
+
+    try:
+        request_response = endpoint.run_sync(
+            {
+                "input": {
+                    "task": "auto_detect_language",
+                    "text": text,
+                }
+            },
+            timeout=60,  # Timeout in seconds.
+        )
+
+        logging.info(f"Request response: {request_response}")
+
+        if request_response:
+            return request_response["language"]
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail="Language detection failed. No output from the service."
+            )
+
+    except TimeoutError:
+        logging.error("Job timed out.")
+        raise HTTPException(
+            status_code=408,
+            detail="The language identification job timed out. Please try again later.",
+        )
+
+
+def welcome_message(sender_name=""):
+    return (
+        f"Hello {sender_name},\n\n"
+        "Welcome to our translation service! 🌍\n\n"
+        "Reply 'help' anytime for instructions on how to use this service.\n\n"
+        "Please choose the language you prefer to translate to:\n"
+        "1: Luganda (default)\n"
+        "2: Acholi\n"
+        "3: Ateso\n"
+        "4: Lugbara\n"
+        "5: Runyankole\n"
+        "6: English\n"
+        "More options coming soon!.\n"
+    )
+
+def set_default_target_language(user_id):
+    default_target_language = "Luganda"
+    defualt_source_language = "English"
+    save_user_preference(user_id, defualt_source_language, default_target_language)
+
+def handle_language_selection(user_id, selection, source_language):
+    if int(selection) == 6:
+        save_user_preference(user_id, source_language, languages_obj[selection])
+        return f"Language set to {languages_obj[selection]}. You can now send texts to translate."
+    else:
+        save_user_preference(user_id, source_language, languages_obj[selection])
+        return f"Language set to {languages_obj[selection]}. You can now send texts to translate."
+
+def translate_text(text, source_language, target_language):
+    """
+    Translates the given text from source_language to target_language.
+    
+    :param text: The text to be translated.
+    :param source_language: The source language code.
+    :param target_language: The target language code.
+    :return: The translated text.
+    """
+    logging.info("Starting translation process")
+    
+    # URL for the endpoint
+    url = f"https://api.runpod.ai/v2/{RUNPOD_ENDPOINT_ID}/runsync"
+    logging.info(f"Endpoint URL: {url}")
+
+    # Authorization token
+    token = os.getenv("RUNPOD_API_KEY")
+    logging.info("Authorization token retrieved")
+
+    # Data to be sent in the request body
+    data = {
+        "input": {
+            "task": "translate",
+            "source_language": source_language,
+            "target_language": target_language,
+            "text": text.strip(),
+        }
+    }
+    logging.info(f"Request data prepared: {data}")
+
+    # Headers with authorization token
+    headers = {"Authorization": token, "Content-Type": "application/json"}
+    logging.info(f"Request headers prepared: {headers}")
+
+    # Sending the request to the API
+    logging.info("Sending request to the translation API")
+    response = requests.post(url, headers=headers, json=data)
+    logging.info(f"Response received: {response.json()}")
+
+    # Handling the response
+    if response.status_code == 200:
+        translated_text = response.json()["output"]["translated_text"]
+        logging.info(f"Translation successful: {translated_text}")
+    else:
+        logging.error(f"Error {response.status_code}: {response.text}")
+        raise Exception(f"Error {response.status_code}: {response.text}")
+
+    return translated_text
+
+
