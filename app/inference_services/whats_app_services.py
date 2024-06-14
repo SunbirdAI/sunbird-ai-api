@@ -3,7 +3,6 @@ import os
 import mimetypes
 import requests
 import logging
-# from requests_toolbelt.multipart.encoder import MultipartEncoder
 from requests_toolbelt import MultipartEncoder
 from typing import Dict, Any, List, Union
 
@@ -15,7 +14,6 @@ logging.basicConfig(
 
 
 
-# token = os.getenv("WHATSAPP_TOKEN")
 base_url = "https://graph.facebook.com/v12.0"
 v15_base_url = "https://graph.facebook.com/v15.0"
 
@@ -544,38 +542,6 @@ def query_media_url(media_id: str):
         logging.info(f"Status code: {r.status_code}")
         logging.info(f"Response: {r.json()}")
         return None
-
-# def download_media(media_url: str, mime_type: str, file_path: str = "temp"):
-#         """
-#         Download media from media url obtained either by manually uploading media or received media
-
-#         Args:
-#             media_url[str]: Media url of the media
-#             mime_type[str]: Mime type of the media
-#             file_path[str]: Path of the file to be downloaded to. Default is "temp"
-#                             Do not include the file extension. It will be added automatically.
-
-#         Returns:
-#             str: Media url
-
-#         """
-#         r = requests.get(media_url, headers=headers)
-#         content = r.content
-#         extension = mime_type.split("/")[1]
-#         # create a temporary file
-#         try:
-
-#             save_file_here = (
-#                 f"{file_path}.{extension}" if file_path else f"temp.{extension}"
-#             )
-#             with open(save_file_here, "wb") as f:
-#                 f.write(content)
-#             logging.info(f"Media downloaded to {save_file_here}")
-#             return f.name
-#         except Exception as e:
-#             print(e)
-#             logging.info(f"Error downloading media to {save_file_here}")
-#             return None
         
 def download_media(media_url, access_token, file_path="downloaded_media_file"):
     """
@@ -912,24 +878,3 @@ def get_media_url(media_id, token):
         return media_url
     else:
         raise Exception(f"Failed to retrieve media URL. HTTP Status: {response.status_code}, Response: {response.text}")
-
-
-# def download_media(media_url, access_token, file_path="downloaded_media_file"):
-#     """
-#     Download the media from the media URL obtained from the WhatsApp Business API.
-    
-#     :param media_url: The URL of the media file to download.
-#     :param access_token: The access token for authenticating with the WhatsApp Business API.
-#     :param file_path: The local file path where the media should be saved.
-#     :return: The path to the downloaded media file.
-#     """
-#     headers = {'Authorization': f'Bearer {access_token}'}
-#     response = requests.get(media_url, headers=headers, stream=True)
-    
-#     if response.status_code == 200:
-#         with open(file_path, 'wb') as f:
-#             for chunk in response.iter_content(chunk_size=8192):
-#                 f.write(chunk)
-#         return file_path
-#     else:
-#         raise Exception(f"Failed to download media. HTTP Status: {response.status_code}")

@@ -367,9 +367,6 @@ def get_phone_number_id(payload):
 def get_from_number(payload):
     return payload["entry"][0]["changes"][0]["value"]["messages"][0]["from"]
 
-# def get_message(payload):
-#     return payload["entry"][0]["changes"][0]["value"]["messages"][0]["text"]["body"]
-
 
 def detect_language(text):
     endpoint = runpod.Endpoint(os.getenv("RUNPOD_ENDPOINT_ID"))
@@ -383,7 +380,7 @@ def detect_language(text):
                     "text": text,
                 }
             },
-            timeout=60,  # Timeout in seconds.
+            timeout=60,  
         )
 
         logging.info(f"Request response: {request_response}")
