@@ -307,14 +307,9 @@ async def nllb_translate(
     languages and Local to English languages, so when the source language is one of the
     languages listed, the target can be any of the other languages.
     """
-    # URL for the endpoint
-    url = f"https://api.runpod.ai/v2/{RUNPOD_ENDPOINT_ID}/runsync"
-
-    # Authorization token
-    token = os.getenv("RUNPOD_API_KEY")
+    endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
 
     text = translation_request.text
-
     # Data to be sent in the request body
     data = {
         "input": {
@@ -325,20 +320,24 @@ async def nllb_translate(
         }
     }
 
-    # Headers with authorization token
-    headers = {"Authorization": token, "Content-Type": "application/json"}
+    start_time = time.time()
+    try:
+        request_response = endpoint.run_sync(
+            data,
+            timeout=600,  # Timeout in seconds.
+        )
+    except TimeoutError:
+        logging.error("Job timed out.")
 
-    response = requests.post(url, headers=headers, json=data)
-    logging.info(f"response: {response.json()}")
+    end_time = time.time()
+    logging.info(f"Response: {request_response}")
 
-    if response.status_code == 200:
-        translated_text = response.json()["output"]["translated_text"]
-    else:
-        raise HTTPException(status_code=response.status_code, detail=response.text)
+    # Calculate the elapsed time
+    elapsed_time = end_time - start_time
+    logging.info(f"Elapsed time: {elapsed_time} seconds")
 
-    response = response.json()
-    response["output"]["text"] = text
-    response["output"]["translated_text"] = translated_text
+    response = {}
+    response["output"] = request_response
 
     return response
 

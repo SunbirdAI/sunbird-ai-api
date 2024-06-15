@@ -14,11 +14,7 @@ class NllbResponseOutputData(BaseModel):
 
 
 class NllbTranslationResponse(BaseModel):
-    delayTime: int
-    executionTime: int
-    id: str
     output: NllbResponseOutputData
-    status: str
 
 
 class LanguageIdRequest(BaseModel):
