@@ -35,15 +35,18 @@ async def login(request: Request):  # type: ignore
     context = {"request": request}
     return templates.TemplateResponse("auth/login.html", context)
 
+
 @router.get("/privacy_policy")
-async def login(request: Request): # type: ignore
+async def login(request: Request):  # type: ignore
     context = {"request": request}
     return templates.TemplateResponse("privacy_policy.html", context)
 
+
 @router.get("/terms_of_service")
-async def login(request: Request): # type: ignore
+async def login(request: Request):  # type: ignore
     context = {"request": request}
     return templates.TemplateResponse("terms_of_service.html", context)
+
 
 @router.post("/login")
 async def login(  # noqa F811
