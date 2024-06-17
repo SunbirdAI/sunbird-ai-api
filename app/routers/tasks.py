@@ -562,4 +562,40 @@ def translate_text(text, source_language, target_language):
 
     return translated_text
 
+def process_speech_to_text(audio: UploadFile, language: str):
+    endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
 
+    filename = secure_filename(audio.filename)
+    file_path = os.path.join("/tmp", filename)
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(audio.file, buffer)
+
+    blob_name = upload_audio_file(file_path=file_path)
+    audio_file = blob_name
+    os.remove(file_path)
+    request_response = {}
+
+    start_time = time.time()
+    try:
+        request_response = endpoint.run_sync(
+            {
+                "input": {
+                    "task": "transcribe",
+                    "target_lang": language,
+                    "adapter": language,
+                    "audio_file": audio_file,
+                }
+            },
+            timeout=600,  # Timeout in seconds.
+        )
+    except TimeoutError:
+        logging.error("Job timed out.")
+
+    end_time = time.time()
+    logging.info(f"Response: {request_response}")
+
+    # Calculate the elapsed time
+    elapsed_time = end_time - start_time
+    logging.info(f"Elapsed time: {elapsed_time} seconds")
+    
+    return request_response.get("audio_transcription")
