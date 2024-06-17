@@ -20,10 +20,10 @@ from app.inference_services.user_preference import (
     get_user_preference,
     save_translation,
     save_user_preference,
+    update_feedback,
 )
 from app.inference_services.whats_app_services import (
     download_media,
-    get_audio,
     get_document,
     get_image,
     get_interactive_response,
@@ -400,9 +400,30 @@ async def webhook(payload: dict):
             elif docs := get_document(payload):
                 message = f"Dear {sender_name}, We do not support documents"
             elif audio := get_audio(payload):
-                message = f"Dear {sender_name}, We do not support audio"
+                try:
+                    audio_id = audio["id"]
+                    mime_type = audio["mime_type"]
+                    
+                    if target_language:
+                        transcription = process_speech_to_text_from_whatsapp(audio_id, mime_type, target_language, whatsapp_token, phone_number_id)
+                        if transcription:
+                            message = f"Dear {sender_name}, Here is the transcription: {transcription}"
+                        else:
+                            message = "Sorry, there was an issue processing your audio file."
+                    else:
+                        message = f"Dear {sender_name}, Please specify the language for transcription."
+                
+                except Exception as e:
+                    logging.error(f"Error processing audio file: {str(e)}")
+                    message = "Sorry, there was an issue processing your audio file."
+            # elif audio := get_audio(payload):
+            #     message = f"Dear {sender_name}, We do not support audio"
             elif reaction := get_reaction(payload):
-                message = f"Dear {sender_name}, Thanks for your feedback."
+                # Extract the message_id and emoji
+                mess_id = reaction["message_id"]
+                emoji = reaction["emoji"]
+                update_feedback(mess_id, emoji)
+                message = f"Dear {sender_name}, Thanks for your feedback {emoji}."
             else:
                 msg_body = get_message(payload)
 
@@ -422,16 +443,23 @@ async def webhook(payload: dict):
                     message = translate_text(
                         msg_body, detected_language, target_language
                     )
+                    mess_id =send_message(
+                        message, os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id
+                        )
+                    
                     save_translation(
                         from_number,
                         msg_body,
                         message,
                         detected_language,
                         target_language,
+                        mess_id
                     )
                     save_user_preference(
                         from_number, detected_language, target_language
                     )
+
+                    return {"status": "success"}
                 else:
                     message = "_Please send text that contains between 3 and 200 characters (about 30 to 50 words)._"
             send_message(
@@ -513,7 +541,10 @@ def get_reaction(payload):
     # Check if the payload contains a reaction
     messages = payload["entry"][0]["changes"][0]["value"]["messages"]
     for message in messages:
+        logging.info(f"Message: {message}")
         if "reaction" in message:
+            reaction = message["reaction"]
+            logging.info(f"Reaction: {reaction}")
             return message["reaction"]
     return None
 
@@ -605,6 +636,133 @@ def process_speech_to_text(audio: UploadFile, language: str):
     file_path = os.path.join("/tmp", filename)
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(audio.file, buffer)
+
+    blob_name = upload_audio_file(file_path=file_path)
+    audio_file = blob_name
+    os.remove(file_path)
+    request_response = {}
+
+    start_time = time.time()
+    try:
+        request_response = endpoint.run_sync(
+            {
+                "input": {
+                    "task": "transcribe",
+                    "target_lang": language,
+                    "adapter": language,
+                    "audio_file": audio_file,
+                }
+            },
+            timeout=600,  # Timeout in seconds.
+        )
+    except TimeoutError:
+        logging.error("Job timed out.")
+
+    end_time = time.time()
+    logging.info(f"Response: {request_response}")
+
+    # Calculate the elapsed time
+    elapsed_time = end_time - start_time
+    logging.info(f"Elapsed time: {elapsed_time} seconds")
+    
+    return request_response.get("audio_transcription")
+
+def get_audio(payload: dict):
+    """
+    Extracts audio information from the webhook payload.
+    
+    Args:
+        payload (dict): The incoming webhook payload.
+    
+    Returns:
+        dict: Audio information if available, otherwise None.
+    """
+    try:
+        if 'entry' in payload:
+            for entry in payload['entry']:
+                if 'changes' in entry:
+                    for change in entry['changes']:
+                        if 'value' in change and 'messages' in change['value']:
+                            for message in change['value']['messages']:
+                                if 'audio' in message:
+                                    audio_info = {
+                                        "id": message['audio']['id'],
+                                        "mime_type": message['audio']['mime_type']
+                                    }
+                                    return audio_info
+        return None
+    except KeyError:
+        logging.error("KeyError: Missing expected key in payload.")
+        return None
+
+
+def download_audio(audio_id, mime_type, access_token,phone_number_id):
+    """
+    Downloads the audio file from WhatsApp Cloud API.
+    
+    Args:
+        audio_id (str): The ID of the audio file.
+        mime_type (str): The MIME type of the audio file.
+        access_token (str): Access token for authentication.
+    
+    Returns:
+        str: Path to the downloaded audio file.
+    """
+    url = f"https://graph.facebook.com/v12.0/{audio_id}?phone_number_id={phone_number_id}"
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3440.106 Safari/537.36",
+    }
+    
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        audio_data = response.content
+        file_extension = mime_type.split('/')[-1]
+        file_path = f"/tmp/{audio_id}.{file_extension}"
+        
+        with open(file_path, "wb") as audio_file:
+            audio_file.write(audio_data)
+        logging.info(f"Audio file_path: {file_path}")
+        return file_path
+    else:
+        logging.error(f"Failed to download audio file: {response.status_code} - {response.text}")
+        return None
+
+def process_speech_to_text_from_whatsapp(audio_id: str, mime_type: str, language: str, access_token: str, phone_number_id):
+    """
+    Downloads an audio file from WhatsApp Cloud API and processes it for speech-to-text.
+    
+    Args:
+        audio_id (str): The ID of the audio file.
+        mime_type (str): The MIME type of the audio file.
+        language (str): The language for transcription.
+        access_token (str): Access token for WhatsApp Cloud API.
+    
+    Returns:
+        str: Transcription of the audio file.
+    """
+    # Download audio file
+    url = f"https://graph.facebook.com/v12.0/{audio_id}?phone_number_id={phone_number_id}"
+    headers = {
+        "Authorization": f"Bearer {access_token}"
+    }
+    
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        audio_data = response.content
+        file_extension = mime_type.split('/')[-1]
+        file_path = f"{audio_id}.{file_extension}"
+        
+        with open(file_path, "wb") as audio_file:
+            audio_file.write(audio_data)
+        logging.info(f"Audio file_path: {file_path}")
+    else:
+        logging.error(f"Failed to download audio file: {response.status_code} - {response.text}")
+        return None
+
+    # Process audio file for speech-to-text
+    endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
 
     blob_name = upload_audio_file(file_path=file_path)
     audio_file = blob_name

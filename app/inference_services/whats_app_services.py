@@ -20,32 +20,71 @@ v15_base_url = "https://graph.facebook.com/v15.0"
 headers = {"Content-Type": "application/json"}
 
 
+# def send_message(message, token, recipient_id, phone_number_id, preview_url=True):
+#     """
+#     Sends a text message to a WhatsApp user
+
+#     Args:
+#            message[str]: Message to be sent to the user
+#            recipient_id[str]: Phone number of the user with country code wihout +
+#            recipient_type[str]: Type of the recipient, either individual or group
+#            preview_url[bool]: Whether to send a preview url or not
+
+#     """
+#     url = f"{base_url}/{phone_number_id}/messages?access_token={token}"
+#     data = {
+#         "messaging_product": "whatsapp",
+#         "to": recipient_id,
+#         "text": {"preview_url": preview_url, "body": message},
+#     }
+#     logging.info(f"Sending message to {recipient_id}")
+#     r = requests.post(f"{url}", headers=headers, json=data)
+#     if r.status_code == 200:
+#         logging.info(f"Message sent to {recipient_id}")
+#         return r.json()
+#     logging.info(f"Message not sent to {recipient_id}")
+#     logging.info(f"Status code: {r.status_code}")
+#     logging.info(f"Response: {r.json()}")
+#     return r.json()
+
 def send_message(message, token, recipient_id, phone_number_id, preview_url=True):
     """
-    Sends a text message to a WhatsApp user
+    Sends a text message to a WhatsApp user and returns the message ID
 
     Args:
            message[str]: Message to be sent to the user
-           recipient_id[str]: Phone number of the user with country code wihout +
-           recipient_type[str]: Type of the recipient, either individual or group
+           token[str]: Access token for WhatsApp API
+           recipient_id[str]: Phone number of the user with country code without +
+           phone_number_id[str]: ID of the phone number sending the message
            preview_url[bool]: Whether to send a preview url or not
 
+    Returns:
+           str: ID of the sent message
     """
-    url = f"{base_url}/{phone_number_id}/messages?access_token={token}"
+    base_url = "https://graph.facebook.com/v12.0"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+    url = f"{base_url}/{phone_number_id}/messages"
     data = {
         "messaging_product": "whatsapp",
         "to": recipient_id,
         "text": {"preview_url": preview_url, "body": message},
     }
     logging.info(f"Sending message to {recipient_id}")
-    r = requests.post(f"{url}", headers=headers, json=data)
+    r = requests.post(url, headers=headers, json=data)
     if r.status_code == 200:
-        logging.info(f"Message sent to {recipient_id}")
-        return r.json()
-    logging.info(f"Message not sent to {recipient_id}")
-    logging.info(f"Status code: {r.status_code}")
-    logging.info(f"Response: {r.json()}")
-    return r.json()
+        response_json = r.json()
+        message_id = response_json.get('messages', [{}])[0].get('id')
+        logging.info(f"Message sent to {recipient_id} with ID: {message_id}")
+        return message_id
+    else:
+        logging.error(f"Message not sent to {recipient_id}")
+        logging.error(f"Status code: {r.status_code}")
+        logging.error(f"Response: {r.json()}")
+        return None
+
 
 
 def reply_to_message(
