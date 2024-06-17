@@ -14,11 +14,7 @@ class NllbResponseOutputData(BaseModel):
 
 
 class NllbTranslationResponse(BaseModel):
-    delayTime: int
-    executionTime: int
-    id: str
     output: NllbResponseOutputData
-    status: str
 
 
 class LanguageIdRequest(BaseModel):
@@ -95,7 +91,6 @@ class TTSResponse(BaseModel):
     # audio_link: str | None = None
     base64_string: Optional[str] = None
     audio_link: Optional[str] = None
-
 
 
 class ChatRequest(BaseModel):

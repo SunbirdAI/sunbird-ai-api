@@ -5,10 +5,8 @@ import os
 import re
 import shutil
 import time
+
 import requests
-from app.inference_services.stt_inference import transcribe
-from app.inference_services.user_preference import get_user_preference, save_translation, save_user_preference
-from app.inference_services.whats_app_services import download_media, get_audio, get_document, get_image, get_interactive_response, get_location, get_media_url, get_message, get_message_id, get_name, get_video, process_audio_message, send_audio, send_message
 import runpod
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -16,7 +14,29 @@ from fastapi_limiter.depends import RateLimiter
 from twilio.rest import Client
 from werkzeug.utils import secure_filename
 
+from app.inference_services.stt_inference import transcribe
 from app.inference_services.translate_inference import translate
+from app.inference_services.user_preference import (
+    get_user_preference,
+    save_translation,
+    save_user_preference,
+)
+from app.inference_services.whats_app_services import (
+    download_media,
+    get_audio,
+    get_document,
+    get_image,
+    get_interactive_response,
+    get_location,
+    get_media_url,
+    get_message,
+    get_message_id,
+    get_name,
+    get_video,
+    process_audio_message,
+    send_audio,
+    send_message,
+)
 from app.routers.auth import get_current_user
 from app.schemas.tasks import (
     ChatRequest,
@@ -58,8 +78,9 @@ languages_obj = {
     "8": "ach",
     "9": "teo",
     "10": "lgg",
-    "11": "nyn"
+    "11": "nyn",
 }
+
 
 # Route for the Language identification endpoint
 @router.post(
@@ -102,6 +123,7 @@ async def language_id(
         )
 
     return request_response
+
 
 # Route for the Language identification endpoint
 @router.post(
@@ -148,13 +170,13 @@ async def classify_language(
         logging.error(f"An error occurred: {e}")
         raise HTTPException(
             status_code=500,
-            detail="An error occurred while processing the language identification request."
+            detail="An error occurred while processing the language identification request.",
         )
 
     # Extract predictions from the response
-    if isinstance(request_response, dict) and 'predictions' in request_response:
-        predictions = request_response['predictions']
-        
+    if isinstance(request_response, dict) and "predictions" in request_response:
+        predictions = request_response["predictions"]
+
         # Find the language with the highest probability above the threshold
         threshold = 0.9
         detected_language = "language not detected"
@@ -285,49 +307,37 @@ async def nllb_translate(
     languages and Local to English languages, so when the source language is one of the
     languages listed, the target can be any of the other languages.
     """
-    # URL for the endpoint
-    url = f"https://api.runpod.ai/v2/{RUNPOD_ENDPOINT_ID}/runsync"
+    endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
 
-    # Authorization token
-    token = os.getenv("RUNPOD_API_KEY")
-
-    # Split text into chunks of 100 words each
     text = translation_request.text
-    text_chunks = chunk_text(text, chunk_size=100)
-    logging.info(f"text_chunks length: {len(text_chunks)}")
-
-    # Translated chunks will be stored here
-    translated_text_chunks = []
-
-    for chunk in text_chunks:
-        # Data to be sent in the request body
-        data = {
-            "input": {
-                "task": "translate",
-                "source_language": translation_request.source_language,
-                "target_language": translation_request.target_language,
-                "text": chunk.strip(),  # Remove leading/trailing spaces
-            }
+    # Data to be sent in the request body
+    data = {
+        "input": {
+            "task": "translate",
+            "source_language": translation_request.source_language,
+            "target_language": translation_request.target_language,
+            "text": text.strip(),  # Remove leading/trailing spaces
         }
+    }
 
-        # Headers with authorization token
-        headers = {"Authorization": token, "Content-Type": "application/json"}
+    start_time = time.time()
+    try:
+        request_response = endpoint.run_sync(
+            data,
+            timeout=600,  # Timeout in seconds.
+        )
+    except TimeoutError:
+        logging.error("Job timed out.")
 
-        response = requests.post(url, headers=headers, json=data)
-        logging.info(f"response: {response.json()}")
+    end_time = time.time()
+    logging.info(f"Response: {request_response}")
 
-        if response.status_code == 200:
-            translated_chunk = response.json()["output"]["translated_text"]
-            translated_text_chunks.append(translated_chunk)
-        else:
-            raise HTTPException(status_code=response.status_code, detail=response.text)
+    # Calculate the elapsed time
+    elapsed_time = end_time - start_time
+    logging.info(f"Elapsed time: {elapsed_time} seconds")
 
-    logging.info(f"translated_text_chunks: {translated_text_chunks}")
-    # Concatenate translated chunks
-    final_translated_text = " ".join(translated_text_chunks)
-    response = response.json()
-    response["output"]["text"] = text
-    response["output"]["translated_text"] = final_translated_text
+    response = {}
+    response["output"] = request_response
 
     return response
 
@@ -366,7 +376,7 @@ async def chat(chat_request: ChatRequest, current_user=Depends(get_current_user)
 async def webhook(payload: dict):
     try:
         logging.info(f"Received payload: {json.dumps(payload, indent=2)}")
-        
+
         if valid_payload(payload):
             phone_number_id = get_phone_number_id(payload)
             from_number = get_from_number(payload)
@@ -380,9 +390,13 @@ async def webhook(payload: dict):
             elif location := get_location(payload):
                 message = f"Dear {sender_name}, We have no support for messages of type locations"
             elif image := get_image(payload):
-                message = f"Dear {sender_name}, We have no support for messages of type image"
+                message = (
+                    f"Dear {sender_name}, We have no support for messages of type image"
+                )
             elif video := get_video(payload):
-                message = f"Dear {sender_name}, We have no support for messages of type video"
+                message = (
+                    f"Dear {sender_name}, We have no support for messages of type video"
+                )
             elif docs := get_document(payload):
                 message = f"Dear {sender_name}, We do not support documents"
             elif audio := get_audio(payload):
@@ -398,18 +412,32 @@ async def webhook(payload: dict):
                 elif msg_body.lower() in ["hi", "start"]:
                     message = welcome_message(sender_name)
                 elif msg_body.isdigit() and msg_body in languages_obj:
-                    message = handle_language_selection(from_number, msg_body,source_language)
+                    message = handle_language_selection(
+                        from_number, msg_body, source_language
+                    )
                 elif msg_body.lower() == "help":
                     message = "Help: Reply 'hi' to choose another language. Send text to translate."
                 elif 3 <= len(msg_body) <= 200:
                     detected_language = detect_language(msg_body)
-                    message = translate_text(msg_body, detected_language, target_language)
-                    save_translation(from_number, msg_body, message, detected_language, target_language)
-                    save_user_preference(from_number, detected_language, target_language)
+                    message = translate_text(
+                        msg_body, detected_language, target_language
+                    )
+                    save_translation(
+                        from_number,
+                        msg_body,
+                        message,
+                        detected_language,
+                        target_language,
+                    )
+                    save_user_preference(
+                        from_number, detected_language, target_language
+                    )
                 else:
                     message = "_Please send text that contains between 3 and 200 characters (about 30 to 50 words)._"
-            send_message(message, os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id)
-        
+            send_message(
+                message, os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id
+            )
+
         return {"status": "success"}
     except Exception as error:
         logging.error(f"Error in webhook processing: {str(error)}")
@@ -426,6 +454,7 @@ async def verify_webhook(mode: str, token: str, challenge: str):
         return {"challenge": challenge}
     raise HTTPException(status_code=400, detail="Bad Request")
 
+
 def valid_payload(payload):
     return "object" in payload and (
         "entry" in payload
@@ -438,8 +467,10 @@ def valid_payload(payload):
         and payload["entry"][0]["changes"][0]["value"]["messages"]
     )
 
+
 def get_phone_number_id(payload):
     return payload["entry"][0]["changes"][0]["value"]["metadata"]["phone_number_id"]
+
 
 def get_from_number(payload):
     return payload["entry"][0]["changes"][0]["value"]["messages"][0]["from"]
@@ -457,7 +488,7 @@ def detect_language(text):
                     "text": text,
                 }
             },
-            timeout=60,  
+            timeout=60,
         )
 
         logging.info(f"Request response: {request_response}")
@@ -467,7 +498,7 @@ def detect_language(text):
         else:
             raise HTTPException(
                 status_code=500,
-                detail="Language detection failed. No output from the service."
+                detail="Language detection failed. No output from the service.",
             )
 
     except TimeoutError:
@@ -477,6 +508,7 @@ def detect_language(text):
             detail="The language identification job timed out. Please try again later.",
         )
 
+
 def get_reaction(payload):
     # Check if the payload contains a reaction
     messages = payload["entry"][0]["changes"][0]["value"]["messages"]
@@ -484,6 +516,7 @@ def get_reaction(payload):
         if "reaction" in message:
             return message["reaction"]
     return None
+
 
 def welcome_message(sender_name=""):
     return (
@@ -500,10 +533,12 @@ def welcome_message(sender_name=""):
         "More options coming soon!.\n"
     )
 
+
 def set_default_target_language(user_id):
     default_target_language = "Luganda"
     defualt_source_language = "English"
     save_user_preference(user_id, defualt_source_language, default_target_language)
+
 
 def handle_language_selection(user_id, selection, source_language):
     if int(selection) == 6:
@@ -513,17 +548,18 @@ def handle_language_selection(user_id, selection, source_language):
         save_user_preference(user_id, source_language, languages_obj[selection])
         return f"Language set to {languages_obj[selection]}. You can now send texts to translate."
 
+
 def translate_text(text, source_language, target_language):
     """
     Translates the given text from source_language to target_language.
-    
+
     :param text: The text to be translated.
     :param source_language: The source language code.
     :param target_language: The target language code.
     :return: The translated text.
     """
     logging.info("Starting translation process")
-    
+
     # URL for the endpoint
     url = f"https://api.runpod.ai/v2/{RUNPOD_ENDPOINT_ID}/runsync"
     logging.info(f"Endpoint URL: {url}")
