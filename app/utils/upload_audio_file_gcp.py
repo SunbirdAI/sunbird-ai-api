@@ -19,7 +19,12 @@ def upload_audio_file(file_path):
         blob = bucket.blob(blob_name)
         blob.upload_from_filename(file_path)
 
-        return blob_name
+        # Get the public URL of the uploaded file
+        blob.make_public()
+        blob_url = blob.public_url
+        blob_name = blob.name
+
+        return blob_name, blob_url
     except Exception as e:
         print(f"An error occurred: {e}")
         return None

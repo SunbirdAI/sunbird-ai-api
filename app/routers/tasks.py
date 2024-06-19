@@ -1,4 +1,3 @@
-import io
 import json
 import logging
 import os
@@ -14,7 +13,6 @@ from fastapi_limiter.depends import RateLimiter
 from twilio.rest import Client
 from werkzeug.utils import secure_filename
 
-from app.inference_services.stt_inference import transcribe
 from app.inference_services.translate_inference import translate
 from app.inference_services.user_preference import (
     get_user_preference,
@@ -22,19 +20,14 @@ from app.inference_services.user_preference import (
     save_user_preference,
 )
 from app.inference_services.whats_app_services import (
-    download_media,
     get_audio,
     get_document,
     get_image,
     get_interactive_response,
     get_location,
-    get_media_url,
     get_message,
-    get_message_id,
     get_name,
     get_video,
-    process_audio_message,
-    send_audio,
     send_message,
 )
 from app.routers.auth import get_current_user
@@ -50,8 +43,11 @@ from app.schemas.tasks import (
     SummarisationRequest,
     SummarisationResponse,
 )
-from app.utils.helper_utils import chunk_text
 from app.utils.upload_audio_file_gcp import upload_audio_file
+
+from app.crud.audio_transcription import create_audio_transcription
+from sqlalchemy.orm import Session
+from app.deps import get_db
 
 router = APIRouter()
 
@@ -248,6 +244,7 @@ async def speech_to_text(
     audio: UploadFile(...) = File(...),
     language: NllbLanguage = Form("lug"),
     adapter: NllbLanguage = Form("lug"),
+    db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ) -> STTTranscript:
     """
@@ -260,7 +257,7 @@ async def speech_to_text(
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(audio.file, buffer)
 
-    blob_name = upload_audio_file(file_path=file_path)
+    blob_name, blob_url = upload_audio_file(file_path=file_path)
     audio_file = blob_name
     os.remove(file_path)
     request_response = {}
@@ -287,6 +284,22 @@ async def speech_to_text(
     # Calculate the elapsed time
     elapsed_time = end_time - start_time
     logging.info(f"Elapsed time: {elapsed_time} seconds")
+    transcription = request_response.get("audio_transcription")
+
+    # Save transcription in database if it exists
+    if (
+        transcription is not None
+        and isinstance(transcription, str)
+        and len(transcription) > 0
+    ):
+        db_audio_transcription = create_audio_transcription(
+            db, current_user, blob_url, blob_name, transcription
+        )
+
+        logging.info(
+            f"Audio transcription in database :{db_audio_transcription.to_dict()}"
+        )
+
     return STTTranscript(
         audio_transcription=request_response.get("audio_transcription")
     )
@@ -598,6 +611,7 @@ def translate_text(text, source_language, target_language):
 
     return translated_text
 
+
 def process_speech_to_text(audio: UploadFile, language: str):
     endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
 
@@ -633,5 +647,5 @@ def process_speech_to_text(audio: UploadFile, language: str):
     # Calculate the elapsed time
     elapsed_time = end_time - start_time
     logging.info(f"Elapsed time: {elapsed_time} seconds")
-    
+
     return request_response.get("audio_transcription")
