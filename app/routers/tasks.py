@@ -53,6 +53,9 @@ from app.schemas.tasks import (
 from app.utils.helper_utils import chunk_text
 from app.utils.upload_audio_file_gcp import upload_audio_file
 
+from app.crud.audio_transcription import create_audio_transcription 
+from sqlalchemy.orm import Session
+from app.deps import get_db
 router = APIRouter()
 
 load_dotenv()
@@ -248,6 +251,7 @@ async def speech_to_text(
     audio: UploadFile(...) = File(...),
     language: NllbLanguage = Form("lug"),
     adapter: NllbLanguage = Form("lug"),
+     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ) -> STTTranscript:
     """
@@ -260,7 +264,7 @@ async def speech_to_text(
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(audio.file, buffer)
 
-    blob_name = upload_audio_file(file_path=file_path)
+    blob_name, blob_url = upload_audio_file(file_path=file_path)
     audio_file = blob_name
     os.remove(file_path)
     request_response = {}
@@ -287,9 +291,16 @@ async def speech_to_text(
     # Calculate the elapsed time
     elapsed_time = end_time - start_time
     logging.info(f"Elapsed time: {elapsed_time} seconds")
+    transcription = request_response.get("audio_transcription")
+    
+    if transcription is not None and isinstance(transcription, str) and len(transcription) > 0:
+        db_audio_transcription = create_audio_transcription(db, current_user, blob_url, blob_name, transcription)
+        #to be removed
+        print(db_audio_transcription.to_dict())
+
     return STTTranscript(
         audio_transcription=request_response.get("audio_transcription")
-    )
+        )
 
 
 # Route for the nllb translation endpoint

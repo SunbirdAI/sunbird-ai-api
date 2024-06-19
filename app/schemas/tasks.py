@@ -5,7 +5,9 @@ from pydantic import BaseModel, Field
 
 
 class STTTranscript(BaseModel):
-    audio_transcription: str
+    """changes"""
+    audio_transcription: Optional[str] = Field(None)
+    #audio_transcription: str
 
 
 class NllbResponseOutputData(BaseModel):
