@@ -9,6 +9,7 @@ __pycache__/
 test.db
 .coverage
 env/
+key.json
 
 # Private JSON files
 service_account_key.json
