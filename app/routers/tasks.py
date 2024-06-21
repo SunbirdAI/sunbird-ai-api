@@ -4,6 +4,10 @@ import os
 import re
 import shutil
 import time
+from app.models.audio_transcription import AudioTranscription
+from app.schemas.audio_transcription import AudioTranscriptionBase
+
+
 
 import requests
 import runpod
@@ -47,7 +51,7 @@ from app.utils.upload_audio_file_gcp import upload_audio_file
 
 from app.crud.audio_transcription import create_audio_transcription
 from sqlalchemy.orm import Session
-from app.deps import get_db
+
 
 router = APIRouter()
 
@@ -303,6 +307,8 @@ async def speech_to_text(
     return STTTranscript(
         audio_transcription=request_response.get("audio_transcription")
     )
+
+
 
 
 # Route for the nllb translation endpoint
@@ -649,3 +655,6 @@ def process_speech_to_text(audio: UploadFile, language: str):
     logging.info(f"Elapsed time: {elapsed_time} seconds")
 
     return request_response.get("audio_transcription")
+
+
+

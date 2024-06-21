@@ -1,4 +1,6 @@
 from sqlalchemy.orm import Session
+from fastapi import Depends, HTTPException
+from app.deps import get_db
 
 from app.models import users as models
 from app.schemas import users as schema
@@ -23,3 +25,5 @@ def get_user_by_username(db: Session, username: str):
 
 def get_user_by_email(db: Session, email: str):
     return db.query(models.User).filter(models.User.email == email).first()
+
+
