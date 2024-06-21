@@ -1,6 +1,6 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime
-from app.database.db import Base
 from datetime import datetime
+from sqlalchemy import Column, DateTime, Integer, String, Text
+from app.database.db import Base
 
 
 class AudioTranscription(Base):
