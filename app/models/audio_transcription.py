@@ -1,5 +1,7 @@
 from datetime import datetime
+
 from sqlalchemy import Column, DateTime, Integer, String, Text
+
 from app.database.db import Base
 
 
@@ -16,6 +18,7 @@ class AudioTranscription(Base):
 
     def to_dict(self):
         return {
+            "id": self.id,
             "username": self.username,
             "email": self.email,
             "audio_file_url": self.audio_file_url,

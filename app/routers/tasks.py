@@ -4,10 +4,6 @@ import os
 import re
 import shutil
 import time
-from app.models.audio_transcription import AudioTranscription
-from app.schemas.audio_transcription import AudioTranscriptionBase
-
-
 
 import requests
 import runpod
@@ -37,7 +33,9 @@ from app.inference_services.whats_app_services import (
     get_video,
     send_message,
 )
+from app.models.audio_transcription import AudioTranscription
 from app.routers.auth import get_current_user
+from app.schemas.audio_transcription import AudioTranscriptionBase
 from app.schemas.tasks import (
     ChatRequest,
     ChatResponse,
@@ -306,8 +304,6 @@ async def speech_to_text(
     return STTTranscript(
         audio_transcription=request_response.get("audio_transcription")
     )
-
-
 
 
 # Route for the nllb translation endpoint
@@ -654,6 +650,3 @@ def process_speech_to_text(audio: UploadFile, language: str):
     logging.info(f"Elapsed time: {elapsed_time} seconds")
 
     return request_response.get("audio_transcription")
-
-
-
