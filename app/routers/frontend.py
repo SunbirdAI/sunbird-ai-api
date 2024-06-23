@@ -1,4 +1,5 @@
 import json
+import os
 from datetime import timedelta
 from typing import List
 
@@ -6,6 +7,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request, responses,
 from fastapi.templating import Jinja2Templates
 from pydantic.error_wrappers import ValidationError
 from sqlalchemy.orm import Session
+from app.models.audio_transcription import AudioTranscription
 
 from app.crud.users import create_user, get_user_by_email, get_user_by_username
 from app.deps import get_db
@@ -164,23 +166,28 @@ async def account(
     return templates.TemplateResponse("account_page.html", context=context)
 
 
-# Route to get the uploaded audio and transcriptions
+
+
+
+#Route to get the uploaded audio and transcriptions
 @router.get(
-    "/transcriptions",
+    "/transcriptions", 
     response_model=List[AudioTranscriptionBase],
 )
 async def get_audio_transcriptions(
-    current_user=Depends(get_current_user), db: Session = Depends(get_db)
+    current_user=Depends(get_current_user), 
+    db: Session = Depends(get_db)
 ):
-    transcriptions = (
-        db.query(AudioTranscription)
-        .filter(AudioTranscription.username == current_user.username)
-        .all()
-    )
+    transcriptions = db.query(AudioTranscription).filter(
+        AudioTranscription.username == current_user.username
+    ).all()
 
     if not transcriptions:
         raise HTTPException(status_code=404, detail="No transcriptions found")
-
+    
     transcriptions_dicts = [t.to_dict() for t in transcriptions]
 
     return transcriptions_dicts
+
+
+
