@@ -1,9 +1,11 @@
-from pydantic import BaseModel, EmailStr, HttpUrl
 from datetime import datetime
 from typing import Optional
 
+from pydantic import BaseModel, EmailStr, HttpUrl
+
 
 class AudioTranscriptionBase(BaseModel):
+    id: str
     username: str
     email: EmailStr
     audio_file_url: HttpUrl
@@ -13,6 +15,5 @@ class AudioTranscriptionBase(BaseModel):
 
 
 class AudioTranscriptionCreate(AudioTranscriptionBase):
-
     class Config:
         orm_mode = True
