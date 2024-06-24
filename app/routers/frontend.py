@@ -7,9 +7,14 @@ from fastapi.templating import Jinja2Templates
 from pydantic.error_wrappers import ValidationError
 from sqlalchemy.orm import Session
 
+from app.crud.audio_transcription import (
+    get_audio_transcription as crud_audio_transcription,
+)
+from app.crud.audio_transcription import (
+    get_audio_transcriptions as crud_audio_transcriptions,
+)
 from app.crud.users import create_user, get_user_by_email, get_user_by_username
 from app.deps import get_db
-from app.models.audio_transcription import AudioTranscription
 from app.routers.auth import get_current_user
 from app.schemas.audio_transcription import AudioTranscriptionBase
 from app.schemas.users import User, UserCreate, UserInDB
@@ -172,10 +177,13 @@ async def account(
 async def get_audio_transcriptions(
     current_user=Depends(get_current_user), db: Session = Depends(get_db)
 ):
-    transcriptions = (
-        db.query(AudioTranscription)
-        .filter(AudioTranscription.username == current_user.username)
-        .all()
+    """
+    This endpoint returns all the transcriptions per user. It returns the id, username, email, audio_file_url, filename,
+    uploaded(time) and the transcription.
+    """
+
+    transcriptions = await crud_audio_transcriptions(
+        db=db, username=current_user.username
     )
 
     if not transcriptions:
@@ -186,19 +194,15 @@ async def get_audio_transcriptions(
     return transcriptions_dicts
 
 
-@router.get("/transcription/{id}", response_model=AudioTranscriptionBase)
+@router.get("/transcriptions/{id}", response_model=AudioTranscriptionBase)
 async def get_audio_transcription(
     id: int, current_user=Depends(get_current_user), db: Session = Depends(get_db)
 ):
+    """
+    This endpoint returns  the transcriptions per user_id that is supplied in the Request Body.
+    """
 
-    transcription = (
-        db.query(AudioTranscription)
-        .filter(
-            AudioTranscription.id == id,
-            AudioTranscription.username == current_user.username,
-        )
-        .first()
-    )
+    transcription = await crud_audio_transcription(db, id, current_user.username)
 
     if not transcription:
         raise HTTPException(status_code=404, detail="Transcription not found")
@@ -206,7 +210,7 @@ async def get_audio_transcription(
     return transcription.to_dict()
 
 
-@router.put("/transcription/{id}/correct", response_model=AudioTranscriptionBase)
+@router.put("/transcriptions/{id}", response_model=AudioTranscriptionBase)
 async def update_audio_transcription(
     id: int,
     transcription_text: str = Form(...),
@@ -214,14 +218,12 @@ async def update_audio_transcription(
     db: Session = Depends(get_db),
 ):
 
-    transcription = (
-        db.query(AudioTranscription)
-        .filter(
-            AudioTranscription.id == id,
-            AudioTranscription.username == current_user.username,
-        )
-        .first()
-    )
+    """
+    This endpoint enables us to update the transcription to a new/better transcription.
+    This will enable the users to be able  update transcriptions.
+    """
+
+    transcription = await crud_audio_transcription(db, id, current_user.username)
 
     if not transcription:
         raise HTTPException(status_code=404, detail="Transcription not found")

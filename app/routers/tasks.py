@@ -33,9 +33,7 @@ from app.inference_services.whats_app_services import (
     get_video,
     send_message,
 )
-from app.models.audio_transcription import AudioTranscription
 from app.routers.auth import get_current_user
-from app.schemas.audio_transcription import AudioTranscriptionBase
 from app.schemas.tasks import (
     ChatRequest,
     ChatResponse,

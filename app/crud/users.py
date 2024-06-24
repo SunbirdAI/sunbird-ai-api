@@ -1,6 +1,5 @@
 from sqlalchemy.orm import Session
 
-from app.deps import get_db
 from app.models import users as models
 from app.schemas import users as schema
 
