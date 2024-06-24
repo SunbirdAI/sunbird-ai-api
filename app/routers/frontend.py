@@ -46,13 +46,13 @@ async def login(request: Request):  # type: ignore
 
 
 @router.get("/privacy_policy")
-async def login(request: Request):  # type: ignore
+async def privacy_policy(request: Request):  # type: ignore
     context = {"request": request}
     return templates.TemplateResponse("privacy_policy.html", context)
 
 
 @router.get("/terms_of_service")
-async def login(request: Request):  # type: ignore
+async def terms_of_service(request: Request):  # type: ignore
     context = {"request": request}
     return templates.TemplateResponse("terms_of_service.html", context)
 
@@ -178,7 +178,8 @@ async def get_audio_transcriptions(
     current_user=Depends(get_current_user), db: Session = Depends(get_db)
 ):
     """
-    This endpoint returns all the transcriptions per user. It returns the id, username, email, audio_file_url, filename,
+    This endpoint returns all the transcriptions per user.
+    It returns the id, username, email, audio_file_url, filename,
     uploaded(time) and the transcription.
     """
 
@@ -217,7 +218,6 @@ async def update_audio_transcription(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-
     """
     This endpoint enables us to update the transcription to a new/better transcription.
     This will enable the users to be able  update transcriptions.
