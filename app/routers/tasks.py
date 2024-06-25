@@ -243,6 +243,7 @@ async def speech_to_text(
     audio: UploadFile(...) = File(...),
     language: NllbLanguage = Form("lug"),
     adapter: NllbLanguage = Form("lug"),
+    recognise_speakers: bool = Form(False),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ) -> STTTranscript:
@@ -270,6 +271,7 @@ async def speech_to_text(
                     "target_lang": language,
                     "adapter": adapter,
                     "audio_file": audio_file,
+                    "recognise_speakers": recognise_speakers,
                 }
             },
             timeout=600,  # Timeout in seconds.
@@ -300,7 +302,11 @@ async def speech_to_text(
         )
 
     return STTTranscript(
-        audio_transcription=request_response.get("audio_transcription")
+        audio_transcription=request_response.get("audio_transcription"),
+        diarization_output=request_response.get("diarization_output", {}),
+        formatted_diarization_output=request_response.get(
+            "formatted_diarization_output", ""
+        ),
     )
 
 

@@ -1,0 +1,4569 @@
+{
+  "audio_transcription": "Could you let us know about being a parent to a child with both autism? How and when did you know in the first place that you have a child with both autism? And we didn't notice at first, like my child, my nine-year-old has autism in eight. And at first we didn't really notice because developed mentally. He was hitting all of his milestones, so he was like, \"When babies start to crawl, he was within the range of starting to crawl. When babies are starting to walk, he is starting to walk when they are toiletating independently.\" He is toileting independently, so there wasn't anything major he was talking about. We had a moment when we were like, \"Is he okay?\" But we had just gone to America for the first time. After having him here, we went to America. He heard all those American accents, and then we came. Back and then he got very quiet., like he had been starting to make those like baby-baby sounds. And then he got to Uganda and started hearing a choir again. And then we thought maybe it was like he was just listening, he was just trying to understand something. Shifted and how everyone is speaking and there is a second language. But then, after a couple of months, he just started speaking in full sentences and speaking a truly and English so is like okay, he was just learning his second language and so we didn't think anything of. It until twenty-twenty really so up until then. He was, you know, he's great kid, he's really sweet. He was a little bit we would call quirky in America, where he is just like, sometimes doing things a little different than he would when he would play with friends. It would Be sometimes he would just observe friends playing instead of actually actively playing with them. You know, and so he is like, \"I played with friends, and I'm thinking, I don't know that that counted, but you think you had a good time, so okay, it's okay, and so we are.\" I didn't really think too much of it until twenty twenty, which was a tough year for everyone because of the pandemic. And we were in Uganda, going through lockdowns just like everyone else, and not leaving our compounds. Staying at home, and he missed seeing his friends, you know. All of our social lives have all gone away and we are all with ourselves. And so, towards the end of twenty-twenty, my normally very chatty,very like, lots of story-telling. Big imagination stopped really speaking, he would share if he had a like, so if he needed. To if he was hungry or if he was tired, he would say, \"Mom, I'm hungry, Mom, I want something to eat. I'm tired, but instead of telling us these interesting stories, he's just bringing us into his world.\" You know, with his words, he just stopped speaking and that's it. Was our first real signs like some things wrong? People don't just stop talking to you now. That's not normally what's going on, and where is our son? It's like we missed him and we missed our normal conversations and our life that we had grown used to with him and so on. And he had also replaced those times of talking and sharing with us with what we now know to be.",
+  "diarization_output": {
+    "chunks": [
+      {
+        "speaker": "SPEAKER_01",
+        "text": "could",
+        "timestamp": [
+          0.46,
+          0.66
+        ]
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "you",
+        "timestamp": [
+          0.8,
+          0.9
+        ]
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "let",
+        "timestamp": [
+          1.2,
+          1.34
+        ]
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "us",
+        "timestamp": [
+          1.46,
+          1.62
+        ]
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "know",
+        "timestamp": [
+          2.14,
+          2.42
+        ]
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "about",
+        "timestamp": [
+          3.3,
+          3.68
+        ]
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "being",
+        "timestamp": [
+          3.88,
+          4.08
+        ]
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "a",
+        "timestamp": [
+          4.18,
+          4.2
+        ]
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "parent",
+        "timestamp": [
+          4.32,
+          4.68
+        ]
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "to",
+        "timestamp": [
+          4.78,
+          4.84
+        ]
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "a",
+        "timestamp": [
+          4.92,
+          4.94
+        ]
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "child",
+        "timestamp": [
+          5.02,
+          5.36
+        ]
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "with",
+        "timestamp": [
+          5.48,
+          5.6
+        ]
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "both",
+        "timestamp": [
+          5.82,
+          6.06
+        ]
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "otesmandariatd",
+        "timestamp": [
+          6.58,
+          7.74
+        ]
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "how",
+        "timestamp": [
+          8.26,
+          8.56
+        ]
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "and",
+        "timestamp": [
+          9.12,
+          9.2
+        ]
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "when",
+        "timestamp": [
+          9.3,
+          9.42
+        ]
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "did",
+        "timestamp": [
+          9.52,
+          9.64
+        ]
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "you",
+        "timestamp": [
+          9.76,
+          9.84
+        ]
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "know",
+        "timestamp": [
+          9.96,
+          10.14
+        ]
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "in",
+        "timestamp": [
+          10.44,
+          10.48
+        ]
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "the",
+        "timestamp": [
+          10.54,
+          10.6
+        ]
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "first",
+        "timestamp": [
+          10.64,
+          10.82
+        ]
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "place",
+        "timestamp": [
+          10.9,
+          11.12
+        ]
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "that",
+        "timestamp": [
+          11.6,
+          11.74
+        ]
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "you",
+        "timestamp": [
+          11.86,
+          11.92
+        ]
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "have",
+        "timestamp": [
+          12.04,
+          12.14
+        ]
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "a",
+        "timestamp": [
+          12.22,
+          12.24
+        ]
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "child",
+        "timestamp": [
+          12.32,
+          12.64
+        ]
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "with",
+        "timestamp": [
+          12.74,
+          12.84
+        ]
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "both",
+        "timestamp": [
+          12.96,
+          13.08
+        ]
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "autism",
+        "timestamp": [
+          13.26,
+          13.64
+        ]
+      },
+      {
+        "speaker": "SPEAKER_01",
+        "text": "and",
+        "timestamp": [
+          13.74,
+          13.8
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "we",
+        "timestamp": [
+          16.26,
+          16.32
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "didn't",
+        "timestamp": [
+          16.4,
+          16.66
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "notice",
+        "timestamp": [
+          16.8,
+          17.18
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "at",
+        "timestamp": [
+          17.4,
+          17.46
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "first",
+        "timestamp": [
+          17.58,
+          17.84
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "like",
+        "timestamp": [
+          17.98,
+          18.1
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "my",
+        "timestamp": [
+          18.24,
+          18.36
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "child",
+        "timestamp": [
+          18.84,
+          19.46
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "my",
+        "timestamp": [
+          20.08,
+          20.16
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "nine",
+        "timestamp": [
+          20.28,
+          20.44
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "year",
+        "timestamp": [
+          20.5,
+          20.62
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "old",
+        "timestamp": [
+          20.68,
+          20.84
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "has",
+        "timestamp": [
+          21.42,
+          21.54
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "autism",
+        "timestamp": [
+          21.68,
+          22
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "in",
+        "timestamp": [
+          22.1,
+          22.14
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "eight",
+        "timestamp": [
+          22.22,
+          22.32
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "and",
+        "timestamp": [
+          23.38,
+          23.64
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "at",
+        "timestamp": [
+          23.82,
+          23.88
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "first",
+        "timestamp": [
+          24.02,
+          24.34
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "we",
+        "timestamp": [
+          24.9,
+          24.96
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "didn't",
+        "timestamp": [
+          25,
+          25.18
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "really",
+        "timestamp": [
+          25.22,
+          25.38
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "notice",
+        "timestamp": [
+          25.48,
+          25.68
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "because",
+        "timestamp": [
+          25.8,
+          26.02
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "developed",
+        "timestamp": [
+          26.3,
+          26.58
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "manallyhe",
+        "timestamp": [
+          26.64,
+          27.26
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "was",
+        "timestamp": [
+          27.32,
+          27.4
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "hitting",
+        "timestamp": [
+          27.48,
+          27.64
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "all",
+        "timestamp": [
+          27.7,
+          27.78
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "of",
+        "timestamp": [
+          27.88,
+          27.92
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "his",
+        "timestamp": [
+          28.02,
+          28.12
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "milestones",
+        "timestamp": [
+          28.2,
+          28.9
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "so",
+        "timestamp": [
+          29.04,
+          29.1
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "he",
+        "timestamp": [
+          29.38,
+          29.42
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "was",
+        "timestamp": [
+          29.56,
+          29.72
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "like",
+        "timestamp": [
+          31.78,
+          31.94
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "when",
+        "timestamp": [
+          32.46,
+          32.58
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "babies",
+        "timestamp": [
+          32.72,
+          32.98
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "starting",
+        "timestamp": [
+          33.08,
+          33.32
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "to",
+        "timestamp": [
+          33.42,
+          33.46
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "crawl",
+        "timestamp": [
+          33.52,
+          33.88
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "he",
+        "timestamp": [
+          34.14,
+          34.2
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "was",
+        "timestamp": [
+          34.26,
+          34.34
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "within",
+        "timestamp": [
+          34.44,
+          34.62
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "the",
+        "timestamp": [
+          34.7,
+          34.76
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "range",
+        "timestamp": [
+          34.82,
+          35.04
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "of",
+        "timestamp": [
+          35.08,
+          35.12
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "starting",
+        "timestamp": [
+          35.22,
+          35.46
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "to",
+        "timestamp": [
+          35.56,
+          35.6
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "crawl",
+        "timestamp": [
+          35.68,
+          35.96
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "when",
+        "timestamp": [
+          36.06,
+          36.16
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "babies",
+        "timestamp": [
+          36.24,
+          36.46
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "are",
+        "timestamp": [
+          36.52,
+          36.6
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "starting",
+        "timestamp": [
+          36.68,
+          36.92
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "to",
+        "timestamp": [
+          37.02,
+          37.06
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "walk",
+        "timestamp": [
+          37.16,
+          37.44
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "he",
+        "timestamp": [
+          37.78,
+          37.84
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "is",
+        "timestamp": [
+          37.88,
+          37.94
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "starting",
+        "timestamp": [
+          38.02,
+          38.26
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "to",
+        "timestamp": [
+          38.36,
+          38.42
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "walk",
+        "timestamp": [
+          38.48,
+          38.66
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "when",
+        "timestamp": [
+          38.84,
+          38.92
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "they",
+        "timestamp": [
+          39,
+          39.1
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "are",
+        "timestamp": [
+          39.18,
+          39.3
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "toiletting",
+        "timestamp": [
+          39.48,
+          40
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "independently",
+        "timestamp": [
+          40.12,
+          40.78
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "he",
+        "timestamp": [
+          41.02,
+          41.08
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "is",
+        "timestamp": [
+          41.14,
+          41.2
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "toileting",
+        "timestamp": [
+          41.3,
+          41.72
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "independently",
+        "timestamp": [
+          41.82,
+          42.42
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "so",
+        "timestamp": [
+          42.6,
+          42.64
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "there",
+        "timestamp": [
+          42.74,
+          42.86
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "wasn't",
+        "timestamp": [
+          42.94,
+          43.22
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "anything",
+        "timestamp": [
+          43.96,
+          44.62
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "major",
+        "timestamp": [
+          45.4,
+          45.8
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "was",
+        "timestamp": [
+          46.12,
+          46.22
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "speaking",
+        "timestamp": [
+          46.34,
+          46.78
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "we",
+        "timestamp": [
+          47.72,
+          47.76
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "had",
+        "timestamp": [
+          47.88,
+          47.96
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "a",
+        "timestamp": [
+          48.04,
+          48.06
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "moment",
+        "timestamp": [
+          48.22,
+          48.56
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "when",
+        "timestamp": [
+          48.66,
+          48.76
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "were",
+        "timestamp": [
+          48.84,
+          48.98
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "like",
+        "timestamp": [
+          49.08,
+          49.26
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "is",
+        "timestamp": [
+          51.24,
+          51.3
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "he",
+        "timestamp": [
+          51.36,
+          51.42
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "okay",
+        "timestamp": [
+          51.52,
+          51.78
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "but",
+        "timestamp": [
+          51.98,
+          52.08
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "we",
+        "timestamp": [
+          52.18,
+          52.24
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "had",
+        "timestamp": [
+          52.34,
+          52.46
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "just",
+        "timestamp": [
+          52.58,
+          52.76
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "gone",
+        "timestamp": [
+          52.9,
+          53.08
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "to",
+        "timestamp": [
+          53.18,
+          53.22
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "america",
+        "timestamp": [
+          53.32,
+          53.66
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "for",
+        "timestamp": [
+          53.82,
+          53.88
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "the",
+        "timestamp": [
+          53.94,
+          54.02
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "first",
+        "timestamp": [
+          54.08,
+          54.28
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "time",
+        "timestamp": [
+          54.36,
+          54.52
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "after",
+        "timestamp": [
+          54.6,
+          54.76
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "having",
+        "timestamp": [
+          54.9,
+          55.1
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "him",
+        "timestamp": [
+          55.22,
+          55.32
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "here",
+        "timestamp": [
+          55.46,
+          55.64
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "we",
+        "timestamp": [
+          56.26,
+          56.32
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "went",
+        "timestamp": [
+          56.36,
+          56.48
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "to",
+        "timestamp": [
+          56.56,
+          56.62
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "america",
+        "timestamp": [
+          56.7,
+          57.12
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "he",
+        "timestamp": [
+          57.7,
+          57.76
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "heard",
+        "timestamp": [
+          57.86,
+          58
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "all",
+        "timestamp": [
+          58.1,
+          58.18
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "those",
+        "timestamp": [
+          58.28,
+          58.42
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "american",
+        "timestamp": [
+          58.5,
+          58.86
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "accents",
+        "timestamp": [
+          58.96,
+          59.38
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "and",
+        "timestamp": [
+          59.44,
+          59.52
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "then",
+        "timestamp": [
+          59.54,
+          59.62
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "we",
+        "timestamp": [
+          59.7,
+          59.76
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "came",
+        "timestamp": [
+          59.82,
+          60
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "back",
+        "timestamp": [
+          60.1,
+          60.36
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "and",
+        "timestamp": [
+          60.94,
+          61
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "then",
+        "timestamp": [
+          61.08,
+          61.18
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "he",
+        "timestamp": [
+          61.28,
+          61.32
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "got",
+        "timestamp": [
+          61.4,
+          61.52
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "very",
+        "timestamp": [
+          61.64,
+          61.76
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "quiet",
+        "timestamp": [
+          61.92,
+          62.28
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "like",
+        "timestamp": [
+          62.62,
+          62.74
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "he",
+        "timestamp": [
+          62.82,
+          62.86
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "had",
+        "timestamp": [
+          62.94,
+          63.02
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "been",
+        "timestamp": [
+          63.1,
+          63.3
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "starting",
+        "timestamp": [
+          63.78,
+          64.04
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "to",
+        "timestamp": [
+          64.14,
+          64.18
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "make",
+        "timestamp": [
+          64.24,
+          64.34
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "those",
+        "timestamp": [
+          64.4,
+          64.52
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "like",
+        "timestamp": [
+          64.58,
+          64.68
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "bababbaby",
+        "timestamp": [
+          64.76,
+          65.64
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "sounds",
+        "timestamp": [
+          65.78,
+          66.18
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "and",
+        "timestamp": [
+          66.4,
+          66.48
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "then",
+        "timestamp": [
+          66.62,
+          66.84
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "he",
+        "timestamp": [
+          68.34,
+          68.38
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "got",
+        "timestamp": [
+          68.46,
+          68.64
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "to",
+        "timestamp": [
+          69.68,
+          69.76
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "uganda",
+        "timestamp": [
+          70.42,
+          70.78
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "and",
+        "timestamp": [
+          71.22,
+          71.28
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "started",
+        "timestamp": [
+          71.38,
+          71.58
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "hearing",
+        "timestamp": [
+          71.66,
+          71.86
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "a",
+        "timestamp": [
+          71.92,
+          71.94
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "choli",
+        "timestamp": [
+          72,
+          72.3
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "again",
+        "timestamp": [
+          72.42,
+          72.86
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "and",
+        "timestamp": [
+          73.06,
+          73.14
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "then",
+        "timestamp": [
+          73.22,
+          73.38
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "we",
+        "timestamp": [
+          73.66,
+          73.7
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "thought",
+        "timestamp": [
+          73.8,
+          74.04
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "maybe",
+        "timestamp": [
+          74.48,
+          74.7
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "it",
+        "timestamp": [
+          74.8,
+          74.84
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "was",
+        "timestamp": [
+          74.88,
+          74.96
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "like",
+        "timestamp": [
+          75.04,
+          75.18
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "he",
+        "timestamp": [
+          75.8,
+          75.84
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "was",
+        "timestamp": [
+          75.9,
+          75.98
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "just",
+        "timestamp": [
+          76.04,
+          76.16
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "listening",
+        "timestamp": [
+          76.3,
+          76.68
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "he",
+        "timestamp": [
+          76.84,
+          76.9
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "was",
+        "timestamp": [
+          76.94,
+          77.02
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "just",
+        "timestamp": [
+          77.08,
+          77.2
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "trying",
+        "timestamp": [
+          77.36,
+          77.6
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "to",
+        "timestamp": [
+          77.66,
+          77.7
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "understand",
+        "timestamp": [
+          77.8,
+          78.26
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "like",
+        "timestamp": [
+          78.38,
+          78.52
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "something",
+        "timestamp": [
+          78.92,
+          79.18
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "shifted",
+        "timestamp": [
+          80.1,
+          80.46
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "and",
+        "timestamp": [
+          80.56,
+          80.64
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "how",
+        "timestamp": [
+          80.76,
+          80.84
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "everyone",
+        "timestamp": [
+          80.92,
+          81.24
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "is",
+        "timestamp": [
+          81.3,
+          81.36
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "speaking",
+        "timestamp": [
+          81.44,
+          81.88
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "and",
+        "timestamp": [
+          82.06,
+          82.14
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "there",
+        "timestamp": [
+          82.2,
+          82.3
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "is",
+        "timestamp": [
+          82.34,
+          82.38
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "a",
+        "timestamp": [
+          82.44,
+          82.46
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "second",
+        "timestamp": [
+          82.52,
+          82.76
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "language",
+        "timestamp": [
+          82.86,
+          83.28
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "but",
+        "timestamp": [
+          84.12,
+          84.22
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "then",
+        "timestamp": [
+          84.3,
+          84.44
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "after",
+        "timestamp": [
+          84.56,
+          84.72
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "a",
+        "timestamp": [
+          84.8,
+          84.82
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "couple",
+        "timestamp": [
+          84.86,
+          85.06
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "of",
+        "timestamp": [
+          85.1,
+          85.14
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "months",
+        "timestamp": [
+          85.22,
+          85.38
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "he",
+        "timestamp": [
+          85.44,
+          85.48
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "just",
+        "timestamp": [
+          85.56,
+          85.66
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "started",
+        "timestamp": [
+          85.74,
+          85.94
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "talking",
+        "timestamp": [
+          86.06,
+          86.32
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "in",
+        "timestamp": [
+          86.42,
+          86.48
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "full",
+        "timestamp": [
+          86.56,
+          86.72
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "sentences",
+        "timestamp": [
+          86.84,
+          87.46
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "and",
+        "timestamp": [
+          87.66,
+          87.74
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "speaking",
+        "timestamp": [
+          87.88,
+          88.12
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "a",
+        "timestamp": [
+          88.2,
+          88.22
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "truly",
+        "timestamp": [
+          88.28,
+          88.62
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "and",
+        "timestamp": [
+          88.86,
+          89.04
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "english",
+        "timestamp": [
+          89.2,
+          89.54
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "so",
+        "timestamp": [
+          89.62,
+          89.68
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "is",
+        "timestamp": [
+          89.76,
+          89.8
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "like",
+        "timestamp": [
+          89.84,
+          89.94
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "okay",
+        "timestamp": [
+          90,
+          90.24
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "he",
+        "timestamp": [
+          90.4,
+          90.44
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "was",
+        "timestamp": [
+          90.48,
+          90.56
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "just",
+        "timestamp": [
+          90.64,
+          90.74
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "learning",
+        "timestamp": [
+          90.84,
+          91.1
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "his",
+        "timestamp": [
+          91.86,
+          91.96
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "second",
+        "timestamp": [
+          92.04,
+          92.28
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "language",
+        "timestamp": [
+          92.38,
+          92.86
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "and",
+        "timestamp": [
+          93.3,
+          93.4
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "so",
+        "timestamp": [
+          93.52,
+          93.56
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "we",
+        "timestamp": [
+          93.68,
+          93.72
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "didn't",
+        "timestamp": [
+          93.78,
+          93.98
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "think",
+        "timestamp": [
+          94.02,
+          94.12
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "anything",
+        "timestamp": [
+          94.24,
+          94.54
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "of",
+        "timestamp": [
+          94.66,
+          94.72
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "it",
+        "timestamp": [
+          94.84,
+          94.92
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "until",
+        "timestamp": [
+          96.68,
+          97.1
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "twesantwentyreally",
+        "timestamp": [
+          97.58,
+          99.16
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "so",
+        "timestamp": [
+          99.42,
+          99.5
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "up",
+        "timestamp": [
+          100.44,
+          100.5
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "until",
+        "timestamp": [
+          100.6,
+          100.82
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "then",
+        "timestamp": [
+          100.88,
+          101.02
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "he",
+        "timestamp": [
+          101.16,
+          101.22
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "was",
+        "timestamp": [
+          101.28,
+          101.42
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "you",
+        "timestamp": [
+          102,
+          102.06
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "know",
+        "timestamp": [
+          102.1,
+          102.2
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "he's",
+        "timestamp": [
+          102.26,
+          102.38
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "great",
+        "timestamp": [
+          102.46,
+          102.64
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "kid",
+        "timestamp": [
+          102.72,
+          103.04
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "he's",
+        "timestamp": [
+          103.14,
+          103.26
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "really",
+        "timestamp": [
+          103.32,
+          103.5
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "sweet",
+        "timestamp": [
+          103.62,
+          104
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "he",
+        "timestamp": [
+          104.14,
+          104.2
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "was",
+        "timestamp": [
+          104.24,
+          104.32
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "a",
+        "timestamp": [
+          104.42,
+          104.44
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "little",
+        "timestamp": [
+          104.54,
+          104.78
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "bit",
+        "timestamp": [
+          104.86,
+          105.04
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "we",
+        "timestamp": [
+          105.58,
+          105.64
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "would",
+        "timestamp": [
+          105.68,
+          105.8
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "call",
+        "timestamp": [
+          105.84,
+          105.96
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "it",
+        "timestamp": [
+          106.02,
+          106.06
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "quirky",
+        "timestamp": [
+          106.16,
+          106.52
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "in",
+        "timestamp": [
+          107.02,
+          107.06
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "america",
+        "timestamp": [
+          107.16,
+          107.58
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "where",
+        "timestamp": [
+          107.9,
+          108.06
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "he",
+        "timestamp": [
+          108.14,
+          108.18
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "is",
+        "timestamp": [
+          108.22,
+          108.28
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "just",
+        "timestamp": [
+          108.34,
+          108.48
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "like",
+        "timestamp": [
+          108.54,
+          108.66
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "sometimes",
+        "timestamp": [
+          109.14,
+          109.76
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "doing",
+        "timestamp": [
+          109.92,
+          110.1
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "things",
+        "timestamp": [
+          110.22,
+          110.38
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "a",
+        "timestamp": [
+          110.52,
+          110.54
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "little",
+        "timestamp": [
+          110.58,
+          110.76
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "different",
+        "timestamp": [
+          110.9,
+          111.32
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "he",
+        "timestamp": [
+          111.62,
+          111.68
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "would",
+        "timestamp": [
+          111.76,
+          111.94
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "when",
+        "timestamp": [
+          113.68,
+          113.78
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "he",
+        "timestamp": [
+          113.88,
+          113.94
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "would",
+        "timestamp": [
+          113.98,
+          114.1
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "play",
+        "timestamp": [
+          114.2,
+          114.34
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "with",
+        "timestamp": [
+          114.48,
+          114.58
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "friends",
+        "timestamp": [
+          114.72,
+          115.2
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "it",
+        "timestamp": [
+          115.52,
+          115.58
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "would",
+        "timestamp": [
+          115.68,
+          115.84
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "be",
+        "timestamp": [
+          115.96,
+          116.02
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "sometimes",
+        "timestamp": [
+          117.48,
+          117.84
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "he",
+        "timestamp": [
+          117.94,
+          117.98
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "would",
+        "timestamp": [
+          118.02,
+          118.12
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "just",
+        "timestamp": [
+          118.18,
+          118.3
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "observe",
+        "timestamp": [
+          118.46,
+          118.9
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "friends",
+        "timestamp": [
+          119.08,
+          119.46
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "playing",
+        "timestamp": [
+          119.64,
+          120.02
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "instead",
+        "timestamp": [
+          120.5,
+          120.8
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "of",
+        "timestamp": [
+          120.84,
+          120.9
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "actually",
+        "timestamp": [
+          121.06,
+          121.42
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "actively",
+        "timestamp": [
+          121.82,
+          122.22
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "playing",
+        "timestamp": [
+          122.36,
+          122.62
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "with",
+        "timestamp": [
+          122.74,
+          122.84
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "them",
+        "timestamp": [
+          122.94,
+          123.18
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "you",
+        "timestamp": [
+          123.58,
+          123.64
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "know",
+        "timestamp": [
+          123.7,
+          123.86
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "and",
+        "timestamp": [
+          124.02,
+          124.1
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "so",
+        "timestamp": [
+          124.2,
+          124.26
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "he",
+        "timestamp": [
+          124.44,
+          124.48
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "is",
+        "timestamp": [
+          124.52,
+          124.56
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "like",
+        "timestamp": [
+          124.58,
+          124.68
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "i",
+        "timestamp": [
+          124.76,
+          124.78
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "played",
+        "timestamp": [
+          124.86,
+          125.04
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "with",
+        "timestamp": [
+          125.1,
+          125.2
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "friends",
+        "timestamp": [
+          125.28,
+          125.74
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "and",
+        "timestamp": [
+          125.88,
+          125.98
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "i'm",
+        "timestamp": [
+          126.88,
+          126.96
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "thinking",
+        "timestamp": [
+          127.04,
+          127.28
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "i",
+        "timestamp": [
+          127.42,
+          127.46
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "don't",
+        "timestamp": [
+          127.5,
+          127.64
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "know",
+        "timestamp": [
+          127.68,
+          127.78
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "that",
+        "timestamp": [
+          127.84,
+          127.92
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "that",
+        "timestamp": [
+          128,
+          128.14
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "counted",
+        "timestamp": [
+          128.26,
+          128.82
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "but",
+        "timestamp": [
+          128.96,
+          129.12
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "you",
+        "timestamp": [
+          129.28,
+          129.36
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "think",
+        "timestamp": [
+          129.48,
+          129.64
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "you",
+        "timestamp": [
+          129.74,
+          129.82
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "had",
+        "timestamp": [
+          129.94,
+          130
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "a",
+        "timestamp": [
+          130.08,
+          130.1
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "good",
+        "timestamp": [
+          130.14,
+          130.28
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "time",
+        "timestamp": [
+          130.38,
+          130.76
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "so",
+        "timestamp": [
+          130.9,
+          130.98
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "okay",
+        "timestamp": [
+          131.24,
+          131.48
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "it's",
+        "timestamp": [
+          131.58,
+          131.7
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "okay",
+        "timestamp": [
+          131.78,
+          132.04
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "and",
+        "timestamp": [
+          132.4,
+          132.68
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "so",
+        "timestamp": [
+          134.18,
+          134.24
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "we",
+        "timestamp": [
+          135.44,
+          135.5
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "didn't",
+        "timestamp": [
+          135.56,
+          135.74
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "really",
+        "timestamp": [
+          135.8,
+          135.96
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "think",
+        "timestamp": [
+          136.06,
+          136.18
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "too",
+        "timestamp": [
+          136.32,
+          136.4
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "much",
+        "timestamp": [
+          136.46,
+          136.6
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "of",
+        "timestamp": [
+          136.7,
+          136.76
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "it",
+        "timestamp": [
+          136.9,
+          137
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "until",
+        "timestamp": [
+          137.9,
+          138.16
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "twenty",
+        "timestamp": [
+          138.28,
+          138.52
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "twenty",
+        "timestamp": [
+          138.64,
+          138.82
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "which",
+        "timestamp": [
+          139.8,
+          139.9
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "was",
+        "timestamp": [
+          139.96,
+          140.04
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "a",
+        "timestamp": [
+          140.12,
+          140.14
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "tough",
+        "timestamp": [
+          140.24,
+          140.42
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "year",
+        "timestamp": [
+          140.54,
+          140.66
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "for",
+        "timestamp": [
+          140.76,
+          140.84
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "everybody",
+        "timestamp": [
+          140.96,
+          141.42
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "because",
+        "timestamp": [
+          141.76,
+          141.96
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "of",
+        "timestamp": [
+          142.02,
+          142.06
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "the",
+        "timestamp": [
+          142.14,
+          142.2
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "pandemic",
+        "timestamp": [
+          142.3,
+          142.92
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "and",
+        "timestamp": [
+          143.2,
+          143.42
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "we",
+        "timestamp": [
+          144.06,
+          144.1
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "were",
+        "timestamp": [
+          144.22,
+          144.36
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "in",
+        "timestamp": [
+          144.88,
+          144.94
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "uganda",
+        "timestamp": [
+          145.04,
+          145.4
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "were",
+        "timestamp": [
+          145.54,
+          145.68
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "going",
+        "timestamp": [
+          145.72,
+          145.86
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "through",
+        "timestamp": [
+          145.9,
+          146.06
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "lockdowns",
+        "timestamp": [
+          146.12,
+          146.72
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "just",
+        "timestamp": [
+          146.82,
+          146.94
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "like",
+        "timestamp": [
+          147.02,
+          147.14
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "everyone",
+        "timestamp": [
+          147.24,
+          147.62
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "else",
+        "timestamp": [
+          147.7,
+          147.98
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "and",
+        "timestamp": [
+          148.14,
+          148.22
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "not",
+        "timestamp": [
+          148.44,
+          148.56
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "leaving",
+        "timestamp": [
+          148.74,
+          149.06
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "our",
+        "timestamp": [
+          149.18,
+          149.28
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "compounds",
+        "timestamp": [
+          149.34,
+          150.08
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "staying",
+        "timestamp": [
+          150.18,
+          150.46
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "at",
+        "timestamp": [
+          150.56,
+          150.62
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "home",
+        "timestamp": [
+          150.72,
+          150.98
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "and",
+        "timestamp": [
+          151.5,
+          151.6
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "he",
+        "timestamp": [
+          151.76,
+          151.82
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "missed",
+        "timestamp": [
+          152,
+          152.42
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "seeing",
+        "timestamp": [
+          152.76,
+          153.08
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "his",
+        "timestamp": [
+          153.26,
+          153.34
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "friends",
+        "timestamp": [
+          153.44,
+          154.04
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "you",
+        "timestamp": [
+          154.22,
+          154.28
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "know",
+        "timestamp": [
+          154.3,
+          154.42
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "all",
+        "timestamp": [
+          154.54,
+          154.64
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "of",
+        "timestamp": [
+          154.72,
+          154.76
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "our",
+        "timestamp": [
+          155.22,
+          155.32
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "social",
+        "timestamp": [
+          155.42,
+          155.78
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "lives",
+        "timestamp": [
+          155.88,
+          156.18
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "have",
+        "timestamp": [
+          156.28,
+          156.38
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "all",
+        "timestamp": [
+          156.48,
+          156.76
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "gone",
+        "timestamp": [
+          157.32,
+          157.52
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "away",
+        "timestamp": [
+          157.68,
+          157.94
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "and",
+        "timestamp": [
+          158.14,
+          158.2
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "we",
+        "timestamp": [
+          158.26,
+          158.3
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "are",
+        "timestamp": [
+          158.34,
+          158.42
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "all",
+        "timestamp": [
+          158.46,
+          158.6
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "with",
+        "timestamp": [
+          159,
+          159.1
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "ourselves",
+        "timestamp": [
+          159.3,
+          159.82
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "and",
+        "timestamp": [
+          160.36,
+          160.46
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "so",
+        "timestamp": [
+          160.6,
+          160.7
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "towards",
+        "timestamp": [
+          162.74,
+          162.98
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "the",
+        "timestamp": [
+          163.06,
+          163.12
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "end",
+        "timestamp": [
+          163.2,
+          163.36
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "of",
+        "timestamp": [
+          163.44,
+          163.48
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "twenty",
+        "timestamp": [
+          163.6,
+          163.84
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "twenty",
+        "timestamp": [
+          163.98,
+          164.18
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "my",
+        "timestamp": [
+          165.68,
+          165.88
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "normally",
+        "timestamp": [
+          166.12,
+          166.58
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "very",
+        "timestamp": [
+          166.86,
+          167.06
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "chatdyverylike",
+        "timestamp": [
+          167.3,
+          169
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "lots",
+        "timestamp": [
+          169.08,
+          169.24
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "of",
+        "timestamp": [
+          169.28,
+          169.32
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "story",
+        "timestamp": [
+          169.44,
+          169.72
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "telling",
+        "timestamp": [
+          169.86,
+          170.18
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "big",
+        "timestamp": [
+          170.32,
+          170.42
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "imagination",
+        "timestamp": [
+          170.6,
+          171.22
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "child",
+        "timestamp": [
+          171.4,
+          171.92
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "stopped",
+        "timestamp": [
+          173.08,
+          173.54
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "really",
+        "timestamp": [
+          174.24,
+          174.48
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "speaking",
+        "timestamp": [
+          174.82,
+          175.28
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "he",
+        "timestamp": [
+          176.7,
+          176.76
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "would",
+        "timestamp": [
+          176.9,
+          177.24
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "share",
+        "timestamp": [
+          177.78,
+          178.12
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "if",
+        "timestamp": [
+          178.9,
+          178.98
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "he",
+        "timestamp": [
+          179.16,
+          179.24
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "had",
+        "timestamp": [
+          179.68,
+          180.04
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "like",
+        "timestamp": [
+          180.22,
+          180.4
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "a",
+        "timestamp": [
+          180.52,
+          180.54
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "need",
+        "timestamp": [
+          180.7,
+          180.96
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "so",
+        "timestamp": [
+          181.12,
+          181.18
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "if",
+        "timestamp": [
+          181.32,
+          181.36
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "he",
+        "timestamp": [
+          181.48,
+          181.54
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "needed",
+        "timestamp": [
+          181.64,
+          181.9
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "to",
+        "timestamp": [
+          182.02,
+          182.12
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "if",
+        "timestamp": [
+          182.72,
+          182.76
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "he",
+        "timestamp": [
+          182.84,
+          182.88
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "was",
+        "timestamp": [
+          182.94,
+          183
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "hungry",
+        "timestamp": [
+          183.1,
+          183.38
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "or",
+        "timestamp": [
+          183.62,
+          183.7
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "if",
+        "timestamp": [
+          183.76,
+          183.8
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "he",
+        "timestamp": [
+          183.88,
+          183.94
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "was",
+        "timestamp": [
+          184,
+          184.08
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "tired",
+        "timestamp": [
+          184.18,
+          184.5
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "he",
+        "timestamp": [
+          184.62,
+          184.66
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "would",
+        "timestamp": [
+          184.68,
+          184.8
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "say",
+        "timestamp": [
+          184.86,
+          184.92
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "mama",
+        "timestamp": [
+          185.04,
+          185.18
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "i'm",
+        "timestamp": [
+          185.26,
+          185.36
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "hungry",
+        "timestamp": [
+          185.44,
+          185.68
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "mama",
+        "timestamp": [
+          185.84,
+          186.02
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "i",
+        "timestamp": [
+          186.22,
+          186.24
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "want",
+        "timestamp": [
+          186.3,
+          186.4
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "something",
+        "timestamp": [
+          186.46,
+          186.66
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "to",
+        "timestamp": [
+          186.7,
+          186.74
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "eat",
+        "timestamp": [
+          186.78,
+          186.86
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "i",
+        "timestamp": [
+          186.92,
+          186.94
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "am",
+        "timestamp": [
+          186.98,
+          187.02
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "tired",
+        "timestamp": [
+          187.12,
+          187.36
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "but",
+        "timestamp": [
+          187.8,
+          187.94
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "instead",
+        "timestamp": [
+          188.6,
+          188.86
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "of",
+        "timestamp": [
+          188.9,
+          188.94
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "telling",
+        "timestamp": [
+          189.02,
+          189.24
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "us",
+        "timestamp": [
+          189.3,
+          189.36
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "these",
+        "timestamp": [
+          189.44,
+          189.58
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "interesting",
+        "timestamp": [
+          189.64,
+          190
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "stories",
+        "timestamp": [
+          190.14,
+          190.58
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "in",
+        "timestamp": [
+          190.66,
+          190.72
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "bringing",
+        "timestamp": [
+          190.8,
+          191.04
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "us",
+        "timestamp": [
+          191.1,
+          191.2
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "into",
+        "timestamp": [
+          191.32,
+          191.48
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "his",
+        "timestamp": [
+          191.62,
+          191.72
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "world",
+        "timestamp": [
+          191.82,
+          192.1
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "you",
+        "timestamp": [
+          192.24,
+          192.3
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "know",
+        "timestamp": [
+          192.36,
+          192.44
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "with",
+        "timestamp": [
+          192.56,
+          192.64
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "his",
+        "timestamp": [
+          192.72,
+          192.82
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "words",
+        "timestamp": [
+          192.92,
+          193.16
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "he",
+        "timestamp": [
+          193.26,
+          193.3
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "just",
+        "timestamp": [
+          193.42,
+          193.66
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "stopped",
+        "timestamp": [
+          194.94,
+          195.32
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "speaking",
+        "timestamp": [
+          195.74,
+          196.1
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "and",
+        "timestamp": [
+          196.4,
+          196.78
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "that",
+        "timestamp": [
+          197.44,
+          197.56
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "was",
+        "timestamp": [
+          197.62,
+          197.7
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "our",
+        "timestamp": [
+          198.52,
+          198.64
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "first",
+        "timestamp": [
+          198.9,
+          199.12
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "real",
+        "timestamp": [
+          199.24,
+          199.48
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "signs",
+        "timestamp": [
+          199.6,
+          200
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "like",
+        "timestamp": [
+          200.08,
+          200.2
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "some",
+        "timestamp": [
+          200.72,
+          200.86
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "things",
+        "timestamp": [
+          200.9,
+          201.12
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "wrong",
+        "timestamp": [
+          201.18,
+          201.44
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "people",
+        "timestamp": [
+          201.78,
+          201.94
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "don't",
+        "timestamp": [
+          202,
+          202.14
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "just",
+        "timestamp": [
+          202.22,
+          202.34
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "stop",
+        "timestamp": [
+          202.44,
+          202.7
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "talking",
+        "timestamp": [
+          203.34,
+          203.74
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "you",
+        "timestamp": [
+          204,
+          204.08
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "now",
+        "timestamp": [
+          204.2,
+          204.3
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "that's",
+        "timestamp": [
+          204.38,
+          204.56
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "not",
+        "timestamp": [
+          204.64,
+          204.84
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "normally",
+        "timestamp": [
+          204.94,
+          205.28
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "what's",
+        "timestamp": [
+          205.36,
+          205.52
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "going",
+        "timestamp": [
+          205.6,
+          205.78
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "on",
+        "timestamp": [
+          205.86,
+          206.04
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "and",
+        "timestamp": [
+          206.18,
+          206.28
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "where",
+        "timestamp": [
+          207.1,
+          207.34
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "is",
+        "timestamp": [
+          207.42,
+          207.5
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "our",
+        "timestamp": [
+          207.56,
+          207.64
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "son",
+        "timestamp": [
+          207.7,
+          207.96
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "like",
+        "timestamp": [
+          208.06,
+          208.18
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "we",
+        "timestamp": [
+          208.24,
+          208.3
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "missed",
+        "timestamp": [
+          209.22,
+          209.42
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "him",
+        "timestamp": [
+          209.5,
+          209.66
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "and",
+        "timestamp": [
+          209.9,
+          210.18
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "we",
+        "timestamp": [
+          210.68,
+          210.74
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "missed",
+        "timestamp": [
+          210.88,
+          211.1
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "our",
+        "timestamp": [
+          211.76,
+          211.86
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "normal",
+        "timestamp": [
+          212.02,
+          212.56
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "conversations",
+        "timestamp": [
+          213.68,
+          214.46
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "and",
+        "timestamp": [
+          214.62,
+          214.74
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "our",
+        "timestamp": [
+          215.7,
+          215.8
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "life",
+        "timestamp": [
+          215.86,
+          216.02
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "that",
+        "timestamp": [
+          216.08,
+          216.18
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "we",
+        "timestamp": [
+          216.24,
+          216.28
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "had",
+        "timestamp": [
+          216.34,
+          216.42
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "grown",
+        "timestamp": [
+          216.5,
+          216.68
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "used",
+        "timestamp": [
+          216.9,
+          217.06
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "to",
+        "timestamp": [
+          217.14,
+          217.18
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "with",
+        "timestamp": [
+          217.32,
+          217.42
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "him",
+        "timestamp": [
+          217.5,
+          217.62
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "and",
+        "timestamp": [
+          218.7,
+          218.8
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "so",
+        "timestamp": [
+          218.94,
+          219.02
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "and",
+        "timestamp": [
+          219.8,
+          219.86
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "he",
+        "timestamp": [
+          219.96,
+          220.02
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "had",
+        "timestamp": [
+          220.12,
+          220.2
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "also",
+        "timestamp": [
+          220.32,
+          220.46
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "replaced",
+        "timestamp": [
+          220.6,
+          221.1
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "those",
+        "timestamp": [
+          221.8,
+          221.98
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "times",
+        "timestamp": [
+          222.12,
+          222.64
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "of",
+        "timestamp": [
+          223.36,
+          223.42
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "talking",
+        "timestamp": [
+          223.58,
+          223.86
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "and",
+        "timestamp": [
+          223.94,
+          224.02
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "sharing",
+        "timestamp": [
+          224.08,
+          224.34
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "with",
+        "timestamp": [
+          224.42,
+          224.5
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "us",
+        "timestamp": [
+          224.62,
+          224.74
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "with",
+        "timestamp": [
+          224.92,
+          225.08
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "what",
+        "timestamp": [
+          225.92,
+          226.02
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "we",
+        "timestamp": [
+          226.06,
+          226.12
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "now",
+        "timestamp": [
+          226.18,
+          226.3
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "know",
+        "timestamp": [
+          226.38,
+          226.52
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "to",
+        "timestamp": [
+          226.78,
+          226.82
+        ]
+      },
+      {
+        "speaker": "SPEAKER_00",
+        "text": "be",
+        "timestamp": [
+          226.86,
+          226.9
+        ]
+      }
+    ],
+    "text": "could you let us know about being a parent to a child with both otesmandariatd how and when did you know in the first place that you have a child with both autism and we didn't notice at first like my child my nine year old has autism in eight and at first we didn't really notice because developed manallyhe was hitting all of his milestones so he was like when babies starting to crawl he was within the range of starting to crawl when babies are starting to walk he is starting to walk when they are toiletting independently he is toileting independently so there wasn't anything major was speaking we had a moment when were like is he okay but we had just gone to america for the first time after having him here we went to america he heard all those american accents and then we came back and then he got very quiet like he had been starting to make those like bababbaby sounds and then he got to uganda and started hearing a choli again and then we thought maybe it was like he was just listening he was just trying to understand like something shifted and how everyone is speaking and there is a second language but then after a couple of months he just started talking in full sentences and speaking a truly and english so is like okay he was just learning his second language and so we didn't think anything of it until twesantwentyreally so up until then he was you know he's great kid he's really sweet he was a little bit we would call it quirky in america where he is just like sometimes doing things a little different he would when he would play with friends it would be sometimes he would just observe friends playing instead of actually actively playing with them you know and so he is like i played with friends and i'm thinking i don't know that that counted but you think you had a good time so okay it's okay and so we didn't really think too much of it until twenty twenty which was a tough year for everybody because of the pandemic and we were in uganda were going through lockdowns just like everyone else and not leaving our compounds staying at home and he missed seeing his friends you know all of our social lives have all gone away and we are all with ourselves and so towards the end of twenty twenty my normally very chatdyverylike lots of story telling big imagination child stopped really speaking he would share if he had like a need so if he needed to if he was hungry or if he was tired he would say mama i'm hungry mama i want something to eat i am tired but instead of telling us these interesting stories in bringing us into his world you know with his words he just stopped speaking and that was our first real signs like some things wrong people don't just stop talking you now that's not normally what's going on and where is our son like we missed him and we missed our normal conversations and our life that we had grown used to with him and so and he had also replaced those times of talking and sharing with us with what we now know to be"
+  },
+  "formatted_diarization_output": "**SPEAKER_01**\n(0.46) could you let us know about being a parent to a child with both otesmandariatd how and when did you know in the first place that you have a child with both autism and (16.32)\n**SPEAKER_00**\n(16.26) we didn't notice at first like my child my nine year old has autism in eight and at first we didn't really notice because developed manallyhe was hitting all of his milestones so he was like when babies starting to crawl he was within the range of starting to crawl when babies are starting to walk he is starting to walk when they are toiletting independently he is toileting independently so there wasn't anything major was speaking we had a moment when were like is he okay but we had just gone to america for the first time after having him here we went to america he heard all those american accents and then we came back and then he got very quiet like he had been starting to make those like bababbaby sounds and then he got to uganda and started hearing a choli again and then we thought maybe it was like he was just listening he was just trying to understand like something shifted and how everyone is speaking and there is a second language but then after a couple of months he just started talking in full sentences and speaking a truly and english so is like okay he was just learning his second language and so we didn't think anything of it until twesantwentyreally so up until then he was you know he's great kid he's really sweet he was a little bit we would call it quirky in america where he is just like sometimes doing things a little different he would when he would play with friends it would be sometimes he would just observe friends playing instead of actually actively playing with them you know and so he is like i played with friends and i'm thinking i don't know that that counted but you think you had a good time so okay it's okay and so we didn't really think too much of it until twenty twenty which was a tough year for everybody because of the pandemic and we were in uganda were going through lockdowns just like everyone else and not leaving our compounds staying at home and he missed seeing his friends you know all of our social lives have all gone away and we are all with ourselves and so towards the end of twenty twenty my normally very chatdyverylike lots of story telling big imagination child stopped really speaking he would share if he had like a need so if he needed to if he was hungry or if he was tired he would say mama i'm hungry mama i want something to eat i am tired but instead of telling us these interesting stories in bringing us into his world you know with his words he just stopped speaking and that was our first real signs like some things wrong people don't just stop talking you now that's not normally what's going on and where is our son like we missed him and we missed our normal conversations and our life that we had grown used to with him and so and he had also replaced those times of talking and sharing with us with what we now know to be (226.90)"
+}

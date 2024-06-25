@@ -8,7 +8,8 @@ class STTTranscript(BaseModel):
     """changes"""
 
     audio_transcription: Optional[str] = Field(None)
-    # audio_transcription: str
+    diarization_output: Optional[dict] = Field(None)
+    formatted_diarization_output: Optional[str] = Field(None)
 
 
 class NllbResponseOutputData(BaseModel):
