@@ -1,13 +1,22 @@
 import json
 from datetime import timedelta
+from typing import List
 
-from fastapi import APIRouter, Depends, Form, Request, responses, status
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, responses, status
 from fastapi.templating import Jinja2Templates
 from pydantic.error_wrappers import ValidationError
 from sqlalchemy.orm import Session
 
+from app.crud.audio_transcription import (
+    get_audio_transcription as crud_audio_transcription,
+)
+from app.crud.audio_transcription import (
+    get_audio_transcriptions as crud_audio_transcriptions,
+)
 from app.crud.users import create_user, get_user_by_email, get_user_by_username
 from app.deps import get_db
+from app.routers.auth import get_current_user
+from app.schemas.audio_transcription import AudioTranscriptionBase
 from app.schemas.users import User, UserCreate, UserInDB
 from app.utils.auth_utils import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
@@ -37,13 +46,13 @@ async def login(request: Request):  # type: ignore
 
 
 @router.get("/privacy_policy")
-async def login(request: Request):  # type: ignore
+async def privacy_policy(request: Request):  # type: ignore
     context = {"request": request}
     return templates.TemplateResponse("privacy_policy.html", context)
 
 
 @router.get("/terms_of_service")
-async def login(request: Request):  # type: ignore
+async def terms_of_service(request: Request):  # type: ignore
     context = {"request": request}
     return templates.TemplateResponse("terms_of_service.html", context)
 
@@ -158,3 +167,75 @@ async def account(
         "aggregates": aggregates,
     }
     return templates.TemplateResponse("account_page.html", context=context)
+
+
+# Route to get the uploaded audio and transcriptions
+@router.get(
+    "/transcriptions",
+    response_model=List[AudioTranscriptionBase],
+)
+async def get_audio_transcriptions(
+    current_user=Depends(get_current_user), db: Session = Depends(get_db)
+):
+    """
+    This endpoint returns all the transcriptions per user.
+    It returns the id, username, email, audio_file_url, filename,
+    uploaded(time) and the transcription.
+    """
+
+    transcriptions = await crud_audio_transcriptions(
+        db=db, username=current_user.username
+    )
+
+    if not transcriptions:
+        raise HTTPException(status_code=404, detail="No transcriptions found")
+
+    transcriptions_dicts = [t.to_dict() for t in transcriptions]
+
+    return transcriptions_dicts
+
+
+@router.get("/transcriptions/{id}", response_model=AudioTranscriptionBase)
+async def get_audio_transcription(
+    id: int, current_user=Depends(get_current_user), db: Session = Depends(get_db)
+):
+    """
+    This endpoint returns  the transcriptions per user_id that is supplied in the Request Body.
+    """
+
+    transcription = await crud_audio_transcription(db, id, current_user.username)
+
+    if not transcription:
+        raise HTTPException(status_code=404, detail="Transcription not found")
+
+    return transcription.to_dict()
+
+
+@router.put("/transcriptions/{id}", response_model=AudioTranscriptionBase)
+async def update_audio_transcription(
+    id: int,
+    transcription_text: str = Form(...),
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    This endpoint enables us to update the transcription to a new/better transcription.
+    This will enable the users to be able  update transcriptions.
+    """
+
+    transcription = await crud_audio_transcription(db, id, current_user.username)
+
+    if not transcription:
+        raise HTTPException(status_code=404, detail="Transcription not found")
+
+    transcription.transcription = transcription_text
+    try:
+        db.commit()
+        db.refresh(transcription)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500, detail="An error occurred while updating the transcription"
+        )
+
+    return transcription.to_dict()

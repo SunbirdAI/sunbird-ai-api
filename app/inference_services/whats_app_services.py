@@ -255,7 +255,7 @@ def send_image(
         recipient_id[str]: Phone number of the user with country code wihout +
         recipient_type[str]: Type of the recipient, either individual or group
         caption[str]: Caption of the image
-        link[bool]: Whether to send an image id or an image link, True means that the image is an id, False means that the image is a link
+        link[bool]: Checks if image is id or link, True means id
 
     """
     url = f"{base_url}/{phone_number_id}/messages?access_token={token}"
@@ -298,7 +298,7 @@ def send_audio(token, audio, phone_number_id, recipient_id, link=True):
     Args:
         audio[str]: Audio id or link of the audio
         recipient_id[str]: Phone number of the user with country code wihout +
-        link[bool]: Whether to send an audio id or an audio link, True means that the audio is an id, False means that the audio is a link
+        link[bool]: Choose audio id or audio link, True means audio is an id, False means audio is a link
 
     """
     url = f"{base_url}/{phone_number_id}/messages?access_token={token}"
@@ -336,7 +336,7 @@ def send_video(video, phone_number_id, recipient_id, caption=None, link=True):
         video[str]: Video id or link of the video
         recipient_id[str]: Phone number of the user with country code wihout +
         caption[str]: Caption of the video
-        link[bool]: Whether to send a video id or a video link, True means that the video is an id, False means that the video is a link
+        link[bool]: Choose to send video id or  video link, True means video is an id, False means video is a link
 
     """
     url = f"{base_url}/{phone_number_id}/messages"
@@ -374,7 +374,7 @@ def send_document(document, phone_number_id, recipient_id, caption=None, link=Tr
         document[str]: Document id or link of the document
         recipient_id[str]: Phone number of the user with country code wihout +
         caption[str]: Caption of the document
-        link[bool]: Whether to send a document id or a document link, True means that the document is an id, False means that the document is a link
+        link[bool]: Choose to send id or link for document, True means document is an id else it's a link
 
     """
     url = f"{base_url}/{phone_number_id}/messages"

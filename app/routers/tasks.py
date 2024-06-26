@@ -1,4 +1,3 @@
-import io
 import json
 import logging
 import os
@@ -11,10 +10,12 @@ import runpod
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi_limiter.depends import RateLimiter
+from sqlalchemy.orm import Session
 from twilio.rest import Client
 from werkzeug.utils import secure_filename
 
-from app.inference_services.stt_inference import transcribe
+from app.crud.audio_transcription import create_audio_transcription
+from app.deps import get_db
 from app.inference_services.translate_inference import translate
 from app.inference_services.user_preference import (
     get_user_preference,
@@ -240,6 +241,8 @@ async def speech_to_text(
     audio: UploadFile(...) = File(...),
     language: NllbLanguage = Form("lug"),
     adapter: NllbLanguage = Form("lug"),
+    recognise_speakers: bool = Form(False),
+    db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ) -> STTTranscript:
     """
@@ -252,7 +255,7 @@ async def speech_to_text(
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(audio.file, buffer)
 
-    blob_name = upload_audio_file(file_path=file_path)
+    blob_name, blob_url = upload_audio_file(file_path=file_path)
     audio_file = blob_name
     os.remove(file_path)
     request_response = {}
@@ -266,6 +269,7 @@ async def speech_to_text(
                     "target_lang": language,
                     "adapter": adapter,
                     "audio_file": audio_file,
+                    "recognise_speakers": recognise_speakers,
                 }
             },
             timeout=600,  # Timeout in seconds.
@@ -279,8 +283,28 @@ async def speech_to_text(
     # Calculate the elapsed time
     elapsed_time = end_time - start_time
     logging.info(f"Elapsed time: {elapsed_time} seconds")
+    transcription = request_response.get("audio_transcription")
+
+    # Save transcription in database if it exists
+    if (
+        transcription is not None
+        and isinstance(transcription, str)
+        and len(transcription) > 0
+    ):
+        db_audio_transcription = create_audio_transcription(
+            db, current_user, blob_url, blob_name, transcription
+        )
+
+        logging.info(
+            f"Audio transcription in database :{db_audio_transcription.to_dict()}"
+        )
+
     return STTTranscript(
-        audio_transcription=request_response.get("audio_transcription")
+        audio_transcription=request_response.get("audio_transcription"),
+        diarization_output=request_response.get("diarization_output", {}),
+        formatted_diarization_output=request_response.get(
+            "formatted_diarization_output", ""
+        ),
     )
 
 
@@ -553,7 +577,7 @@ def process_speech_to_text(file_path, language: str):
     # Calculate the elapsed time
     elapsed_time = end_time - start_time
     logging.info(f"Elapsed time: {elapsed_time} seconds")
-    
+
     return request_response.get("audio_transcription")
 
 def detect_language(text):
