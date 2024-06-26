@@ -21,17 +21,14 @@ from app.inference_services.user_preference import (
     get_user_preference,
     save_translation,
     save_user_preference,
+    update_feedback,
 )
 from app.inference_services.whats_app_services import (
-    get_audio,
-    get_document,
-    get_image,
-    get_interactive_response,
-    get_location,
-    get_message,
-    get_name,
-    get_video,
-    send_message,
+    get_phone_number_id, get_from_number, get_name, help_message,
+    get_interactive_response, get_location, get_image, get_video, get_document, 
+    get_audio, get_reaction, get_message, query_media_url, download_media, send_message, 
+    valid_payload, welcome_message, handle_language_selection, set_default_target_language
+
 )
 from app.routers.auth import get_current_user
 from app.schemas.tasks import (
@@ -46,7 +43,8 @@ from app.schemas.tasks import (
     SummarisationRequest,
     SummarisationResponse,
 )
-from app.utils.upload_audio_file_gcp import upload_audio_file
+from app.utils.helper_utils import chunk_text
+from app.utils.upload_audio_file_gcp import upload_audio_file, upload_file_to_bucket
 
 router = APIRouter()
 
@@ -395,176 +393,108 @@ async def webhook(payload: dict):
     try:
         logging.info(f"Received payload: {json.dumps(payload, indent=2)}")
 
-        if valid_payload(payload):
-            phone_number_id = get_phone_number_id(payload)
-            from_number = get_from_number(payload)
-            sender_name = get_name(payload)
-            source_language, target_language = get_user_preference(from_number)
+        if not valid_payload(payload):
+            return {"status": "invalid payload"}
 
-            message = None
+        phone_number_id = get_phone_number_id(payload)
+        from_number = get_from_number(payload)
+        sender_name = get_name(payload)
+        source_language, target_language = get_user_preference(from_number)
 
-            if interactive_response := get_interactive_response(payload):
-                message = f"Dear {sender_name}, Thanks for that response."
-            elif location := get_location(payload):
-                message = f"Dear {sender_name}, We have no support for messages of type locations"
-            elif image := get_image(payload):
-                message = (
-                    f"Dear {sender_name}, We have no support for messages of type image"
-                )
-            elif video := get_video(payload):
-                message = (
-                    f"Dear {sender_name}, We have no support for messages of type video"
-                )
-            elif docs := get_document(payload):
-                message = f"Dear {sender_name}, We do not support documents"
-            elif audio := get_audio(payload):
-                message = f"Dear {sender_name}, We do not support audio"
-            elif reaction := get_reaction(payload):
-                message = f"Dear {sender_name}, Thanks for your feedback."
-            else:
-                msg_body = get_message(payload)
+        message = handle_message(payload, from_number, sender_name, source_language, target_language, phone_number_id)
 
-                if target_language is None or source_language is None:
-                    set_default_target_language(from_number)
-                    message = welcome_message()
-                elif msg_body.lower() in ["hi", "start"]:
-                    message = welcome_message(sender_name)
-                elif msg_body.isdigit() and msg_body in languages_obj:
-                    message = handle_language_selection(
-                        from_number, msg_body, source_language
-                    )
-                elif msg_body.lower() == "help":
-                    message = "Help: Reply 'hi' to choose another language. Send text to translate."
-                elif 3 <= len(msg_body) <= 200:
-                    detected_language = detect_language(msg_body)
-                    message = translate_text(
-                        msg_body, detected_language, target_language
-                    )
-                    save_translation(
-                        from_number,
-                        msg_body,
-                        message,
-                        detected_language,
-                        target_language,
-                    )
-                    save_user_preference(
-                        from_number, detected_language, target_language
-                    )
-                else:
-                    message = "_Please send text that contains between 3 and 200 characters (about 30 to 50 words)._"
-            send_message(
-                message, os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id
-            )
+        if message:
+            send_message(message, os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id)
 
         return {"status": "success"}
+
     except Exception as error:
         logging.error(f"Error in webhook processing: {str(error)}")
         raise HTTPException(status_code=500, detail="Internal Server Error") from error
 
-
 @router.get("/webhook")
 async def verify_webhook(mode: str, token: str, challenge: str):
     if mode and token:
-        if mode != "subscribe" or token != verify_token:
+        if mode != "subscribe" or token != os.getenv("VERIFY_TOKEN"):
             raise HTTPException(status_code=403, detail="Forbidden")
 
-        print("WEBHOOK_VERIFIED")
+        logging.info("WEBHOOK_VERIFIED")
         return {"challenge": challenge}
     raise HTTPException(status_code=400, detail="Bad Request")
 
+def handle_message(payload, from_number, sender_name, source_language, target_language, phone_number_id):
+    if interactive_response := get_interactive_response(payload):
+        return f"Dear {sender_name}, Thanks for that response."
+    
+    if location := get_location(payload):
+        return f"Dear {sender_name}, We have no support for messages of type locations."
+    
+    if image := get_image(payload):
+        return f"Dear {sender_name}, We have no support for messages of type image."
+    
+    if video := get_video(payload):
+        return f"Dear {sender_name}, We have no support for messages of type video."
+    
+    if docs := get_document(payload):
+        return f"Dear {sender_name}, We do not support documents."
+    
+    if audio := get_audio(payload):
+        return handle_audio_message(audio, target_language, sender_name)
+    
+    if reaction := get_reaction(payload):
+        mess_id = reaction["message_id"]
+        emoji = reaction["emoji"]
+        update_feedback(mess_id, emoji)
+        return f"Dear {sender_name}, Thanks for your feedback {emoji}."
+    
+    return handle_text_message(payload, from_number, sender_name, source_language, target_language)
 
-def valid_payload(payload):
-    return "object" in payload and (
-        "entry" in payload
-        and payload["entry"]
-        and "changes" in payload["entry"][0]
-        and payload["entry"][0]["changes"]
-        and payload["entry"][0]["changes"][0]
-        and "value" in payload["entry"][0]["changes"][0]
-        and "messages" in payload["entry"][0]["changes"][0]["value"]
-        and payload["entry"][0]["changes"][0]["value"]["messages"]
-    )
-
-
-def get_phone_number_id(payload):
-    return payload["entry"][0]["changes"][0]["value"]["metadata"]["phone_number_id"]
-
-
-def get_from_number(payload):
-    return payload["entry"][0]["changes"][0]["value"]["messages"][0]["from"]
-
-
-def detect_language(text):
-    endpoint = runpod.Endpoint(os.getenv("RUNPOD_ENDPOINT_ID"))
-    request_response = {}
-
+def handle_audio_message(audio, target_language, sender_name):
     try:
-        request_response = endpoint.run_sync(
-            {
-                "input": {
-                    "task": "auto_detect_language",
-                    "text": text,
-                }
-            },
-            timeout=60,
-        )
+        audio_id = audio["id"]
+        mime_type = audio["mime_type"]
 
-        logging.info(f"Request response: {request_response}")
-
-        if request_response:
-            return request_response["language"]
+        if target_language:
+            file_path = download_media(query_media_url(audio_id, os.getenv("WHATSAPP_TOKEN")), os.getenv("WHATSAPP_TOKEN"))
+            transcription = process_speech_to_text(file_path, target_language)
+            if transcription:
+                return transcription
+            else:
+                return "Sorry, there was an issue processing your audio file."
         else:
-            raise HTTPException(
-                status_code=500,
-                detail="Language detection failed. No output from the service.",
-            )
+            return f"Dear {sender_name}, Please specify the language for transcription."
+    
+    except Exception as e:
+        logging.error(f"Error processing audio file: {str(e)}")
+        return "Sorry, there was an issue processing your audio file."
 
-    except TimeoutError:
-        logging.error("Job timed out.")
-        raise HTTPException(
-            status_code=408,
-            detail="The language identification job timed out. Please try again later.",
-        )
+def handle_text_message(payload, from_number, sender_name, source_language, target_language):
+    msg_body = get_message(payload)
 
+    if not target_language or not source_language:
+        set_default_target_language(from_number,save_user_preference)
+        return welcome_message(sender_name)
+    
+    if msg_body.lower() in ["hi", "start"]:
+        return welcome_message(sender_name)
+    
+    if msg_body.isdigit() and msg_body in languages_obj:
+        return handle_language_selection(from_number, msg_body, source_language,save_user_preference, languages_obj)
+    
+    if msg_body.lower() == "help":
+        return help_message()
+    
+    if 3 <= len(msg_body) <= 200:
+        detected_language = detect_language(msg_body)
+        translation = translate_text(msg_body, detected_language, target_language)
+        mess_id = send_message(translation, whatsapp_token, from_number, get_phone_number_id(payload))
+        
+        save_translation(from_number, msg_body, translation, detected_language, target_language, mess_id)
+        save_user_preference(from_number, detected_language, target_language)
 
-def get_reaction(payload):
-    # Check if the payload contains a reaction
-    messages = payload["entry"][0]["changes"][0]["value"]["messages"]
-    for message in messages:
-        if "reaction" in message:
-            return message["reaction"]
-    return None
+        return translation
 
-
-def welcome_message(sender_name=""):
-    return (
-        f"Hello {sender_name},\n\n"
-        "Welcome to our translation service! 🌍\n\n"
-        "Reply 'help' anytime for instructions on how to use this service.\n\n"
-        "Please choose the language you prefer to translate to:\n"
-        "1: Luganda (default)\n"
-        "2: Acholi\n"
-        "3: Ateso\n"
-        "4: Lugbara\n"
-        "5: Runyankole\n"
-        "6: English\n"
-        "More options coming soon!.\n"
-    )
-
-
-def set_default_target_language(user_id):
-    default_target_language = "Luganda"
-    defualt_source_language = "English"
-    save_user_preference(user_id, defualt_source_language, default_target_language)
-
-
-def handle_language_selection(user_id, selection, source_language):
-    if int(selection) == 6:
-        save_user_preference(user_id, source_language, languages_obj[selection])
-        return f"Language set to {languages_obj[selection]}. You can now send texts to translate."
-    else:
-        save_user_preference(user_id, source_language, languages_obj[selection])
-        return f"Language set to {languages_obj[selection]}. You can now send texts to translate."
+    return "_Please send text that contains between 3 and 200 characters (about 30 to 50 words)._"
 
 
 def translate_text(text, source_language, target_language):
@@ -616,15 +546,10 @@ def translate_text(text, source_language, target_language):
 
     return translated_text
 
-
-def process_speech_to_text(audio: UploadFile, language: str):
+def process_speech_to_text(file_path, language: str):
     endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
 
-    filename = secure_filename(audio.filename)
-    file_path = os.path.join("/tmp", filename)
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(audio.file, buffer)
-
+    logging.info(f"File path: {file_path}")
     blob_name = upload_audio_file(file_path=file_path)
     audio_file = blob_name
     os.remove(file_path)
@@ -654,3 +579,35 @@ def process_speech_to_text(audio: UploadFile, language: str):
     logging.info(f"Elapsed time: {elapsed_time} seconds")
 
     return request_response.get("audio_transcription")
+
+def detect_language(text):
+    endpoint = runpod.Endpoint(os.getenv("RUNPOD_ENDPOINT_ID"))
+    request_response = {}
+
+    try:
+        request_response = endpoint.run_sync(
+            {
+                "input": {
+                    "task": "auto_detect_language",
+                    "text": text,
+                }
+            },
+            timeout=60,
+        )
+
+        logging.info(f"Request response: {request_response}")
+
+        if request_response:
+            return request_response["language"]
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail="Language detection failed. No output from the service.",
+            )
+
+    except TimeoutError:
+        logging.error("Job timed out.")
+        raise HTTPException(
+            status_code=408,
+            detail="The language identification job timed out. Please try again later.",
+        )
