@@ -592,7 +592,7 @@ def send_reply_button(button, recipient_id, phone_number_id):
     return r.json()
 
 
-def query_media_url(media_id: str):
+def query_media_url(media_id, access_token):
     """
     Query media url from media id obtained either by manually uploading media or received media
 
@@ -604,6 +604,7 @@ def query_media_url(media_id: str):
 
     """
 
+    headers = {"Authorization": f"Bearer {access_token}"}
     logging.info(f"Querying media url for {media_id}")
     r = requests.get(f"{base_url}/{media_id}", headers=headers)
     if r.status_code == 200:
@@ -790,21 +791,21 @@ def get_document(data) -> Union[Dict, None]:
             return data["messages"][0]["document"]
 
 
-def get_audio(data) -> Union[Dict, None]:
-    """
-    Extracts the audio of the sender from the data received from the webhook.
+# def get_audio(data) -> Union[Dict, None]:
+#     """
+#     Extracts the audio of the sender from the data received from the webhook.
 
-    Args:
-        data[dict]: The data received from the webhook
+#     Args:
+#         data[dict]: The data received from the webhook
 
-    Returns:
-        dict: The audio of the sender
+#     Returns:
+#         dict: The audio of the sender
 
-    """
-    data = preprocess(data)
-    if "messages" in data:
-        if "audio" in data["messages"][0]:
-            return data["messages"][0]["audio"]
+#     """
+#     data = preprocess(data)
+#     if "messages" in data:
+#         if "audio" in data["messages"][0]:
+#             return data["messages"][0]["audio"]
 
 
 def get_video(data) -> Union[Dict, None]:
@@ -970,3 +971,138 @@ def get_media_url(media_id, token):
         raise Exception(
             f"Failed to retrieve media URL. HTTP Status: {response.status_code}, Response: {response.text}"
         )
+
+# my new code
+
+def valid_payload(payload):
+    return "object" in payload and (
+        "entry" in payload
+        and payload["entry"]
+        and "changes" in payload["entry"][0]
+        and payload["entry"][0]["changes"]
+        and payload["entry"][0]["changes"][0]
+        and "value" in payload["entry"][0]["changes"][0]
+        and "messages" in payload["entry"][0]["changes"][0]["value"]
+        and payload["entry"][0]["changes"][0]["value"]["messages"]
+    )
+
+
+def get_phone_number_id(payload):
+    return payload["entry"][0]["changes"][0]["value"]["metadata"]["phone_number_id"]
+
+
+def get_from_number(payload):
+    return payload["entry"][0]["changes"][0]["value"]["messages"][0]["from"]
+
+
+def get_reaction(payload):
+    # Check if the payload contains a reaction
+    messages = payload["entry"][0]["changes"][0]["value"]["messages"]
+    for message in messages:
+        logging.info(f"Message: {message}")
+        if "reaction" in message:
+            reaction = message["reaction"]
+            logging.info(f"Reaction: {reaction}")
+            return message["reaction"]
+    return None
+
+
+def welcome_message(sender_name=""):
+    return (
+        f"Hello {sender_name},\n\n"
+        "Welcome to our translation and audio transcription service! 🌍\n\n"
+        "Here are some things you can do:\n\n"
+        "1. **Translate Text**:\n"
+        "   - Simply send any text message (between 3 to 200 characters) to translate it into your preferred language.\n"
+        "   - Reply with 'hi' or 'start' to begin the translation process.\n\n"
+        "2. **Set Preferred Language**:\n"
+        "   - Please choose the language you prefer to translate to by sending the corresponding number:\n"
+        "     1: Luganda (default)\n"
+        "     2: Acholi\n"
+        "     3: Ateso\n"
+        "     4: Lugbara\n"
+        "     5: Runyankole\n"
+        "     6: English\n"
+        "   - You can change your preferred language at any time by sending the number of your new choice.\n\n"
+        "3. **Audio Transcription**:\n"
+        "   - Send an audio message to transcribe it into text. Make sure to specify your preferred transcription language.\n\n"
+        "4. **Feedback**:\n"
+        "   - React to any message with an emoji to provide feedback. We value your input!\n\n"
+        "5. **Help**:\n"
+        "   - Reply with 'help' anytime to receive instructions on how to use this service.\n\n"
+        "6. **Unsupported Message Types**:\n"
+        "   - Note that we currently do not support image, video, or document messages.\n"
+        "   - You will receive a notification if you send any unsupported message type.\n\n"
+        "We hope you enjoy using our service. Feel free to reach out if you have any questions or need assistance!\n\n"
+        "Best regards,\n"
+        "The Translation and Transcription Service Team"
+    )
+
+def help_message():
+    return (
+        "Help Guide:\n\n"
+        "1. **Start Translation**:\n"
+        "   - Reply with 'hi' or 'start' to initiate the translation service and set your preferred language.\n\n"
+        "2. **Send Text for Translation**:\n"
+        "   - Simply send any text message (between 3 to 200 characters) to translate it into your chosen language.\n\n"
+        "3. **Change Preferred Language**:\n"
+        "   - To change your preferred translation language, send the number corresponding to your new choice:\n"
+        "     1: Luganda\n"
+        "     2: Acholi\n"
+        "     3: Ateso\n"
+        "     4: Lugbara\n"
+        "     5: Runyankole\n"
+        "     6: English\n\n"
+        "4. **Audio Transcription**:\n"
+        "   - Send an audio message to transcribe it into text. Ensure you specify the language for transcription.\n\n"
+        "5. **Provide Feedback**:\n"
+        "   - React to any message with an emoji to give feedback. Your input helps us improve!\n\n"
+        "6. **Need More Help?**:\n"
+        "   - If you need further assistance, just reply with 'help' at any time.\n\n"
+        "Thank you for using our service! 😊"
+    )
+
+
+
+def set_default_target_language(user_id, save_user_preference):
+    default_target_language = "Luganda"
+    defualt_source_language = "English"
+    save_user_preference(user_id, defualt_source_language, default_target_language)
+
+
+def handle_language_selection(user_id, selection, source_language, save_user_preference, languages_obj):
+    if int(selection) == 6:
+        save_user_preference(user_id, source_language, languages_obj[selection])
+        return f"Language set to {languages_obj[selection]}. You can now send texts to translate."
+    else:
+        save_user_preference(user_id, source_language, languages_obj[selection])
+        return f"Language set to {languages_obj[selection]}. You can now send texts to translate."
+
+
+def get_audio(payload: dict):
+    """
+    Extracts audio information from the webhook payload.
+    
+    Args:
+        payload (dict): The incoming webhook payload.
+    
+    Returns:
+        dict: Audio information if available, otherwise None.
+    """
+    try:
+        if 'entry' in payload:
+            for entry in payload['entry']:
+                if 'changes' in entry:
+                    for change in entry['changes']:
+                        if 'value' in change and 'messages' in change['value']:
+                            for message in change['value']['messages']:
+                                if 'audio' in message:
+                                    audio_info = {
+                                        "id": message['audio']['id'],
+                                        "mime_type": message['audio']['mime_type']
+                                    }
+                                    return audio_info
+        return None
+    except KeyError:
+        logging.error("KeyError: Missing expected key in payload.")
+        return None
