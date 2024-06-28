@@ -1,7 +1,18 @@
 from datetime import datetime
+from enum import Enum
 from typing import Optional
 
 from pydantic import BaseModel, EmailStr, HttpUrl
+
+
+class OrderBy(str, Enum):
+    id = "id"
+    uploaded = "uploaded"
+
+
+class ItemQueryParams(BaseModel):
+    order_by: OrderBy = OrderBy.uploaded
+    descending: bool = False
 
 
 class AudioTranscriptionBase(BaseModel):

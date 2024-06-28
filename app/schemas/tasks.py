@@ -10,6 +10,7 @@ class STTTranscript(BaseModel):
     audio_transcription: Optional[str] = Field(None)
     diarization_output: Optional[dict] = Field(None)
     formatted_diarization_output: Optional[str] = Field(None)
+    audio_transcription_id: Optional[int] = Field(None)
 
 
 class NllbResponseOutputData(BaseModel):

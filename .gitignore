@@ -14,6 +14,7 @@ key.json
 # Private JSON files
 service_account_key.json
 credentials.json
+service-account-file.json
 
 # Audio files
 *.wav
