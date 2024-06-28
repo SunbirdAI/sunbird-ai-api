@@ -135,13 +135,15 @@ async def classify_language(
 
     endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
     request_response = {}
+    text = languageId_request.text.lower()
+
 
     try:
         request_response = endpoint.run_sync(
             {
                 "input": {
                     "task": "language_classify",
-                    "text": languageId_request.text,
+                    "text": text,
                 }
             },
             timeout=60,  # Timeout in seconds.
@@ -550,7 +552,7 @@ def process_speech_to_text(file_path, language: str):
     endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
 
     logging.info(f"File path: {file_path}")
-    blob_name = upload_audio_file(file_path=file_path)
+    blob_name = upload_file_to_bucket(file_path=file_path)
     audio_file = blob_name
     os.remove(file_path)
     request_response = {}

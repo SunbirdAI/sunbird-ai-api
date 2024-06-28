@@ -628,6 +628,8 @@ def download_media(media_url, access_token, file_path="downloaded_media_file"):
     headers = {"Authorization": f"Bearer {access_token}"}
     response = requests.get(media_url, headers=headers, stream=True)
 
+    logging.info(f"Media url is {media_url}")
+
     if response.status_code == 200:
         with open(file_path, "wb") as f:
             for chunk in response.iter_content(chunk_size=8192):
