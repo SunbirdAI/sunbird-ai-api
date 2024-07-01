@@ -1,11 +1,17 @@
 import json
 from datetime import timedelta
 from typing import List
+import uuid
+from datetime import datetime, timedelta
+from app.utils.email_utils import send_password_reset_email 
+
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, responses, status
 from fastapi.templating import Jinja2Templates
 from pydantic.error_wrappers import ValidationError
 from sqlalchemy.orm import Session
+from pydantic import BaseModel, EmailStr
+from fastapi.responses import JSONResponse
 
 from app.crud.audio_transcription import (
     get_audio_transcription as crud_audio_transcription,
@@ -13,11 +19,12 @@ from app.crud.audio_transcription import (
 from app.crud.audio_transcription import (
     get_audio_transcriptions as crud_audio_transcriptions,
 )
-from app.crud.users import create_user, get_user_by_email, get_user_by_username
+from app.crud.users import create_user, get_user_by_email, get_user_by_username, update_user_password_reset_token
 from app.deps import get_db
 from app.routers.auth import get_current_user
 from app.schemas.audio_transcription import AudioTranscriptionBase
 from app.schemas.users import User, UserCreate, UserInDB
+from app.models.users import User
 from app.utils.auth_utils import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
     OAuth2PasswordBearerWithCookie,
@@ -239,3 +246,66 @@ async def update_audio_transcription(
         )
 
     return transcription.to_dict()
+
+
+
+
+@router.post("/generate-reset-token")
+async def request_password_reset(email: str = Form(...), db: Session = Depends(get_db)):
+    response = {"success": False, "error": True, "message": "Something wong happened!"}
+    try:
+        user = get_user_by_email(db, email)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Create a password reset token
+        reset_token = str(uuid.uuid4())
+
+        # update_user_password_reset_token(db, user.id, reset_token)
+        user.password_reset_token = reset_token
+        db.commit()
+        db.refresh(user)
+        await send_password_reset_email(email, reset_token)
+        # print(email)
+        # print(reset_token)
+
+        print(f"Password reset token for {user.email}: {reset_token}")
+        # Optionally, return the reset token in the API response
+        response["message"] = "Password reset token generated"
+        response["reset_token"] = reset_token
+        response["success"] = True
+        response["error"] = False
+    except Exception as e:
+        print(str(e))
+        response["message"] = str(e)
+    return response
+
+
+
+@router.post("/reset-password-confirm")
+async def reset_password_confirm(
+    email: str = Form(...), new_password: str = Form(...), db: Session = Depends(get_db)
+):
+    #user = db.query(User).filter(User.reset_token == token).first()
+    #user_exists = db.query(User.exists()).filter(User.reset_token == token).scalar()
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid or expired token")
+
+    user.hashed_password = get_password_hash(new_password)
+    user.reset_token = None
+    db.commit()
+
+    return {"message": "Password reset successful"}
+
+
+@router.get("/user-by-token/{token}")
+async def get_user_by_token(
+         token: str, db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(User.password_reset_token == token).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid or expired token")
+
+    email = user.email
+    return {"email": email}
