@@ -1,9 +1,8 @@
+import logging
 import os
 
 import firebase_admin
 from firebase_admin import credentials, firestore
-import logging
-
 
 logging.basicConfig(level=logging.INFO)
 
@@ -63,7 +62,15 @@ def save_user_preference(user_id, source_language, target_language):
 #         }
 #     )
 
-def save_translation(user_id, original_text, translated_text, source_language, target_language, message_id):
+
+def save_translation(
+    user_id,
+    original_text,
+    translated_text,
+    source_language,
+    target_language,
+    message_id,
+):
     """
     Save translation details to Firestore
 
@@ -108,7 +115,7 @@ def update_feedback(message_id, feedback):
     try:
         translations_ref = db.collection("whatsapp_translations")
         query = translations_ref.where("message_id", "==", message_id).stream()
-        
+
         for doc in query:
             doc_ref = translations_ref.document(doc.id)
             doc_ref.update({"feedback": feedback})
@@ -119,4 +126,3 @@ def update_feedback(message_id, feedback):
     except Exception as e:
         logging.error(f"Error updating feedback: {e}")
         return False
-

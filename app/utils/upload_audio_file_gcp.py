@@ -28,7 +28,8 @@ def upload_audio_file(file_path):
     except Exception as e:
         print(f"An error occurred: {e}")
         return None
-    
+
+
 def upload_file_to_bucket(file_path):
     """
     Uploads a file to a Google Cloud Storage bucket.

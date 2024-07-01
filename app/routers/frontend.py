@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import timedelta
 from typing import List
 
@@ -16,7 +17,7 @@ from app.crud.audio_transcription import (
 from app.crud.users import create_user, get_user_by_email, get_user_by_username
 from app.deps import get_db
 from app.routers.auth import get_current_user
-from app.schemas.audio_transcription import AudioTranscriptionBase
+from app.schemas.audio_transcription import AudioTranscriptionBase, ItemQueryParams
 from app.schemas.users import User, UserCreate, UserInDB
 from app.utils.auth_utils import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
@@ -31,6 +32,7 @@ from app.utils.monitoring_utils import aggregate_usage_for_user
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
 oauth2_scheme = OAuth2PasswordBearerWithCookie(tokenUrl="/auth/token")
+logging.basicConfig(level=logging.INFO)
 
 
 @router.get("/")
@@ -175,7 +177,9 @@ async def account(
     response_model=List[AudioTranscriptionBase],
 )
 async def get_audio_transcriptions(
-    current_user=Depends(get_current_user), db: Session = Depends(get_db)
+    current_user=Depends(get_current_user),
+    params: ItemQueryParams = Depends(),
+    db: Session = Depends(get_db),
 ):
     """
     This endpoint returns all the transcriptions per user.
@@ -184,7 +188,7 @@ async def get_audio_transcriptions(
     """
 
     transcriptions = await crud_audio_transcriptions(
-        db=db, username=current_user.username
+        db=db, username=current_user.username, params=params
     )
 
     if not transcriptions:
@@ -233,6 +237,7 @@ async def update_audio_transcription(
         db.commit()
         db.refresh(transcription)
     except Exception as e:
+        logging.error(f"Error: {str(e)}")
         db.rollback()
         raise HTTPException(
             status_code=500, detail="An error occurred while updating the transcription"

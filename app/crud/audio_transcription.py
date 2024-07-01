@@ -24,11 +24,16 @@ def create_audio_transcription(
 
 
 async def get_audio_transcriptions(
-    db: Session, username: str
+    db: Session, username: str, params
 ) -> List[AudioTranscription]:
+    order_column = getattr(AudioTranscription, params.order_by)
+    if params.descending:
+        order_column = order_column.desc()
+
     return (
         db.query(AudioTranscription)
         .filter(AudioTranscription.username == username)
+        .order_by(order_column)
         .all()
     )
 

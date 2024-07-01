@@ -24,11 +24,25 @@ from app.inference_services.user_preference import (
     update_feedback,
 )
 from app.inference_services.whats_app_services import (
-    get_phone_number_id, get_from_number, get_name, help_message,
-    get_interactive_response, get_location, get_image, get_video, get_document, 
-    get_audio, get_reaction, get_message, query_media_url, download_media, send_message, 
-    valid_payload, welcome_message, handle_language_selection, set_default_target_language
-
+    download_media,
+    get_audio,
+    get_document,
+    get_from_number,
+    get_image,
+    get_interactive_response,
+    get_location,
+    get_message,
+    get_name,
+    get_phone_number_id,
+    get_reaction,
+    get_video,
+    handle_language_selection,
+    help_message,
+    query_media_url,
+    send_message,
+    set_default_target_language,
+    valid_payload,
+    welcome_message,
 )
 from app.routers.auth import get_current_user
 from app.schemas.tasks import (
@@ -43,8 +57,7 @@ from app.schemas.tasks import (
     SummarisationRequest,
     SummarisationResponse,
 )
-from app.utils.helper_utils import chunk_text
-from app.utils.upload_audio_file_gcp import upload_audio_file, upload_file_to_bucket
+from app.utils.upload_audio_file_gcp import upload_audio_file
 
 router = APIRouter()
 
@@ -288,6 +301,7 @@ async def speech_to_text(
     transcription = request_response.get("audio_transcription")
 
     # Save transcription in database if it exists
+    audio_transcription_id = None
     if (
         transcription is not None
         and isinstance(transcription, str)
@@ -296,6 +310,7 @@ async def speech_to_text(
         db_audio_transcription = create_audio_transcription(
             db, current_user, blob_url, blob_name, transcription
         )
+        audio_transcription_id = db_audio_transcription.id
 
         logging.info(
             f"Audio transcription in database :{db_audio_transcription.to_dict()}"
@@ -307,6 +322,7 @@ async def speech_to_text(
         formatted_diarization_output=request_response.get(
             "formatted_diarization_output", ""
         ),
+        audio_transcription_id=audio_transcription_id,
     )
 
 
@@ -403,16 +419,26 @@ async def webhook(payload: dict):
         sender_name = get_name(payload)
         source_language, target_language = get_user_preference(from_number)
 
-        message = handle_message(payload, from_number, sender_name, source_language, target_language, phone_number_id)
+        message = handle_message(
+            payload,
+            from_number,
+            sender_name,
+            source_language,
+            target_language,
+            phone_number_id,
+        )
 
         if message:
-            send_message(message, os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id)
+            send_message(
+                message, os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id
+            )
 
         return {"status": "success"}
 
     except Exception as error:
         logging.error(f"Error in webhook processing: {str(error)}")
         raise HTTPException(status_code=500, detail="Internal Server Error") from error
+
 
 @router.get("/webhook")
 async def verify_webhook(mode: str, token: str, challenge: str):
@@ -424,32 +450,38 @@ async def verify_webhook(mode: str, token: str, challenge: str):
         return {"challenge": challenge}
     raise HTTPException(status_code=400, detail="Bad Request")
 
-def handle_message(payload, from_number, sender_name, source_language, target_language, phone_number_id):
+
+def handle_message(
+    payload, from_number, sender_name, source_language, target_language, phone_number_id
+):
     if interactive_response := get_interactive_response(payload):
         return f"Dear {sender_name}, Thanks for that response."
-    
+
     if location := get_location(payload):
         return f"Dear {sender_name}, We have no support for messages of type locations."
-    
+
     if image := get_image(payload):
         return f"Dear {sender_name}, We have no support for messages of type image."
-    
+
     if video := get_video(payload):
         return f"Dear {sender_name}, We have no support for messages of type video."
-    
+
     if docs := get_document(payload):
         return f"Dear {sender_name}, We do not support documents."
-    
+
     if audio := get_audio(payload):
         return handle_audio_message(audio, target_language, sender_name)
-    
+
     if reaction := get_reaction(payload):
         mess_id = reaction["message_id"]
         emoji = reaction["emoji"]
         update_feedback(mess_id, emoji)
         return f"Dear {sender_name}, Thanks for your feedback {emoji}."
-    
-    return handle_text_message(payload, from_number, sender_name, source_language, target_language)
+
+    return handle_text_message(
+        payload, from_number, sender_name, source_language, target_language
+    )
+
 
 def handle_audio_message(audio, target_language, sender_name):
     try:
@@ -457,7 +489,10 @@ def handle_audio_message(audio, target_language, sender_name):
         mime_type = audio["mime_type"]
 
         if target_language:
-            file_path = download_media(query_media_url(audio_id, os.getenv("WHATSAPP_TOKEN")), os.getenv("WHATSAPP_TOKEN"))
+            file_path = download_media(
+                query_media_url(audio_id, os.getenv("WHATSAPP_TOKEN")),
+                os.getenv("WHATSAPP_TOKEN"),
+            )
             transcription = process_speech_to_text(file_path, target_language)
             if transcription:
                 return transcription
@@ -465,33 +500,47 @@ def handle_audio_message(audio, target_language, sender_name):
                 return "Sorry, there was an issue processing your audio file."
         else:
             return f"Dear {sender_name}, Please specify the language for transcription."
-    
+
     except Exception as e:
         logging.error(f"Error processing audio file: {str(e)}")
         return "Sorry, there was an issue processing your audio file."
 
-def handle_text_message(payload, from_number, sender_name, source_language, target_language):
+
+def handle_text_message(
+    payload, from_number, sender_name, source_language, target_language
+):
     msg_body = get_message(payload)
 
     if not target_language or not source_language:
-        set_default_target_language(from_number,save_user_preference)
+        set_default_target_language(from_number, save_user_preference)
         return welcome_message(sender_name)
-    
+
     if msg_body.lower() in ["hi", "start"]:
         return welcome_message(sender_name)
-    
+
     if msg_body.isdigit() and msg_body in languages_obj:
-        return handle_language_selection(from_number, msg_body, source_language,save_user_preference, languages_obj)
-    
+        return handle_language_selection(
+            from_number, msg_body, source_language, save_user_preference, languages_obj
+        )
+
     if msg_body.lower() == "help":
         return help_message()
-    
+
     if 3 <= len(msg_body) <= 200:
         detected_language = detect_language(msg_body)
         translation = translate_text(msg_body, detected_language, target_language)
-        mess_id = send_message(translation, whatsapp_token, from_number, get_phone_number_id(payload))
-        
-        save_translation(from_number, msg_body, translation, detected_language, target_language, mess_id)
+        mess_id = send_message(
+            translation, whatsapp_token, from_number, get_phone_number_id(payload)
+        )
+
+        save_translation(
+            from_number,
+            msg_body,
+            translation,
+            detected_language,
+            target_language,
+            mess_id,
+        )
         save_user_preference(from_number, detected_language, target_language)
 
         return translation
@@ -548,6 +597,7 @@ def translate_text(text, source_language, target_language):
 
     return translated_text
 
+
 def process_speech_to_text(file_path, language: str):
     endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
 
@@ -581,6 +631,7 @@ def process_speech_to_text(file_path, language: str):
     logging.info(f"Elapsed time: {elapsed_time} seconds")
 
     return request_response.get("audio_transcription")
+
 
 def detect_language(text):
     endpoint = runpod.Endpoint(os.getenv("RUNPOD_ENDPOINT_ID"))
