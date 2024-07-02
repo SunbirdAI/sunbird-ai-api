@@ -1,8 +1,8 @@
 import time
 
+import jose as jwt
 from fastapi import Request
 from fastapi.exceptions import HTTPException
-from jose import jwt
 
 from app.crud.monitoring import create_endpoint_log
 from app.schemas.monitoring import EndpointLog

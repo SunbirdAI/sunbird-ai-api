@@ -171,7 +171,6 @@ async def account(
     return templates.TemplateResponse("account_page.html", context=context)
 
 
-# Route to get the uploaded audio and transcriptions
 @router.get(
     "/transcriptions",
     response_model=List[AudioTranscriptionBase],

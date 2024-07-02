@@ -1,24 +1,37 @@
+import uuid
 from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from jose import JWTError
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
-from app.crud.users import create_user, get_user_by_email, get_user_by_username
-from app.deps import get_db
-from app.schemas.users import Token, TokenData, User, UserCreate, UserInDB
+from app.crud.users import (
+    create_user,
+    get_user_by_email,
+    get_user_by_username,
+    update_user_password_reset_token,
+)
+from app.deps import get_current_user, get_db
+from app.models.users import User as DBUser
+from app.schemas.users import (
+    ChangePassword,
+    ForgotPassword,
+    ResetPassword,
+    Token,
+    User,
+    UserCreate,
+    UserInDB,
+)
 from app.utils.auth_utils import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
     authenticate_user,
     create_access_token,
     get_password_hash,
-    get_username_from_token,
+    verify_password,
 )
+from app.utils.email_utils import send_password_reset_email
 
 router = APIRouter()
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
@@ -57,27 +70,73 @@ def login_for_access_token(
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-def get_current_user(
-    token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
-) -> User:
-    # TODO: Move this to the deps file
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        username = get_username_from_token(token)
-        if username is None:
-            raise credentials_exception
-        token_data = TokenData(username=username)
-    except JWTError:
-        raise credentials_exception
-
-    user = User.from_orm(get_user_by_username(db, token_data.username))
-    return user
-
-
 @router.get("/me")
 def read_users_me(current_user=Depends(get_current_user)):
     return current_user
+
+
+@router.post("/forgot-password")
+async def request_password_reset(
+    request: ForgotPassword, db: Session = Depends(get_db)
+):
+    response = {"success": False, "error": True, "message": "Something wong happened!"}
+    try:
+        user = get_user_by_email(db, request.email)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        reset_token = str(uuid.uuid4())
+
+        user = update_user_password_reset_token(db, user.id, reset_token)
+        await send_password_reset_email(
+            to_email=request.email, reset_token=user.password_reset_token
+        )
+
+        response["message"] = "Password reset email sent"
+        response["success"] = True
+        response["error"] = False
+    except Exception as e:
+        print(str(e))
+        response["message"] = str(e)
+    return response
+
+
+@router.post("/reset-password")
+async def reset_password(request: ResetPassword, db: Session = Depends(get_db)):
+    response = {"success": False, "error": True, "message": "Something wong happened!"}
+    try:
+        user = (
+            db.query(DBUser)
+            .filter(DBUser.password_reset_token == request.token)
+            .first()
+        )
+        if not user:
+            raise HTTPException(status_code=404, detail="Invalid reset token provided")
+
+        user.hashed_password = get_password_hash(request.new_password)
+        user.password_reset_token = None
+        db.commit()
+
+        response["message"] = "Password reset successful"
+        response["success"] = True
+        response["error"] = False
+    except Exception as e:
+        print(str(e))
+        response["message"] = str(e)
+    return response
+
+
+@router.post("/change-password")
+async def change_password(
+    request: ChangePassword,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    user = current_user
+    user = get_user_by_email(db, user.email)
+    if not verify_password(request.old_password, user.hashed_password):
+        raise HTTPException(status_code=400, detail="Wrong old password given")
+    user.hashed_password = get_password_hash(request.new_password)
+    db.commit()
+
+    return {"message": "Password change successful", "success": True}

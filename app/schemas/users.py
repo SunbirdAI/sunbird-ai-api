@@ -29,6 +29,7 @@ class User(UserBase):
 
     class Config:
         orm_mode = True
+        from_attributes = True
 
 
 class Token(BaseModel):
@@ -38,3 +39,17 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     username: str
+
+
+class ForgotPassword(BaseModel):
+    email: EmailStr
+
+
+class ResetPassword(BaseModel):
+    token: str
+    new_password: str
+
+
+class ChangePassword(BaseModel):
+    old_password: str
+    new_password: str

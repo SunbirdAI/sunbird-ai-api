@@ -13,3 +13,4 @@ class EndpointLog(Base):
     endpoint = Column(String, index=True)
     time_taken = Column(Float)
     date = Column(DateTime(timezone=True), default=func.now())
+    password_reset_token = Column(String, nullable=True)

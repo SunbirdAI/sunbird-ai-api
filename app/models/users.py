@@ -12,3 +12,4 @@ class User(Base):
     hashed_password = Column(String)
     organization = Column(String, nullable=False, default="Unknown")
     account_type = Column(String, nullable=False, default="Free")
+    password_reset_token = Column(String, nullable=True)

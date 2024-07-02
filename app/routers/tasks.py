@@ -15,7 +15,7 @@ from twilio.rest import Client
 from werkzeug.utils import secure_filename
 
 from app.crud.audio_transcription import create_audio_transcription
-from app.deps import get_db
+from app.deps import get_current_user, get_db
 from app.inference_services.translate_inference import translate
 from app.inference_services.user_preference import (
     get_user_preference,
@@ -44,7 +44,6 @@ from app.inference_services.whats_app_services import (
     valid_payload,
     welcome_message,
 )
-from app.routers.auth import get_current_user
 from app.schemas.tasks import (
     ChatRequest,
     ChatResponse,
@@ -149,7 +148,6 @@ async def classify_language(
     endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
     request_response = {}
     text = languageId_request.text.lower()
-
 
     try:
         request_response = endpoint.run_sync(
