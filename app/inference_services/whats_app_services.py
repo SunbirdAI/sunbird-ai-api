@@ -47,6 +47,7 @@ headers = {"Content-Type": "application/json"}
 #     logging.info(f"Response: {r.json()}")
 #     return r.json()
 
+
 def send_message(message, token, recipient_id, phone_number_id, preview_url=True):
     """
     Sends a text message to a WhatsApp user and returns the message ID
@@ -62,10 +63,7 @@ def send_message(message, token, recipient_id, phone_number_id, preview_url=True
            str: ID of the sent message
     """
     base_url = "https://graph.facebook.com/v12.0"
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json"
-    }
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
     url = f"{base_url}/{phone_number_id}/messages"
     data = {
         "messaging_product": "whatsapp",
@@ -76,7 +74,7 @@ def send_message(message, token, recipient_id, phone_number_id, preview_url=True
     r = requests.post(url, headers=headers, json=data)
     if r.status_code == 200:
         response_json = r.json()
-        message_id = response_json.get('messages', [{}])[0].get('id')
+        message_id = response_json.get("messages", [{}])[0].get("id")
         logging.info(f"Message sent to {recipient_id} with ID: {message_id}")
         return message_id
     else:
@@ -84,7 +82,6 @@ def send_message(message, token, recipient_id, phone_number_id, preview_url=True
         logging.error(f"Status code: {r.status_code}")
         logging.error(f"Response: {r.json()}")
         return None
-
 
 
 def reply_to_message(
@@ -974,7 +971,9 @@ def get_media_url(media_id, token):
             f"Failed to retrieve media URL. HTTP Status: {response.status_code}, Response: {response.text}"
         )
 
+
 # my new code
+
 
 def valid_payload(payload):
     return "object" in payload and (
@@ -1040,6 +1039,7 @@ def welcome_message(sender_name=""):
         "The Translation and Transcription Service Team"
     )
 
+
 def help_message():
     return (
         "Help Guide:\n\n"
@@ -1065,14 +1065,15 @@ def help_message():
     )
 
 
-
 def set_default_target_language(user_id, save_user_preference):
     default_target_language = "Luganda"
     defualt_source_language = "English"
     save_user_preference(user_id, defualt_source_language, default_target_language)
 
 
-def handle_language_selection(user_id, selection, source_language, save_user_preference, languages_obj):
+def handle_language_selection(
+    user_id, selection, source_language, save_user_preference, languages_obj
+):
     if int(selection) == 6:
         save_user_preference(user_id, source_language, languages_obj[selection])
         return f"Language set to {languages_obj[selection]}. You can now send texts to translate."
@@ -1084,24 +1085,24 @@ def handle_language_selection(user_id, selection, source_language, save_user_pre
 def get_audio(payload: dict):
     """
     Extracts audio information from the webhook payload.
-    
+
     Args:
         payload (dict): The incoming webhook payload.
-    
+
     Returns:
         dict: Audio information if available, otherwise None.
     """
     try:
-        if 'entry' in payload:
-            for entry in payload['entry']:
-                if 'changes' in entry:
-                    for change in entry['changes']:
-                        if 'value' in change and 'messages' in change['value']:
-                            for message in change['value']['messages']:
-                                if 'audio' in message:
+        if "entry" in payload:
+            for entry in payload["entry"]:
+                if "changes" in entry:
+                    for change in entry["changes"]:
+                        if "value" in change and "messages" in change["value"]:
+                            for message in change["value"]["messages"]:
+                                if "audio" in message:
                                     audio_info = {
-                                        "id": message['audio']['id'],
-                                        "mime_type": message['audio']['mime_type']
+                                        "id": message["audio"]["id"],
+                                        "mime_type": message["audio"]["mime_type"],
                                     }
                                     return audio_info
         return None
