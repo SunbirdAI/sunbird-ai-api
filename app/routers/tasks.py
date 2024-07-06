@@ -56,7 +56,7 @@ from app.schemas.tasks import (
     SummarisationRequest,
     SummarisationResponse,
 )
-from app.utils.upload_audio_file_gcp import upload_audio_file
+from app.utils.upload_audio_file_gcp import upload_audio_file, upload_file_to_bucket
 
 router = APIRouter()
 

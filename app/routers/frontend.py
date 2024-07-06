@@ -5,7 +5,7 @@ from typing import List
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, responses, status
 from fastapi.templating import Jinja2Templates
-from pydantic.error_wrappers import ValidationError
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.crud.audio_transcription import (
@@ -127,7 +127,7 @@ async def signup(  # noqa F811
                 "auth/register.html", {"request": request, "errors": errors}
             )
         hashed_password = get_password_hash(password)
-        user_db = UserInDB(**user.dict(), hashed_password=hashed_password)
+        user_db = UserInDB(**user.model_dump(), hashed_password=hashed_password)
         create_user(db, user_db)
         return responses.RedirectResponse(
             "/login?alert=Successfully%20Registered", status_code=status.HTTP_302_FOUND
@@ -159,7 +159,7 @@ async def account(
     request: Request, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
 ):
     username = get_username_from_token(token)
-    user = User.from_orm(get_user_by_username(db, username))
+    user = User.model_validate(get_user_by_username(db, username))
     aggregates = aggregate_usage_for_user(db, username)
     context = {
         "request": request,

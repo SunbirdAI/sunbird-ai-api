@@ -1,3 +1,4 @@
+import logging
 from contextlib import contextmanager
 
 from sqlalchemy.orm import Session
@@ -6,6 +7,8 @@ from app.database.db import SessionLocal
 from app.models import monitoring as models
 from app.schemas import monitoring as schemas
 
+logging.basicConfig(level=logging.INFO)
+
 
 @contextmanager
 def auto_session():
@@ -13,7 +16,8 @@ def auto_session():
     try:
         yield sess
         sess.commit()
-    except Exception:
+    except Exception as e:
+        logging.error(str(e))
         sess.rollback()
     finally:
         sess.close()
@@ -22,7 +26,10 @@ def auto_session():
 def create_endpoint_log(log: schemas.EndpointLog):
     with auto_session() as sess:
         db_log = models.EndpointLog(
-            username=log.username, endpoint=log.endpoint, time_taken=log.time_taken
+            username=log.username,
+            endpoint=log.endpoint,
+            time_taken=log.time_taken,
+            organization=log.organization,
         )
         sess.add(db_log)
 
