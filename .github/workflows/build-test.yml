@@ -36,6 +36,12 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+      - name: Unit Testing with pytest
+        run: |
+          echo "$GCP_CREDENTIALS" > firebase_credentials.json
+          export GOOGLE_APPLICATION_CREDENTIALS=firebase_credentials.json
+          coverage run -m pytest
+          coverage report -m
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           TYPE: ${{ secrets.TYPE }}
@@ -49,10 +55,15 @@ jobs:
           CLIENT_ID: ${{ secrets.CLIENT_ID }}
           AUTH_URI: ${{ secrets.AUTH_URI }}
           UNIVERSE_DOMAIN: ${{ secrets.UNIVERSE_DOMAIN }}
-      - name: Unit Testing with pytest
-        run: |
-          coverage run -m pytest
-          coverage report -m
+          SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          MAIL_FROM: ${{ secrets.MAIL_FROM }}
+          ENVIRONMENT: ${{ secrets.ENVIRONMENT }}
+          FRONTEND_LOCAL_URL: ${{ secrets.FRONTEND_LOCAL_URL }}
+          FRONTEND_PRODUCTION_URL: ${{ secrets.FRONTEND_PRODUCTION_URL }}
+          GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
       - name: Coverage Badge
         uses: tj-actions/coverage-badge-py@v2
 

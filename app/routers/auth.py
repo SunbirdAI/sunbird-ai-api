@@ -45,7 +45,7 @@ def register(user: UserCreate, db: Session = Depends(get_db)) -> User:
     db_user = get_user_by_email(db, user.email)
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
-    user_db = UserInDB(**user.dict(), hashed_password=hashed_password)
+    user_db = UserInDB(**user.model_dump(), hashed_password=hashed_password)
     user = create_user(db, user_db)
     return user
 

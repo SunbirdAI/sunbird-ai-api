@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel, EmailStr, HttpUrl
+from pydantic import BaseModel, ConfigDict, EmailStr, HttpUrl
 
 
 class OrderBy(str, Enum):
@@ -16,7 +16,7 @@ class ItemQueryParams(BaseModel):
 
 
 class AudioTranscriptionBase(BaseModel):
-    id: str
+    id: int
     username: str
     email: EmailStr
     audio_file_url: HttpUrl
@@ -26,5 +26,4 @@ class AudioTranscriptionBase(BaseModel):
 
 
 class AudioTranscriptionCreate(AudioTranscriptionBase):
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
