@@ -6,23 +6,27 @@ from firebase_admin import credentials, firestore
 
 logging.basicConfig(level=logging.INFO)
 
-# Initialize Firebase app
-firebase_config = {
-    "type": os.getenv("TYPE"),
-    "project_id": os.getenv("PROJECT_ID"),
-    "private_key_id": os.getenv("PRIVATE_KEY_ID"),
-    "private_key": os.getenv("PRIVATE_KEY"),
-    "client_email": os.getenv("CLIENT_EMAIL"),
-    "token_uri": os.getenv("TOKEN_URI"),
-    "auth_provider_x509_cert_url": os.getenv("AUTH_PROVIDER_X509_CERT_URL"),
-    "client_x509_cert_url": os.getenv("CLIENT_X509_CERT_URL"),
-    "client_id": os.getenv("CLIENT_ID"),
-    "auth_uri": os.getenv("AUTH_URI"),
-    "universe_domain": os.getenv("UNIVERSE_DOMAIN"),
-}
+try:
+    # Initialize Firebase app
+    firebase_config = {
+        "type": os.getenv("TYPE"),
+        "project_id": os.getenv("PROJECT_ID"),
+        "private_key_id": os.getenv("PRIVATE_KEY_ID"),
+        "private_key": os.getenv("PRIVATE_KEY"),
+        "client_email": os.getenv("CLIENT_EMAIL"),
+        "token_uri": os.getenv("TOKEN_URI"),
+        "auth_provider_x509_cert_url": os.getenv("AUTH_PROVIDER_X509_CERT_URL"),
+        "client_x509_cert_url": os.getenv("CLIENT_X509_CERT_URL"),
+        "client_id": os.getenv("CLIENT_ID"),
+        "auth_uri": os.getenv("AUTH_URI"),
+        "universe_domain": os.getenv("UNIVERSE_DOMAIN"),
+    }
 
-cred = credentials.Certificate(firebase_config)
-firebase_admin.initialize_app(cred)
+    cred = credentials.Certificate(firebase_config)
+    firebase_admin.initialize_app(cred)
+except ValueError as e:
+    logging.error(str(e))
+    firebase_admin.initialize_app()
 
 # Get Firestore database instance
 db = firestore.client()

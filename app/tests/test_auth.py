@@ -1,9 +1,15 @@
 import json
+import os
+import sys
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+
+current_directory = os.path.dirname(os.path.realpath(__file__))
+app_base_directory = os.path.abspath(os.path.join(current_directory, "../../"))
+sys.path.append(app_base_directory)
 
 from app.api import app
 from app.database.db import Base

@@ -19,7 +19,7 @@ def get_db():
         db.close()
 
 
-def get_current_user(
+async def get_current_user(
     token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
 ) -> User:
     credentials_exception = HTTPException(
@@ -35,5 +35,7 @@ def get_current_user(
     except JWTError:
         raise credentials_exception
 
-    user = User.from_orm(get_user_by_username(db, token_data.username))
+    user = User.model_validate(get_user_by_username(db, token_data.username))
+    if user is None:
+        raise credentials_exception
     return user

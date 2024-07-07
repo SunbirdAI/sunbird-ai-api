@@ -1,4 +1,5 @@
 import os
+from contextlib import asynccontextmanager
 from functools import partial
 from pathlib import Path
 
@@ -18,17 +19,21 @@ from app.routers.tasks import router as tasks_router
 load_dotenv()
 
 
-app = FastAPI(
-    title="Sunbird AI API", description=description, openapi_tags=tags_metadata
-)
-
-
-@app.on_event("startup")
-async def startup():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     redis_instance = redis.from_url(
         os.getenv("REDIS_URL"), encoding="utf-8", decode_responses=True
     )
     await FastAPILimiter.init(redis_instance)
+    yield
+
+
+app = FastAPI(
+    title="Sunbird AI API",
+    description=description,
+    openapi_tags=tags_metadata,
+    lifespan=lifespan,
+)
 
 
 static_files_directory = Path(__file__).parent.absolute() / "static"
