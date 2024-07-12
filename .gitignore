@@ -2,6 +2,7 @@ venv/
 .idea/
 .vscode
 .env
+.env.prod
 app/__pycache__/
 __pycache__/
 **/__pycache__
@@ -14,10 +15,18 @@ key.json
 # Private JSON files
 service_account_key.json
 credentials.json
+firebase-credentials.json
 service-account-file.json
+firebase-credentials.json.b64
+
 
 # Audio files
 *.wav
 
 # frontend
 node_modules
+
+connect_to_cloudsql_db.sh
+start_cloudsql.sh
+backup_cloudsql_db.sh
+cloudsql_db_backups
