@@ -4,6 +4,7 @@ fastapi==0.111.0
 fastapi-mail==1.4.1
 fastapi-limiter==0.1.6
 firebase-admin==6.5.0
+newrelic
 passlib[bcrypt]==1.7.4
 psycopg2-binary==2.9.9
 python-jose==3.3.0
@@ -14,4 +15,5 @@ requests-toolbelt==1.0.0
 runpod==1.6.2
 SQLAlchemy==2.0.31
 twilio==9.2.3
+tenacity==8.5.0
 Werkzeug==3.0.3

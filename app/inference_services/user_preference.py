@@ -25,8 +25,10 @@ try:
     cred = credentials.Certificate(firebase_config)
     firebase_admin.initialize_app(cred)
 except ValueError as e:
-    logging.error(str(e))
+    logging.error(f"Value Error: {str(e)}")
     firebase_admin.initialize_app()
+except Exception as e:
+    logging.error(f"Exception Error: {str(e)}")
 
 # Get Firestore database instance
 db = firestore.client()

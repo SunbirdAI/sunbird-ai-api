@@ -11,6 +11,12 @@ from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi_limiter.depends import RateLimiter
 from sqlalchemy.orm import Session
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 from twilio.rest import Client
 from werkzeug.utils import secure_filename
 
@@ -85,6 +91,20 @@ languages_obj = {
     "10": "lgg",
     "11": "nyn",
 }
+
+
+@retry(
+    stop=stop_after_attempt(3),  # Retry up to 3 times
+    wait=wait_exponential(
+        min=1, max=60
+    ),  # Exponential backoff starting at 1s up to 60s
+    retry=retry_if_exception_type(
+        (TimeoutError, ConnectionError)
+    ),  # Retry on these exceptions
+    reraise=True,  # Reraise the exception if all retries fail
+)
+async def call_endpoint_with_retry(endpoint, data):
+    return endpoint.run_sync(data, timeout=600)  # Timeout in seconds
 
 
 # Route for the Language identification endpoint
@@ -354,12 +374,17 @@ async def nllb_translate(
 
     start_time = time.time()
     try:
-        request_response = endpoint.run_sync(
-            data,
-            timeout=600,  # Timeout in seconds.
+        request_response = await call_endpoint_with_retry(endpoint, data)
+    except TimeoutError as e:
+        logging.error(f"Job timed out: {str(e)}")
+        raise HTTPException(
+            status_code=503, detail="Service unavailable due to timeout."
         )
-    except TimeoutError:
-        logging.error("Job timed out.")
+    except ConnectionError as e:
+        logging.error(f"Connection lost: {str(e)}")
+        raise HTTPException(
+            status_code=503, detail="Service unavailable due to connection error."
+        )
 
     end_time = time.time()
     logging.info(f"Response: {request_response}")
