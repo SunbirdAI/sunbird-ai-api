@@ -5,7 +5,6 @@ from functools import partial
 from pathlib import Path
 from urllib.parse import urlparse
 
-import redis
 import redis.asyncio as redis
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -82,8 +81,8 @@ app = FastAPI(
 static_files_directory = Path(__file__).parent.absolute() / "static"
 app.mount("/static", StaticFiles(directory=static_files_directory), name="static")
 
-logging_middleware = partial(log_request)
-app.middleware("http")(logging_middleware)
+# logging_middleware = partial(log_request)
+# app.middleware("http")(logging_middleware)
 
 origins = ["*"]
 

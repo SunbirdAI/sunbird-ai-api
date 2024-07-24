@@ -1,11 +1,12 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
 
 from app.models import users as models
 from app.models.users import User
 from app.schemas import users as schema
 
 
-def create_user(db: Session, user: schema.UserInDB) -> schema.User:
+async def create_user(db: AsyncSession, user: schema.UserInDB) -> schema.User:
     db_user = models.User(
         email=user.email,
         username=user.username,
@@ -13,24 +14,31 @@ def create_user(db: Session, user: schema.UserInDB) -> schema.User:
         hashed_password=user.hashed_password,
     )
     db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
+    await db.commit()
+    await db.refresh(db_user)
     return db_user
 
 
-def get_user_by_username(db: Session, username: str):
-    return db.query(models.User).filter(models.User.username == username).first()
+async def get_user_by_username(db: AsyncSession, username: str):
+    result = await db.execute(
+        select(models.User).filter(models.User.username == username)
+    )
+    return result.scalars().first()
 
 
-def get_user_by_email(db: Session, email: str):
-    return db.query(models.User).filter(models.User.email == email).first()
+async def get_user_by_email(db: AsyncSession, email: str):
+    result = await db.execute(select(models.User).filter(models.User.email == email))
+    return result.scalars().first()
 
 
-def update_user_password_reset_token(db: Session, user_id: int, reset_token: str):
-    user = db.query(User).filter(User.id == user_id).first()
+async def update_user_password_reset_token(
+    db: AsyncSession, user_id: int, reset_token: str
+):
+    result = await db.execute(select(User).filter(User.id == user_id))
+    user = result.scalars().first()
     if user:
         user.password_reset_token = reset_token
-        db.commit()
-        db.refresh(user)
+        await db.commit()
+        await db.refresh(user)
 
     return user

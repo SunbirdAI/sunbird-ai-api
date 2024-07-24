@@ -33,14 +33,23 @@ heroku run bash -a sema-dashboard
  heroku config -a sunbirdai-api
  heroku config -a sunbirdai-api | grep REDIS
 
+ heroku domains:add api.sunbird.ai --app sunbirdai-api
+
+ Configure your app's DNS provider to point to the DNS Target vertical-salmon-nrrla0011qu3c9woxvjjk95d.herokudns.com.
+    For help, see https://devcenter.heroku.com/articles/custom-domains
+
+The domain api.sunbird.ai has been enqueued for addition
+Run heroku domains:wait 'api.sunbird.ai' to wait for completion
+Adding api.sunbird.ai to ⬢ sunbirdai-api... done
+
+heroku certs:auto:enable -a sunbirdai-api
+
 heroku config:set NEW_RELIC_LICENSE_KEY=b00b7ba49dbe7************************ -a sunbirdai-api
 heroku config:set NEW_RELIC_APP_NAME="SunbirdAI API" -a sunbirdai-api
 heroku config:set NEW_RELIC_ENV=production -a sunbirdai-api
 
-heroku drains:add "https://log-api.newrelic.com/log/v1?Api-Key=b00b7ba49dbe7a192c83c60830cdf017FFFFNRAL&format=heroku" -a sunbirdai-api
+heroku drains:add "https://log-api.newrelic.com/log/v1?Api-Key=b00b7ba49dbe7**************************&format=heroku" -a sunbirdai-api
 ```
-
-0f7c8268a772194ab5d40c487de24bb6FFFFNRAL
 
 
 ```sh
@@ -55,4 +64,8 @@ docker run \
 docker build -t registry.heroku.com/sunbirdai-api/web .
 docker push registry.heroku.com/sunbirdai-api/web
 heroku container:release web --app sunbirdai-api
+```
+
+```sh
+locust -f locustfile.py --host=$BASE_URL
 ```
