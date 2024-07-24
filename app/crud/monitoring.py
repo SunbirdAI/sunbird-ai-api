@@ -1,42 +1,63 @@
 import logging
-from contextlib import contextmanager
+from contextlib import asynccontextmanager
+from typing import List
 
-from sqlalchemy.orm import Session
+from fastapi import Request
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
 
-from app.database.db import SessionLocal
+from app.database.db import async_session_maker
 from app.models import monitoring as models
+from app.models.users import User
 from app.schemas import monitoring as schemas
+from app.schemas.monitoring import EndpointLog
 
 logging.basicConfig(level=logging.INFO)
 
 
-@contextmanager
-def auto_session():
-    sess = SessionLocal()
-    try:
-        yield sess
-        sess.commit()
-    except Exception as e:
-        logging.error(str(e))
-        sess.rollback()
-    finally:
-        sess.close()
+@asynccontextmanager
+async def auto_session() -> AsyncSession:  # type: ignore
+    async with async_session_maker() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception as e:
+            logging.error(str(e))
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
 
 
-def create_endpoint_log(log: schemas.EndpointLog):
-    with auto_session() as sess:
-        db_log = models.EndpointLog(
-            username=log.username,
-            endpoint=log.endpoint,
-            time_taken=log.time_taken,
-            organization=log.organization,
-        )
-        sess.add(db_log)
-
-
-def get_logs_by_username(db: Session, username: str):
-    return (
-        db.query(models.EndpointLog)
-        .filter(models.EndpointLog.username == username)
-        .all()
+async def create_endpoint_log(log: schemas.EndpointLog, db: AsyncSession):
+    logging.info(f"log: {log}")
+    db_log = models.EndpointLog(
+        username=log.username,
+        endpoint=log.endpoint,
+        time_taken=log.time_taken,
+        organization=log.organization,
     )
+    db.add(db_log)
+    await db.commit()
+
+
+async def log_endpoint(
+    db: AsyncSession, user: User, request: Request, start_time: float, end_time: float
+):
+    try:
+        endpoint_log = EndpointLog(
+            username=user.username,
+            endpoint=request.url.path,
+            organization=user.organization,
+            time_taken=(end_time - start_time),
+        )
+        await create_endpoint_log(endpoint_log, db)
+    except Exception as e:
+        logging.error(f"Error: {str(e)}")
+
+
+async def get_logs_by_username(db: AsyncSession, username: str) -> List[EndpointLog]:
+    result = await db.execute(
+        select(models.EndpointLog).filter(models.EndpointLog.username == username)
+    )
+    return result.scalars().all()

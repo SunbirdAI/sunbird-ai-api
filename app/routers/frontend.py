@@ -6,7 +6,7 @@ from typing import List
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, responses, status
 from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud.audio_transcription import (
     get_audio_transcription as crud_audio_transcription,
@@ -64,10 +64,10 @@ async def login(  # noqa F811
     request: Request,
     username: str = Form(...),
     password: str = Form(...),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     errors = []
-    user = authenticate_user(db, username, password)
+    user = await authenticate_user(db, username, password)
     if not user:
         errors.append("Incorrect username or password")
         context = {"request": request, "errors": errors}
@@ -101,7 +101,7 @@ async def signup(  # noqa F811
     organization: str = Form(...),
     password: str = Form(...),
     confirm_password: str = Form(...),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     errors = []
     if password != confirm_password:
@@ -114,13 +114,13 @@ async def signup(  # noqa F811
         user = UserCreate(
             username=username, email=email, organization=organization, password=password
         )
-        db_user = get_user_by_username(db, user.username)
+        db_user = await get_user_by_username(db, user.username)
         if db_user:
             errors.append("Username already taken, choose another username")
             return templates.TemplateResponse(
                 "auth/register.html", {"request": request, "errors": errors}
             )
-        db_user = get_user_by_email(db, user.email)
+        db_user = await get_user_by_email(db, user.email)
         if db_user:
             errors.append("Email already registered")
             return templates.TemplateResponse(
@@ -128,7 +128,7 @@ async def signup(  # noqa F811
             )
         hashed_password = get_password_hash(password)
         user_db = UserInDB(**user.model_dump(), hashed_password=hashed_password)
-        create_user(db, user_db)
+        await create_user(db, user_db)
         return responses.RedirectResponse(
             "/login?alert=Successfully%20Registered", status_code=status.HTTP_302_FOUND
         )
@@ -156,11 +156,13 @@ async def tokens(request: Request, _: str = Depends(oauth2_scheme)):
 
 @router.get("/account")
 async def account(
-    request: Request, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
+    request: Request,
+    token: str = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db),
 ):
     username = get_username_from_token(token)
-    user = User.model_validate(get_user_by_username(db, username))
-    aggregates = aggregate_usage_for_user(db, username)
+    user = User.model_validate(await get_user_by_username(db, username))
+    aggregates = await aggregate_usage_for_user(db, username)
     context = {
         "request": request,
         "username": username,
@@ -178,7 +180,7 @@ async def account(
 async def get_audio_transcriptions(
     current_user=Depends(get_current_user),
     params: ItemQueryParams = Depends(),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     This endpoint returns all the transcriptions per user.
@@ -200,10 +202,10 @@ async def get_audio_transcriptions(
 
 @router.get("/transcriptions/{id}", response_model=AudioTranscriptionBase)
 async def get_audio_transcription(
-    id: int, current_user=Depends(get_current_user), db: Session = Depends(get_db)
+    id: int, current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db)
 ):
     """
-    This endpoint returns  the transcriptions per user_id that is supplied in the Request Body.
+    This endpoint returns the transcriptions per user_id that is supplied in the Request Body.
     """
 
     transcription = await crud_audio_transcription(db, id, current_user.username)
@@ -219,11 +221,11 @@ async def update_audio_transcription(
     id: int,
     transcription_text: str = Form(...),
     current_user=Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     This endpoint enables us to update the transcription to a new/better transcription.
-    This will enable the users to be able  update transcriptions.
+    This will enable the users to be able to update transcriptions.
     """
 
     transcription = await crud_audio_transcription(db, id, current_user.username)
@@ -233,11 +235,11 @@ async def update_audio_transcription(
 
     transcription.transcription = transcription_text
     try:
-        db.commit()
-        db.refresh(transcription)
+        await db.commit()
+        await db.refresh(transcription)
     except Exception as e:
         logging.error(f"Error: {str(e)}")
-        db.rollback()
+        await db.rollback()
         raise HTTPException(
             status_code=500, detail="An error occurred while updating the transcription"
         )
