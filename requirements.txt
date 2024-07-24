@@ -1,4 +1,5 @@
 alembic==1.13.2
+asyncpg==0.29.0
 coverage==7.5.4
 fastapi==0.111.0
 fastapi-mail==1.4.1
