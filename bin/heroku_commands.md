@@ -35,6 +35,10 @@ heroku run bash -a sema-dashboard
 
  heroku domains:add api.sunbird.ai --app sunbirdai-api
 
+heroku pg:backups:capture --app sunbirdai-api
+heroku pg:backups:download --app sunbirdai-api
+
+
  Configure your app's DNS provider to point to the DNS Target vertical-salmon-nrrla0011qu3c9woxvjjk95d.herokudns.com.
     For help, see https://devcenter.heroku.com/articles/custom-domains
 

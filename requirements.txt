@@ -1,5 +1,6 @@
 alembic==1.13.2
 asyncpg==0.29.0
+aiosqlite==0.20.0
 coverage==7.5.4
 fastapi==0.111.0
 fastapi-mail==1.4.1
@@ -11,10 +12,12 @@ psycopg2-binary==2.9.9
 python-jose==3.3.0
 python-dotenv==1.0.1
 pytest==8.2.2
+pytest-asyncio==0.23.8
 redis==5.0.7
 requests-toolbelt==1.0.0
 runpod==1.6.2
 SQLAlchemy==2.0.31
+slowapi==0.1.9
 twilio==9.2.3
 tenacity==8.5.0
 Werkzeug==3.0.3

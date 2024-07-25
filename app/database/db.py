@@ -17,7 +17,7 @@ ssl_context.verify_mode = ssl.CERT_NONE
 DATABASE_URL = os.getenv("DATABASE_URL")
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
-logging.info(f"DATABASE_URL: {DATABASE_URL}")
+# logging.info(f"DATABASE_URL: {DATABASE_URL}")
 
 if ENVIRONMENT == "production":
     engine = create_async_engine(

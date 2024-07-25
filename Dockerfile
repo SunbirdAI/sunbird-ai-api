@@ -1,41 +1,30 @@
-# Use the official lightweight Python image from the DockerHub
 FROM python:3.11-slim
 
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
+RUN apt-get update && apt-get install -y \
+ python-is-python3 \
+ curl \
+ bash
 
-# Set the working directory
+ENV PYTHONUNBUFFERED True
+
 ENV APP_HOME /app
 
 WORKDIR $APP_HOME
+COPY . ./
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    libpq-dev \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY requirements.txt .
-
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY . .
-
-# Copy the New Relic configuration file
-COPY newrelic.ini /app/newrelic.ini
-
-# Set the New Relic configuration file environment variable
-ENV NEW_RELIC_CONFIG_FILE=/app/newrelic.ini
-ENV NEW_RELIC_ENV=production
+COPY ./start.sh /app/start.sh
 
 ENV PORT 8080
 
-# Copy the firebase credentials from the build environment
-COPY firebase-credentials.json /app/firebase-credentials.json
+RUN curl -sSL https://sdk.cloud.google.com | bash
 
-# Set the GOOGLE_APPLICATION_CREDENTIALS environment variable
-ENV GOOGLE_APPLICATION_CREDENTIALS=/app/firebase-credentials.json
+ENV PATH $PATH:/root/google-cloud-sdk/bin
 
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.api:app --host 0.0.0.0 --port ${PORT} --workers 4 --log-level info"]
+RUN pip install --no-cache-dir -r requirements.txt
+
+# CMD exec uvicorn app.api:app --host 0.0.0.0 --port ${PORT} --workers 1
+
+RUN chmod +x /app/start.sh
+
+# Set the entrypoint to the start.sh script
+ENTRYPOINT ["/app/start.sh"]

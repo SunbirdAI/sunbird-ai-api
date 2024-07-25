@@ -30,3 +30,5 @@ connect_to_cloudsql_db.sh
 start_cloudsql.sh
 backup_cloudsql_db.sh
 cloudsql_db_backups
+bin/set_aws_database_url.sh
+latest.dump
