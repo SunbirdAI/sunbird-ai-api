@@ -1,1 +1,0 @@
-ERROR:app.middleware.monitoring_middleware:Error: Error UNKNOWN while writing to socket. Connection lost.

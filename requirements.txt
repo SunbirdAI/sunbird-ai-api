@@ -15,6 +15,7 @@ redis==5.0.7
 requests-toolbelt==1.0.0
 runpod==1.6.2
 SQLAlchemy==2.0.31
+slowapi==0.1.9
 twilio==9.2.3
 tenacity==8.5.0
 Werkzeug==3.0.3

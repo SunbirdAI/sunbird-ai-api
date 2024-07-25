@@ -11,6 +11,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi_limiter import FastAPILimiter
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.util import get_remote_address
 from tenacity import RetryError, retry, stop_after_attempt, wait_exponential
 
 from app.docs import description, tags_metadata
@@ -65,6 +69,9 @@ async def lifespan(app: FastAPI):
     except RetryError as e:
         logger.error(f"Failed to connect to Redis: {e}")
         yield
+    except ValueError as e:
+        logger.error(f"Failed to connect to Redis: {e}")
+        yield
     except Exception as e:
         logger.error(f"Error during startup: {str(e)}")
         yield
@@ -93,6 +100,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Initialize the Limiter
+limiter = Limiter(key_func=get_remote_address)
+
+# Add middleware and exception handler for rate limiting
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 
 app.include_router(tasks_router, prefix="/tasks", tags=["AI Tasks"])

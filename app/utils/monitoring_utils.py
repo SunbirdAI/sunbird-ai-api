@@ -1,5 +1,4 @@
 from collections import defaultdict
-from typing import List
 
 from sqlalchemy.ext.asyncio import AsyncSession
 

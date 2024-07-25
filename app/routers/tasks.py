@@ -9,7 +9,8 @@ import requests
 import runpod
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
-from fastapi_limiter.depends import RateLimiter
+from jose import jwt
+from slowapi import Limiter
 from sqlalchemy.ext.asyncio import AsyncSession
 from tenacity import (
     retry,
@@ -63,6 +64,7 @@ from app.schemas.tasks import (
     SummarisationRequest,
     SummarisationResponse,
 )
+from app.utils.auth_utils import ALGORITHM, SECRET_KEY
 from app.utils.upload_audio_file_gcp import upload_audio_file, upload_file_to_bucket
 
 router = APIRouter()
@@ -94,6 +96,27 @@ languages_obj = {
 }
 
 
+def custom_key_func(request: Request):
+    header = request.headers.get("Authorization")
+    _, _, token = header.partition(" ")
+    payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    account_type: str = payload.get("account_type")
+    logging.info(f"account_type: {account_type}")
+    return account_type
+
+
+def get_account_type_limit(key: str) -> str:
+    if key.lower() == "admin":
+        return "1000/minute"
+    if key.lower() == "premium":
+        return "100/minute"
+    return "50/minute"
+
+
+# Initialize the Limiter
+limiter = Limiter(key_func=custom_key_func)
+
+
 @retry(
     stop=stop_after_attempt(3),  # Retry up to 3 times
     wait=wait_exponential(
@@ -112,7 +135,6 @@ async def call_endpoint_with_retry(endpoint, data):
 @router.post(
     "/language_id",
     response_model=LanguageIdResponse,
-    dependencies=[Depends(RateLimiter(times=PER_MINUTE_RATE_LIMIT, seconds=60))],
 )
 async def language_id(
     languageId_request: LanguageIdRequest, current_user=Depends(get_current_user)
@@ -155,7 +177,6 @@ async def language_id(
 @router.post(
     "/classify_language",
     response_model=LanguageIdResponse,
-    dependencies=[Depends(RateLimiter(times=PER_MINUTE_RATE_LIMIT, seconds=60))],
 )
 async def classify_language(
     languageId_request: LanguageIdRequest, current_user=Depends(get_current_user)
@@ -231,8 +252,8 @@ async def classify_language(
 @router.post(
     "/summarise",
     response_model=SummarisationResponse,
-    dependencies=[Depends(RateLimiter(times=PER_MINUTE_RATE_LIMIT, seconds=60))],
 )
+@limiter.limit(get_account_type_limit)
 async def summarise(
     request: Request,
     input_text: SummarisationRequest,
@@ -283,8 +304,9 @@ async def summarise(
 
 
 @router.post(
-    "/stt", dependencies=[Depends(RateLimiter(times=PER_MINUTE_RATE_LIMIT, seconds=60))]
+    "/stt",
 )
+@limiter.limit(get_account_type_limit)
 async def speech_to_text(
     request: Request,
     audio: UploadFile(...) = File(...),  # type: ignore
@@ -376,8 +398,8 @@ async def speech_to_text(
 @router.post(
     "/nllb_translate",
     response_model=NllbTranslationResponse,
-    dependencies=[Depends(RateLimiter(times=PER_MINUTE_RATE_LIMIT, seconds=60))],
 )
+@limiter.limit(get_account_type_limit)
 async def nllb_translate(
     request: Request,
     translation_request: NllbTranslationRequest,
@@ -436,7 +458,7 @@ async def nllb_translate(
 @router.post(
     "/chat",
     response_model=ChatResponse,
-    dependencies=[Depends(RateLimiter(times=PER_MINUTE_RATE_LIMIT, seconds=60))],
+    # dependencies=[Depends(RateLimiter(times=PER_MINUTE_RATE_LIMIT, seconds=60))],
 )
 async def chat(chat_request: ChatRequest, current_user=Depends(get_current_user)):
     """
