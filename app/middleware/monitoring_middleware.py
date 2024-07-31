@@ -1,3 +1,4 @@
+import logging
 import time
 
 from fastapi import Request
@@ -10,6 +11,9 @@ from app.crud.users import get_user_by_username
 from app.deps import get_db
 from app.schemas.monitoring import EndpointLog
 from app.utils.auth_utils import ALGORITHM, SECRET_KEY
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 async def log_request(request: Request, call_next):
@@ -50,11 +54,17 @@ async def log_request(request: Request, call_next):
                 time_taken=(end - start),
             )
             create_endpoint_log(endpoint_log)
-        except HTTPException:
+        except HTTPException as e:
+            logger.error(f"Error: {str(e)}")
             response = await call_next(request)
-        except KeyError:
+        except KeyError as e:
+            logger.error(f"Error: {str(e)}")
             response = await call_next(request)
-        except JWTError:
+        except JWTError as e:
+            logger.error(f"Error: {str(e)}")
+            response = await call_next(request)
+        except Exception as e:
+            logger.error(f"Error: {str(e)}")
             response = await call_next(request)
     else:
         response = await call_next(request)

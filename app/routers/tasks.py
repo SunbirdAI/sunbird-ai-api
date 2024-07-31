@@ -8,13 +8,21 @@ import time
 import requests
 import runpod
 from dotenv import load_dotenv
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from fastapi_limiter.depends import RateLimiter
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from jose import jwt
+from slowapi import Limiter
+from sqlalchemy.ext.asyncio import AsyncSession
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 from twilio.rest import Client
 from werkzeug.utils import secure_filename
 
 from app.crud.audio_transcription import create_audio_transcription
+from app.crud.monitoring import log_endpoint
 from app.deps import get_current_user, get_db
 from app.inference_services.translate_inference import translate
 from app.inference_services.user_preference import (
@@ -56,6 +64,7 @@ from app.schemas.tasks import (
     SummarisationRequest,
     SummarisationResponse,
 )
+from app.utils.auth_utils import ALGORITHM, SECRET_KEY
 from app.utils.upload_audio_file_gcp import upload_audio_file, upload_file_to_bucket
 
 router = APIRouter()
@@ -87,11 +96,45 @@ languages_obj = {
 }
 
 
+def custom_key_func(request: Request):
+    header = request.headers.get("Authorization")
+    _, _, token = header.partition(" ")
+    payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    account_type: str = payload.get("account_type")
+    logging.info(f"account_type: {account_type}")
+    return account_type
+
+
+def get_account_type_limit(key: str) -> str:
+    if key.lower() == "admin":
+        return "1000/minute"
+    if key.lower() == "premium":
+        return "100/minute"
+    return "50/minute"
+
+
+# Initialize the Limiter
+limiter = Limiter(key_func=custom_key_func)
+
+
+@retry(
+    stop=stop_after_attempt(3),  # Retry up to 3 times
+    wait=wait_exponential(
+        min=1, max=60
+    ),  # Exponential backoff starting at 1s up to 60s
+    retry=retry_if_exception_type(
+        (TimeoutError, ConnectionError)
+    ),  # Retry on these exceptions
+    reraise=True,  # Reraise the exception if all retries fail
+)
+async def call_endpoint_with_retry(endpoint, data):
+    return endpoint.run_sync(data, timeout=600)  # Timeout in seconds
+
+
 # Route for the Language identification endpoint
 @router.post(
     "/language_id",
     response_model=LanguageIdResponse,
-    dependencies=[Depends(RateLimiter(times=PER_MINUTE_RATE_LIMIT, seconds=60))],
 )
 async def language_id(
     languageId_request: LanguageIdRequest, current_user=Depends(get_current_user)
@@ -134,7 +177,6 @@ async def language_id(
 @router.post(
     "/classify_language",
     response_model=LanguageIdResponse,
-    dependencies=[Depends(RateLimiter(times=PER_MINUTE_RATE_LIMIT, seconds=60))],
 )
 async def classify_language(
     languageId_request: LanguageIdRequest, current_user=Depends(get_current_user)
@@ -210,10 +252,13 @@ async def classify_language(
 @router.post(
     "/summarise",
     response_model=SummarisationResponse,
-    dependencies=[Depends(RateLimiter(times=PER_MINUTE_RATE_LIMIT, seconds=60))],
 )
+@limiter.limit(get_account_type_limit)
 async def summarise(
-    input_text: SummarisationRequest, current_user=Depends(get_current_user)
+    request: Request,
+    input_text: SummarisationRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
     """
     This endpoint does anonymised summarisation of a given text. The text languages
@@ -222,46 +267,60 @@ async def summarise(
 
     endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
     request_response = {}
+    user = current_user
+    data = {
+        "input": {
+            "task": "summarise",
+            "text": input_text.text,
+        }
+    }
+
+    start_time = time.time()
 
     try:
-        request_response = endpoint.run_sync(
-            {
-                "input": {
-                    "task": "summarise",
-                    "text": input_text.text,
-                }
-            },
-            timeout=600,  # Timeout in seconds.
-        )
-
-        # Log the request for debugging purposes
-        logging.info(f"Request response: {request_response}")
-
-    except TimeoutError:
-        logging.error("Job timed out.")
+        request_response = await call_endpoint_with_retry(endpoint, data)
+        logging.info(f"Response: {request_response}")
+    except TimeoutError as e:
+        logging.error(f"Job timed out: {str(e)}")
         raise HTTPException(
-            status_code=408,
-            detail="The summarisation job timed out. Please try again later.",
+            status_code=503, detail="Service unavailable due to timeout."
         )
+    except ConnectionError as e:
+        logging.error(f"Connection lost: {str(e)}")
+        raise HTTPException(
+            status_code=503, detail="Service unavailable due to connection error."
+        )
+
+    end_time = time.time()
+
+    # Log endpoint in database
+    await log_endpoint(db, user, request, start_time, end_time)
+
+    # Calculate the elapsed time
+    elapsed_time = end_time - start_time
+    logging.info(f"Elapsed time: {elapsed_time} seconds")
 
     return request_response
 
 
 @router.post(
-    "/stt", dependencies=[Depends(RateLimiter(times=PER_MINUTE_RATE_LIMIT, seconds=60))]
+    "/stt",
 )
+@limiter.limit(get_account_type_limit)
 async def speech_to_text(
-    audio: UploadFile(...) = File(...),
+    request: Request,
+    audio: UploadFile(...) = File(...),  # type: ignore
     language: NllbLanguage = Form("lug"),
     adapter: NllbLanguage = Form("lug"),
     recognise_speakers: bool = Form(False),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ) -> STTTranscript:
     """
     Upload an audio file and get the transcription text of the audio
     """
     endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
+    user = current_user
 
     filename = secure_filename(audio.filename)
     file_path = os.path.join("/tmp", filename)
@@ -273,22 +332,30 @@ async def speech_to_text(
     os.remove(file_path)
     request_response = {}
 
+    data = {
+        "input": {
+            "task": "transcribe",
+            "target_lang": language,
+            "adapter": adapter,
+            "audio_file": audio_file,
+            "recognise_speakers": recognise_speakers,
+        }
+    }
+
     start_time = time.time()
+
     try:
-        request_response = endpoint.run_sync(
-            {
-                "input": {
-                    "task": "transcribe",
-                    "target_lang": language,
-                    "adapter": adapter,
-                    "audio_file": audio_file,
-                    "recognise_speakers": recognise_speakers,
-                }
-            },
-            timeout=600,  # Timeout in seconds.
+        request_response = await call_endpoint_with_retry(endpoint, data)
+    except TimeoutError as e:
+        logging.error(f"Job timed out: {str(e)}")
+        raise HTTPException(
+            status_code=503, detail="Service unavailable due to timeout."
         )
-    except TimeoutError:
-        logging.error("Job timed out.")
+    except ConnectionError as e:
+        logging.error(f"Connection lost: {str(e)}")
+        raise HTTPException(
+            status_code=503, detail="Service unavailable due to connection error."
+        )
 
     end_time = time.time()
     logging.info(f"Response: {request_response}")
@@ -305,7 +372,7 @@ async def speech_to_text(
         and isinstance(transcription, str)
         and len(transcription) > 0
     ):
-        db_audio_transcription = create_audio_transcription(
+        db_audio_transcription = await create_audio_transcription(
             db, current_user, blob_url, blob_name, transcription
         )
         audio_transcription_id = db_audio_transcription.id
@@ -313,6 +380,9 @@ async def speech_to_text(
         logging.info(
             f"Audio transcription in database :{db_audio_transcription.to_dict()}"
         )
+
+    # Log endpoint in database
+    await log_endpoint(db, user, request, start_time, end_time)
 
     return STTTranscript(
         audio_transcription=request_response.get("audio_transcription"),
@@ -328,10 +398,13 @@ async def speech_to_text(
 @router.post(
     "/nllb_translate",
     response_model=NllbTranslationResponse,
-    dependencies=[Depends(RateLimiter(times=PER_MINUTE_RATE_LIMIT, seconds=60))],
 )
+@limiter.limit(get_account_type_limit)
 async def nllb_translate(
-    translation_request: NllbTranslationRequest, current_user=Depends(get_current_user)
+    request: Request,
+    translation_request: NllbTranslationRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
     """
     Source and Target Language can be one of: ach(Acholi), teo(Ateso), eng(English),
@@ -340,6 +413,7 @@ async def nllb_translate(
     languages listed, the target can be any of the other languages.
     """
     endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
+    user = current_user
 
     text = translation_request.text
     # Data to be sent in the request body
@@ -354,14 +428,21 @@ async def nllb_translate(
 
     start_time = time.time()
     try:
-        request_response = endpoint.run_sync(
-            data,
-            timeout=600,  # Timeout in seconds.
+        request_response = await call_endpoint_with_retry(endpoint, data)
+    except TimeoutError as e:
+        logging.error(f"Job timed out: {str(e)}")
+        raise HTTPException(
+            status_code=503, detail="Service unavailable due to timeout."
         )
-    except TimeoutError:
-        logging.error("Job timed out.")
+    except ConnectionError as e:
+        logging.error(f"Connection lost: {str(e)}")
+        raise HTTPException(
+            status_code=503, detail="Service unavailable due to connection error."
+        )
 
     end_time = time.time()
+    # Log endpoint in database
+    await log_endpoint(db, user, request, start_time, end_time)
     logging.info(f"Response: {request_response}")
 
     # Calculate the elapsed time
@@ -377,7 +458,7 @@ async def nllb_translate(
 @router.post(
     "/chat",
     response_model=ChatResponse,
-    dependencies=[Depends(RateLimiter(times=PER_MINUTE_RATE_LIMIT, seconds=60))],
+    # dependencies=[Depends(RateLimiter(times=PER_MINUTE_RATE_LIMIT, seconds=60))],
 )
 async def chat(chat_request: ChatRequest, current_user=Depends(get_current_user)):
     """
@@ -541,7 +622,7 @@ def handle_text_message(
         )
         save_user_preference(from_number, detected_language, target_language)
 
-        return translation
+        return None
 
     return "_Please send text that contains between 3 and 200 characters (about 30 to 50 words)._"
 
