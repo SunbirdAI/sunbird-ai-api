@@ -31,6 +31,10 @@ from app.inference_services.user_preference import (
     save_user_preference,
     update_feedback,
 )
+from app.inference_services.openai_script import (
+    is_json,
+    get_completion_from_messages
+)
 from app.inference_services.whats_app_services import (
     download_media,
     get_audio,
@@ -498,14 +502,16 @@ async def webhook(payload: dict):
         sender_name = get_name(payload)
         source_language, target_language = get_user_preference(from_number)
 
-        message = handle_message(
-            payload,
-            from_number,
-            sender_name,
-            source_language,
-            target_language,
-            phone_number_id,
-        )
+        # message = handle_message(
+        #     payload,
+        #     from_number,
+        #     sender_name,
+        #     source_language,
+        #     target_language,
+        #     phone_number_id,
+        # )
+
+        message = handle_openai_message(payload)
 
         if message:
             send_message(
@@ -528,6 +534,29 @@ async def verify_webhook(mode: str, token: str, challenge: str):
         logging.info("WEBHOOK_VERIFIED")
         return {"challenge": challenge}
     raise HTTPException(status_code=400, detail="Bad Request")
+
+def handle_openai_message(
+        payload
+):
+    msg_body = get_message(payload)
+    response = get_completion_from_messages(msg_body)
+    if is_json(response):
+        json_object = json.loads(response)
+        # print ("Is valid json? true")
+        task = json_object["task"]
+        # print(task)
+
+        if task == "translation":
+            translation = translate(json_object["target_language"], json_object["text"])
+            return f""" Here is the translation: {translation["output"]["translated_text"]} """
+        elif task == "setLanguage":
+            return "Language set"
+        elif task == "conversation":
+            return json_object["text"]
+        elif task == "help":
+            return json_object["text"]
+    else:
+        return response
 
 
 def handle_message(
