@@ -33,7 +33,9 @@ from app.inference_services.user_preference import (
 )
 from app.inference_services.openai_script import (
     is_json,
-    get_completion_from_messages
+    get_completion_from_messages,
+    classify_input,
+    get_guide_based_on_classification
 )
 from app.inference_services.whats_app_services import (
     download_media,
@@ -538,8 +540,10 @@ async def verify_webhook(mode: str, token: str, challenge: str):
 def handle_openai_message(
         payload
 ):
-    msg_body = get_message(payload)
-    response = get_completion_from_messages(msg_body)
+    input_text = get_message(payload)
+    classification = classify_input(input_text)
+    guide = get_guide_based_on_classification(classification)
+    response = get_completion_from_messages(guide,input_text)
     if is_json(response):
         json_object = json.loads(response)
         # print ("Is valid json? true")
@@ -550,6 +554,8 @@ def handle_openai_message(
         if task == "translation":
             translation = translate(json_object["target_language"], json_object["text"])
             return f""" Here is the translation: {translation["output"]["translated_text"]} """
+        elif task == "greeting":
+            return json_object["text"]
         elif task == "setLanguage":
             return "Language set"
         elif task == "conversation":
