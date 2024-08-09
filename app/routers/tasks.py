@@ -513,7 +513,7 @@ async def webhook(payload: dict):
         #     phone_number_id,
         # )
 
-        message = handle_openai_message(payload)
+        message = handle_openai_message(payload,source_language, target_language,from_number,sender_name)
 
         if message:
             send_message(
@@ -538,37 +538,50 @@ async def verify_webhook(mode: str, token: str, challenge: str):
     raise HTTPException(status_code=400, detail="Bad Request")
 
 def handle_openai_message(
-        payload
+        payload,source_language, target_language,from_number,sender_name
 ):
-    input_text = get_message(payload)
-    classification = classify_input(input_text)
-    guide = get_guide_based_on_classification(classification)
-    messages = [
-        {'role': 'system', 'content': guide},
-        {'role': 'user', 'content': input_text}
-        ]
-    response = get_completion_from_messages(messages)
-    if is_json(response):
-        json_object = json.loads(response)
-        # print ("Is valid json? true")
-        logging.info(f"Open AI response: {json_object}")
-        task = json_object["task"]
-        # print(task)
 
-        if task == "translation":
-            detected_language = detect_language(json_object["text"])
-            translation = translate_text(json_object["text"], detected_language, json_object["target_language"])
-            return f""" Here is the translation: {translation} """
-        elif task == "greeting":
-            return json_object["text"]
-        elif task == "setLanguage":
-            return "Language set"
-        elif task == "conversation":
-            return json_object["text"]
-        elif task == "help":
-            return json_object["text"]
+    if audio := get_audio(payload):
+        return handle_audio_message(audio, target_language, sender_name)
+    
+    elif reaction := get_reaction(payload):
+        mess_id = reaction["message_id"]
+        emoji = reaction["emoji"]
+        update_feedback(mess_id, emoji)
+        return f"Dear {sender_name}, Thanks for your feedback {emoji}."
+    
     else:
-        return response
+        input_text = get_message(payload)
+        classification = classify_input(input_text)
+        guide = get_guide_based_on_classification(classification)
+        messages = [
+            {'role': 'system', 'content': guide},
+            {'role': 'user', 'content': input_text}
+            ]
+        response = get_completion_from_messages(messages)
+        if is_json(response):
+            json_object = json.loads(response)
+            # print ("Is valid json? true")
+            logging.info(f"Open AI response: {json_object}")
+            task = json_object["task"]
+            # print(task)
+
+            if task == "translation":
+                detected_language = detect_language(json_object["text"])
+                save_user_preference(from_number, detected_language, json_object["target_language"])
+                translation = translate_text(json_object["text"], detected_language, json_object["target_language"])
+                return f""" Here is the translation: {translation} """
+            elif task == "greeting":
+                return json_object["text"]
+            elif task == "setLanguage":
+                save_user_preference(from_number, source_language, json_object["language"])
+                return "Language set"
+            elif task == "conversation":
+                return json_object["text"]
+            elif task == "help":
+                return json_object["text"]
+        else:
+            return response
 
 
 def handle_message(
