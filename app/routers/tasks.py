@@ -543,7 +543,11 @@ def handle_openai_message(
     input_text = get_message(payload)
     classification = classify_input(input_text)
     guide = get_guide_based_on_classification(classification)
-    response = get_completion_from_messages(guide,input_text)
+    messages = [
+        {'role': 'system', 'content': guide},
+        {'role': 'user', 'content': input_text}
+        ]
+    response = get_completion_from_messages(messages)
     if is_json(response):
         json_object = json.loads(response)
         # print ("Is valid json? true")
@@ -552,8 +556,9 @@ def handle_openai_message(
         # print(task)
 
         if task == "translation":
-            translation = translate(json_object["target_language"], json_object["text"])
-            return f""" Here is the translation: {translation["output"]["translated_text"]} """
+            detected_language = detect_language(json_object["text"])
+            translation = translate_text(json_object["text"], detected_language, json_object["target_language"])
+            return f""" Here is the translation: {translation} """
         elif task == "greeting":
             return json_object["text"]
         elif task == "setLanguage":
