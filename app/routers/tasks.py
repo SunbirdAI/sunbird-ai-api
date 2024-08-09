@@ -543,6 +543,7 @@ def handle_openai_message(
     if is_json(response):
         json_object = json.loads(response)
         # print ("Is valid json? true")
+        logging.info(f"Open AI response: {json_object}")
         task = json_object["task"]
         # print(task)
 

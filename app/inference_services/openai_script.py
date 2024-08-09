@@ -46,11 +46,11 @@ The bot can perform different tasks based on the user's request. The tasks and t
 
 Examples:
 1. **Normal Conversation**
-    User: "What is the goal for this bot?"
+    User: "How are you doing?"
     Bot:
     {
         "task": "conversation",
-        "text": "The main goal is to do translations in Ugandan languages. This bot is owned and managed by Sunbird AI, and you can find more information at https://sunbird.ai/.",
+        "text": "I'm doing fine, how are you? How best can I help you?",
     }
 
 2. **Help Conversation**
