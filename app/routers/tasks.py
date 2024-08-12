@@ -626,6 +626,9 @@ def handle_audio_message(audio, target_language, sender_name):
                 query_media_url(audio_id, os.getenv("WHATSAPP_TOKEN")),
                 os.getenv("WHATSAPP_TOKEN"),
             )
+            
+            logging.error(f"The file path is got: {file_path}")
+            
             transcription = process_speech_to_text(file_path, target_language)
             if transcription:
                 return transcription
@@ -735,11 +738,12 @@ def process_speech_to_text(file_path, language: str):
     endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
 
     logging.info(f"File path: {file_path}")
-    blob_name = upload_file_to_bucket(file_path=file_path)
+    blob_name = upload_audio_file(file_path=file_path)
     audio_file = blob_name
     os.remove(file_path)
     request_response = {}
 
+    logging.info(f"Audio data: {audio_file}")
     start_time = time.time()
     try:
         request_response = endpoint.run_sync(
@@ -757,7 +761,7 @@ def process_speech_to_text(file_path, language: str):
         logging.error("Job timed out.")
 
     end_time = time.time()
-    logging.info(f"Response: {request_response}")
+    logging.info(f"Audio Response: {request_response}")
 
     # Calculate the elapsed time
     elapsed_time = end_time - start_time
