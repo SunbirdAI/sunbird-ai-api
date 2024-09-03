@@ -3,7 +3,7 @@ name: Deploy to Heroku
 on:
   push:
     branches:
-      - main
+      - staging
 
 jobs:
   deploy:
@@ -28,7 +28,7 @@ jobs:
       env:
         HEROKU_APP_NAME: ${{ secrets.HEROKU_APP_NAME }}
       run: |
-        docker buildx build --platform linux/amd64 -t registry.heroku.com/${{ secrets.HEROKU_APP_NAME }}/web .
+        docker buildx build --platform linux/amd64 -f Dockerfile.heroku -t registry.heroku.com/${{ secrets.HEROKU_APP_NAME }}/web .
         docker push registry.heroku.com/${{ secrets.HEROKU_APP_NAME }}/web
 
     - name: Release Docker image on Heroku
