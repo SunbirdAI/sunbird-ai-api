@@ -1,3 +1,4 @@
+import datetime
 import json
 import logging
 import os
@@ -313,6 +314,7 @@ async def speech_to_text(
     language: NllbLanguage = Form("lug"),
     adapter: NllbLanguage = Form("lug"),
     recognise_speakers: bool = Form(False),
+    whisper: bool = Form(False),
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ) -> STTTranscript:
@@ -323,7 +325,10 @@ async def speech_to_text(
     user = current_user
 
     filename = secure_filename(audio.filename)
-    file_path = os.path.join("/tmp", filename)
+    # Add a timestamp to the file name
+    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    unique_file_name = f"{timestamp}_{filename}"
+    file_path = os.path.join("/tmp", unique_file_name)
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(audio.file, buffer)
 
@@ -338,6 +343,7 @@ async def speech_to_text(
             "target_lang": language,
             "adapter": adapter,
             "audio_file": audio_file,
+            "whisper": whisper,
             "recognise_speakers": recognise_speakers,
         }
     }
@@ -439,6 +445,9 @@ async def nllb_translate(
         raise HTTPException(
             status_code=503, detail="Service unavailable due to connection error."
         )
+    except Exception as e:
+        logging.error(f"Error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
     end_time = time.time()
     # Log endpoint in database

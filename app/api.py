@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 import redis.asyncio as redis
 from dotenv import load_dotenv
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi_limiter import FastAPILimiter
@@ -22,6 +23,7 @@ from app.middleware.monitoring_middleware import log_request
 from app.routers.auth import router as auth_router
 from app.routers.frontend import router as frontend_router
 from app.routers.tasks import router as tasks_router
+from app.utils.exception_utils import validation_exception_handler
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
@@ -108,6 +110,8 @@ limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
+# Register the custom request validation exception handler
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
 
 
 app.include_router(tasks_router, prefix="/tasks", tags=["AI Tasks"])
