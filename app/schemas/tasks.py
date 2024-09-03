@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, constr
 
 
 class STTTranscript(BaseModel):
@@ -65,7 +65,7 @@ class NllbLanguage(str, Enum):
 class NllbTranslationRequest(BaseModel):
     source_language: NllbLanguage
     target_language: NllbLanguage
-    text: str
+    text: constr(min_length=1, strip_whitespace=True)  # type: ignore
 
 
 class TranslationRequest(BaseModel):
