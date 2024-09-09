@@ -4,6 +4,7 @@ import mimetypes
 import os
 from typing import Any, Dict, List, Union
 
+from fastapi import HTTPException
 import requests
 from requests_toolbelt import MultipartEncoder
 
@@ -46,6 +47,25 @@ headers = {"Content-Type": "application/json"}
 #     logging.info(f"Status code: {r.status_code}")
 #     logging.info(f"Response: {r.json()}")
 #     return r.json()
+
+def download_and_upload_audio(url):
+    try:
+        # Define the local path for temporary storage
+        local_audio_path = 'temp_audio_file.mp3'
+        
+        # Download the audio file
+        response = requests.get(url, stream=True)
+        if response.status_code == 200:
+            with open(local_audio_path, 'wb') as f:
+                f.write(response.content)
+
+            # Upload the audio file to Google Cloud Storage
+            return local_audio_path
+        else:
+            raise HTTPException(status_code=500, detail="Failed to download audio file")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 def send_message(message, token, recipient_id, phone_number_id, preview_url=True):
@@ -622,10 +642,14 @@ def download_media(media_url, access_token, file_path="downloaded_media_file"):
     :param file_path: The local file path where the media should be saved.
     :return: The path to the downloaded media file.
     """
+    logging.info(f"Media url is:: {media_url}")
+
     headers = {"Authorization": f"Bearer {access_token}"}
     response = requests.get(media_url, headers=headers, stream=True)
 
-    logging.info(f"Media url is {media_url}")
+    logging.info(f"The response is:: {response}")
+    logging.info(f"Response Status: {response.status_code}")
+    logging.info(f"Response Content: {response.content[:100]}")
 
     if response.status_code == 200:
         with open(file_path, "wb") as f:
@@ -636,6 +660,7 @@ def download_media(media_url, access_token, file_path="downloaded_media_file"):
         raise Exception(
             f"Failed to download media. HTTP Status: {response.status_code}"
         )
+
 
 
 def preprocess(data):
@@ -1013,10 +1038,10 @@ def welcome_message(sender_name=""):
         f"Hello {sender_name},\n\n"
         "Welcome to our translation and audio transcription service! 🌍\n\n"
         "Here are some things you can do:\n\n"
-        "1. **Translate Text**:\n"
+        "1. *Translate Text*:\n"
         "   - Simply send any text message (between 3 to 200 characters) to translate it into your preferred language.\n"
         "   - Reply with 'hi' or 'start' to begin the translation process.\n\n"
-        "2. **Set Preferred Language**:\n"
+        "2. *Set Preferred Language*:\n"
         "   - Please choose the language you prefer to translate to by sending the corresponding number:\n"
         "     1: Luganda (default)\n"
         "     2: Acholi\n"
@@ -1025,13 +1050,13 @@ def welcome_message(sender_name=""):
         "     5: Runyankole\n"
         "     6: English\n"
         "   - You can change your preferred language at any time by sending the number of your new choice.\n\n"
-        "3. **Audio Transcription**:\n"
+        "3. *Audio Transcription*:\n"
         "   - Send an audio message to transcribe it into text. Make sure to specify your preferred transcription language.\n\n"
-        "4. **Feedback**:\n"
+        "4. *Feedback*:\n"
         "   - React to any message with an emoji to provide feedback. We value your input!\n\n"
-        "5. **Help**:\n"
+        "5. *Help*:\n"
         "   - Reply with 'help' anytime to receive instructions on how to use this service.\n\n"
-        "6. **Unsupported Message Types**:\n"
+        "6. *Unsupported Message Types*:\n"
         "   - Note that we currently do not support image, video, or document messages.\n"
         "   - You will receive a notification if you send any unsupported message type.\n\n"
         "We hope you enjoy using our service. Feel free to reach out if you have any questions or need assistance!\n\n"
@@ -1043,11 +1068,11 @@ def welcome_message(sender_name=""):
 def help_message():
     return (
         "Help Guide:\n\n"
-        "1. **Start Translation**:\n"
+        "1. *Start Translation*:\n"
         "   - Reply with 'hi' or 'start' to initiate the translation service and set your preferred language.\n\n"
-        "2. **Send Text for Translation**:\n"
+        "2. *Send Text for Translation*:\n"
         "   - Simply send any text message (between 3 to 200 characters) to translate it into your chosen language.\n\n"
-        "3. **Change Preferred Language**:\n"
+        "3. *Change Preferred Language*:\n"
         "   - To change your preferred translation language, send the number corresponding to your new choice:\n"
         "     1: Luganda\n"
         "     2: Acholi\n"
@@ -1055,11 +1080,11 @@ def help_message():
         "     4: Lugbara\n"
         "     5: Runyankole\n"
         "     6: English\n\n"
-        "4. **Audio Transcription**:\n"
+        "4. *Audio Transcription*:\n"
         "   - Send an audio message to transcribe it into text. Ensure you specify the language for transcription.\n\n"
-        "5. **Provide Feedback**:\n"
+        "5. *Provide Feedback*:\n"
         "   - React to any message with an emoji to give feedback. Your input helps us improve!\n\n"
-        "6. **Need More Help?**:\n"
+        "6. *Need More Help?*:\n"
         "   - If you need further assistance, just reply with 'help' at any time.\n\n"
         "Thank you for using our service! 😊"
     )
