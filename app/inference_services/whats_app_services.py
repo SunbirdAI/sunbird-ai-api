@@ -4,6 +4,7 @@ import mimetypes
 import os
 from typing import Any, Dict, List, Union
 
+from fastapi import HTTPException
 import requests
 from requests_toolbelt import MultipartEncoder
 
@@ -46,6 +47,25 @@ headers = {"Content-Type": "application/json"}
 #     logging.info(f"Status code: {r.status_code}")
 #     logging.info(f"Response: {r.json()}")
 #     return r.json()
+
+def download_and_upload_audio(url):
+    try:
+        # Define the local path for temporary storage
+        local_audio_path = 'temp_audio_file.mp3'
+        
+        # Download the audio file
+        response = requests.get(url, stream=True)
+        if response.status_code == 200:
+            with open(local_audio_path, 'wb') as f:
+                f.write(response.content)
+
+            # Upload the audio file to Google Cloud Storage
+            return local_audio_path
+        else:
+            raise HTTPException(status_code=500, detail="Failed to download audio file")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 def send_message(message, token, recipient_id, phone_number_id, preview_url=True):
@@ -622,10 +642,14 @@ def download_media(media_url, access_token, file_path="downloaded_media_file"):
     :param file_path: The local file path where the media should be saved.
     :return: The path to the downloaded media file.
     """
+    logging.info(f"Media url is:: {media_url}")
+
     headers = {"Authorization": f"Bearer {access_token}"}
     response = requests.get(media_url, headers=headers, stream=True)
 
-    logging.info(f"Media url is {media_url}")
+    logging.info(f"The response is:: {response}")
+    logging.info(f"Response Status: {response.status_code}")
+    logging.info(f"Response Content: {response.content[:100]}")
 
     if response.status_code == 200:
         with open(file_path, "wb") as f:
@@ -636,6 +660,7 @@ def download_media(media_url, access_token, file_path="downloaded_media_file"):
         raise Exception(
             f"Failed to download media. HTTP Status: {response.status_code}"
         )
+
 
 
 def preprocess(data):
