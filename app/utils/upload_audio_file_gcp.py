@@ -48,6 +48,11 @@ def upload_file_to_bucket(file_path):
         blob_name = os.path.basename(file_path)
         blob = bucket.blob(blob_name)
         blob.upload_from_filename(file_path)
+
+        # Get the public URL of the uploaded file
+        blob.make_public()
+        blob_url = blob.public_url
+        blob_name = blob.name
         return blob_name
     except Exception as e:
         raise Exception(f"An error occurred while uploading the file: {e}")

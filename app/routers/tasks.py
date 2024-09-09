@@ -5,6 +5,8 @@ import os
 import re
 import shutil
 import time
+import uuid
+import mimetypes
 
 import requests
 import runpod
@@ -32,6 +34,12 @@ from app.inference_services.user_preference import (
     save_user_preference,
     update_feedback,
 )
+from app.inference_services.openai_script import (
+    is_json,
+    get_completion_from_messages,
+    classify_input,
+    get_guide_based_on_classification
+)
 from app.inference_services.whats_app_services import (
     download_media,
     get_audio,
@@ -52,6 +60,8 @@ from app.inference_services.whats_app_services import (
     set_default_target_language,
     valid_payload,
     welcome_message,
+    fetch_media_url,
+    download_and_upload_audio,
 )
 from app.schemas.tasks import (
     ChatRequest,
@@ -507,14 +517,16 @@ async def webhook(payload: dict):
         sender_name = get_name(payload)
         source_language, target_language = get_user_preference(from_number)
 
-        message = handle_message(
-            payload,
-            from_number,
-            sender_name,
-            source_language,
-            target_language,
-            phone_number_id,
-        )
+        # message = handle_message(
+        #     payload,
+        #     from_number,
+        #     sender_name,
+        #     source_language,
+        #     target_language,
+        #     phone_number_id,
+        # )
+
+        message = handle_openai_message(payload,source_language, target_language,from_number,sender_name)
 
         if message:
             send_message(
@@ -538,6 +550,58 @@ async def verify_webhook(mode: str, token: str, challenge: str):
         return {"challenge": challenge}
     raise HTTPException(status_code=400, detail="Bad Request")
 
+def handle_openai_message(
+        payload,source_language, target_language,from_number,sender_name
+):
+
+    if audio_info := get_audio(payload):
+        if audio_info:
+            audio_url = fetch_media_url(audio_info['id'], os.getenv("WHATSAPP_TOKEN"))
+            local_audio_path = download_and_upload_audio(audio_url)
+            # message = f"Audio file processed and uploaded successfully. Public URL: {public_url}"
+            # send_message(message, os.getenv("WHATSAPP_TOKEN"), get_from_number(payload), get_phone_number_id(payload))
+            return process_speech_to_text(local_audio_path,target_language)
+
+    
+    elif reaction := get_reaction(payload):
+        mess_id = reaction["message_id"]
+        emoji = reaction["emoji"]
+        update_feedback(mess_id, emoji)
+        return f"Dear {sender_name}, Thanks for your feedback {emoji}."
+    
+    else:
+        input_text = get_message(payload)
+        classification = classify_input(input_text)
+        guide = get_guide_based_on_classification(classification)
+        messages = [
+            {'role': 'system', 'content': guide},
+            {'role': 'user', 'content': input_text}
+            ]
+        response = get_completion_from_messages(messages)
+        if is_json(response):
+            json_object = json.loads(response)
+            # print ("Is valid json? true")
+            logging.info(f"Open AI response: {json_object}")
+            task = json_object["task"]
+            # print(task)
+
+            if task == "translation":
+                detected_language = detect_language(json_object["text"])
+                save_user_preference(from_number, detected_language, json_object["target_language"])
+                translation = translate_text(json_object["text"], detected_language, json_object["target_language"])
+                return f""" Here is the translation: {translation} """
+            elif task == "greeting":
+                return json_object["text"]
+            elif task == "setLanguage":
+                save_user_preference(from_number, source_language, json_object["language"])
+                return "Language set"
+            elif task == "conversation":
+                return json_object["text"]
+            elif task == "help":
+                return json_object["text"]
+        else:
+            return response
+
 
 def handle_message(
     payload, from_number, sender_name, source_language, target_language, phone_number_id
@@ -557,8 +621,8 @@ def handle_message(
     if docs := get_document(payload):
         return f"Dear {sender_name}, We do not support documents."
 
-    if audio := get_audio(payload):
-        return handle_audio_message(audio, target_language, sender_name)
+    # if audio := get_audio(payload):
+    #     return handle_audio_message(audio, target_language, sender_name)
 
     if reaction := get_reaction(payload):
         mess_id = reaction["message_id"]
@@ -571,27 +635,6 @@ def handle_message(
     )
 
 
-def handle_audio_message(audio, target_language, sender_name):
-    try:
-        audio_id = audio["id"]
-        mime_type = audio["mime_type"]
-
-        if target_language:
-            file_path = download_media(
-                query_media_url(audio_id, os.getenv("WHATSAPP_TOKEN")),
-                os.getenv("WHATSAPP_TOKEN"),
-            )
-            transcription = process_speech_to_text(file_path, target_language)
-            if transcription:
-                return transcription
-            else:
-                return "Sorry, there was an issue processing your audio file."
-        else:
-            return f"Dear {sender_name}, Please specify the language for transcription."
-
-    except Exception as e:
-        logging.error(f"Error processing audio file: {str(e)}")
-        return "Sorry, there was an issue processing your audio file."
 
 
 def handle_text_message(
@@ -690,7 +733,8 @@ def process_speech_to_text(file_path, language: str):
     endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
 
     logging.info(f"File path: {file_path}")
-    blob_name = upload_file_to_bucket(file_path=file_path)
+
+    blob_name, _ = upload_audio_file(file_path=file_path)
     audio_file = blob_name
     os.remove(file_path)
     request_response = {}
@@ -704,6 +748,7 @@ def process_speech_to_text(file_path, language: str):
                     "target_lang": language,
                     "adapter": language,
                     "audio_file": audio_file,
+                    "recognise_speakers": False,
                 }
             },
             timeout=600,  # Timeout in seconds.
@@ -713,6 +758,8 @@ def process_speech_to_text(file_path, language: str):
 
     end_time = time.time()
     logging.info(f"Response: {request_response}")
+    logging.info(f"Full response from transcription service: {request_response}")
+
 
     # Calculate the elapsed time
     elapsed_time = end_time - start_time
