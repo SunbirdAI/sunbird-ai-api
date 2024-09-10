@@ -7,6 +7,9 @@ from typing import Any, Dict, List, Union
 from fastapi import HTTPException
 import requests
 from requests_toolbelt import MultipartEncoder
+import secrets
+from datetime import datetime
+
 
 # Setup logging
 logging.basicConfig(
@@ -15,7 +18,7 @@ logging.basicConfig(
 )
 
 
-base_url = "https://graph.facebook.com/v12.0"
+base_url = "https://graph.facebook.com/v20.0"
 v15_base_url = "https://graph.facebook.com/v15.0"
 
 headers = {"Content-Type": "application/json"}
@@ -48,18 +51,22 @@ headers = {"Content-Type": "application/json"}
 #     logging.info(f"Response: {r.json()}")
 #     return r.json()
 
-def download_and_upload_audio(url):
+def download_whatsapp_audio(url, access_token):
     try:
-        # Define the local path for temporary storage
-        local_audio_path = 'temp_audio_file.mp3'
+        # Generate a random string and get the current timestamp
+        random_string = secrets.token_hex(8)  # Generates a secure random hex string
+        current_time = datetime.now().strftime("%Y%m%d_%H%M%S")  # Formats the date and time
+
+        # Define the local path for temporary storage with the random string and time
+        local_audio_path = f'audio_{random_string}_{current_time}.mp3'
         
         # Download the audio file
-        response = requests.get(url, stream=True)
+        headers = {"Authorization": f"Bearer {access_token}"}
+        response = requests.get(url, headers=headers, stream=True)
         if response.status_code == 200:
             with open(local_audio_path, 'wb') as f:
                 f.write(response.content)
 
-            # Upload the audio file to Google Cloud Storage
             return local_audio_path
         else:
             raise HTTPException(status_code=500, detail="Failed to download audio file")
@@ -963,12 +970,13 @@ def fetch_media_url(media_id, token):
     :param auth_token: Authentication token for the API.
     :return: URL of the media file.
     """
-    url = f"{base_url}/media/{media_id}"  # Adjust the endpoint as necessary
+    url = f"https://graph.facebook.com/v20.0/{media_id}"  # Adjust the endpoint as necessary
     headers = {"Authorization": f"Bearer {token}"}
     response = requests.get(url, headers=headers)
     if response.status_code == 200:
         # Assuming the API returns a JSON response with the media URL in a field named 'media_url'
-        media_url = response.json().get("media_url")
+        logging.info(f"Fetch reponse: {response.json()}")
+        media_url = response.json().get("url")
         return media_url
     else:
         raise Exception(
@@ -1001,16 +1009,16 @@ def get_media_url(media_id, token):
 
 
 def valid_payload(payload):
-    return "object" in payload and (
-        "entry" in payload
-        and payload["entry"]
-        and "changes" in payload["entry"][0]
-        and payload["entry"][0]["changes"]
-        and payload["entry"][0]["changes"][0]
-        and "value" in payload["entry"][0]["changes"][0]
-        and "messages" in payload["entry"][0]["changes"][0]["value"]
-        and payload["entry"][0]["changes"][0]["value"]["messages"]
-    )
+    if "object" in payload and "entry" in payload:
+        for entry in payload["entry"]:
+            if "changes" in entry:
+                for change in entry["changes"]:
+                    if "value" in change:
+                        # Check for either 'messages' or 'statuses' in the 'value'
+                        if "messages" in change["value"] or "statuses" in change["value"]:
+                            return True
+    return False
+
 
 
 def get_phone_number_id(payload):
