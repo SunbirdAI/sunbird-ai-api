@@ -61,7 +61,7 @@ from app.inference_services.whats_app_services import (
     valid_payload,
     welcome_message,
     fetch_media_url,
-    download_and_upload_audio,
+    download_whatsapp_audio,
 )
 from app.schemas.tasks import (
     ChatRequest,
@@ -510,7 +510,7 @@ async def webhook(payload: dict):
         logging.info(f"Received payload: {json.dumps(payload, indent=2)}")
 
         if not valid_payload(payload):
-            return {"status": "invalid payload"}
+            return {"status": "ignored"}
 
         phone_number_id = get_phone_number_id(payload)
         from_number = get_from_number(payload)
@@ -533,11 +533,15 @@ async def webhook(payload: dict):
                 message, os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id
             )
 
-        return {"status": "success"}
+        # return {"status": "success"}
 
     except Exception as error:
         logging.error(f"Error in webhook processing: {str(error)}")
         raise HTTPException(status_code=500, detail="Internal Server Error") from error
+    
+    finally:
+        # Always send a success status to WhatsApp
+        return {"status": "success"}
 
 
 @router.get("/webhook")
@@ -550,6 +554,7 @@ async def verify_webhook(mode: str, token: str, challenge: str):
         return {"challenge": challenge}
     raise HTTPException(status_code=400, detail="Bad Request")
 
+
 def handle_openai_message(
         payload,source_language, target_language,from_number,sender_name
 ):
@@ -557,11 +562,39 @@ def handle_openai_message(
     if audio_info := get_audio(payload):
         if audio_info:
             audio_url = fetch_media_url(audio_info['id'], os.getenv("WHATSAPP_TOKEN"))
-            local_audio_path = download_and_upload_audio(audio_url)
-            # message = f"Audio file processed and uploaded successfully. Public URL: {public_url}"
-            # send_message(message, os.getenv("WHATSAPP_TOKEN"), get_from_number(payload), get_phone_number_id(payload))
-            return process_speech_to_text(local_audio_path,target_language)
+            local_audio_path = download_whatsapp_audio(audio_url, os.getenv("WHATSAPP_TOKEN"))
+            blob_name, blob_url = upload_audio_file(local_audio_path)
+            endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
+            audio_file = blob_name
+            os.remove(local_audio_path)
+            request_response = {}
 
+            start_time = time.time()
+            try:
+                request_response = endpoint.run_sync(
+                    {
+                        "input": {
+                            "task": "transcribe",
+                            "target_lang": target_language,
+                            "adapter": target_language,
+                            "audio_file": audio_file,
+                            "recognise_speakers": False,
+                        }
+                    },
+                    timeout=600,  # Timeout in seconds.
+                )
+            except TimeoutError:
+                logging.error("Job timed out.")
+
+            end_time = time.time()
+            logging.info(f"Full response from transcription service: {request_response}")
+
+
+            # Calculate the elapsed time
+            elapsed_time = end_time - start_time
+            logging.info(f"Elapsed time: {elapsed_time} seconds")
+
+            return request_response.get("audio_transcription")
     
     elif reaction := get_reaction(payload):
         mess_id = reaction["message_id"]
@@ -633,8 +666,6 @@ def handle_message(
     return handle_text_message(
         payload, from_number, sender_name, source_language, target_language
     )
-
-
 
 
 def handle_text_message(
@@ -727,45 +758,6 @@ def translate_text(text, source_language, target_language):
         raise Exception(f"Error {response.status_code}: {response.text}")
 
     return translated_text
-
-
-def process_speech_to_text(file_path, language: str):
-    endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
-
-    logging.info(f"File path: {file_path}")
-
-    blob_name, _ = upload_audio_file(file_path=file_path)
-    audio_file = blob_name
-    os.remove(file_path)
-    request_response = {}
-
-    start_time = time.time()
-    try:
-        request_response = endpoint.run_sync(
-            {
-                "input": {
-                    "task": "transcribe",
-                    "target_lang": language,
-                    "adapter": language,
-                    "audio_file": audio_file,
-                    "recognise_speakers": False,
-                }
-            },
-            timeout=600,  # Timeout in seconds.
-        )
-    except TimeoutError:
-        logging.error("Job timed out.")
-
-    end_time = time.time()
-    logging.info(f"Response: {request_response}")
-    logging.info(f"Full response from transcription service: {request_response}")
-
-
-    # Calculate the elapsed time
-    elapsed_time = end_time - start_time
-    logging.info(f"Elapsed time: {elapsed_time} seconds")
-
-    return request_response.get("audio_transcription")
 
 
 def detect_language(text):
