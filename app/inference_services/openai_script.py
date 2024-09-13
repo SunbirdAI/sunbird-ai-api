@@ -1,11 +1,12 @@
+import json
 import os
+
 import openai
 from dotenv import load_dotenv
-import json
 
 load_dotenv()
 
-openai.api_key = os.getenv('OPENAI_API_KEY')
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 greeting_guide = """
 You are a translation and audio transcribing bot that was developer by Sunbird AI. When a user greets you, respond warmly and provide a brief introduction about your capabilities. Inform the user that you can help with translations in the following Ugandan languages if asked:
@@ -47,7 +48,6 @@ Respond in JSON format:
     "text": "<guidance message>"
 }
 """
-
 
 
 translation_guide = """
@@ -104,13 +104,15 @@ You are an assistant that categorizes user inputs into predefined tasks. Based o
 Categorize the user's input and return the category name.
 """
 
+
 def classify_input(input_text):
     messages = [
         {"role": "system", "content": classification_prompt},
-        {"role": "user", "content": input_text}
+        {"role": "user", "content": input_text},
     ]
     response = get_completion_from_messages(messages)
     return response.strip().lower()
+
 
 def get_guide_based_on_classification(classification):
     if classification == "greeting":
@@ -132,21 +134,23 @@ def is_json(data):
     except ValueError:
         return False
 
+
 def get_completion(prompt, model="gpt-3.5-turbo"):
     messages = [{"role": "user", "content": prompt}]
     response = openai.ChatCompletion.create(
         model=model,
         messages=messages,
-        temperature=0, # this is the degree of randomness of the model's output
+        temperature=0,  # this is the degree of randomness of the model's output
     )
     return response.choices[0].message["content"]
 
+
 def get_completion_from_messages(messages, model="gpt-3.5-turbo", temperature=0):
-    
+
     response = openai.ChatCompletion.create(
         model=model,
         messages=messages,
-        temperature=0, # this is the degree of randomness of the model's output
+        temperature=0,  # this is the degree of randomness of the model's output
     )
-#     print(str(response.choices[0].message))
+    #     print(str(response.choices[0].message))
     return response.choices[0].message["content"]

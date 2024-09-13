@@ -1,12 +1,12 @@
 import datetime
 import json
 import logging
+import mimetypes
 import os
 import re
 import shutil
 import time
 import uuid
-import mimetypes
 
 import requests
 import runpod
@@ -27,6 +27,12 @@ from werkzeug.utils import secure_filename
 from app.crud.audio_transcription import create_audio_transcription
 from app.crud.monitoring import log_endpoint
 from app.deps import get_current_user, get_db
+from app.inference_services.openai_script import (
+    classify_input,
+    get_completion_from_messages,
+    get_guide_based_on_classification,
+    is_json,
+)
 from app.inference_services.translate_inference import translate
 from app.inference_services.user_preference import (
     get_user_preference,
@@ -34,14 +40,10 @@ from app.inference_services.user_preference import (
     save_user_preference,
     update_feedback,
 )
-from app.inference_services.openai_script import (
-    is_json,
-    get_completion_from_messages,
-    classify_input,
-    get_guide_based_on_classification
-)
 from app.inference_services.whats_app_services import (
     download_media,
+    download_whatsapp_audio,
+    fetch_media_url,
     get_audio,
     get_document,
     get_from_number,
@@ -60,8 +62,6 @@ from app.inference_services.whats_app_services import (
     set_default_target_language,
     valid_payload,
     welcome_message,
-    fetch_media_url,
-    download_whatsapp_audio,
 )
 from app.schemas.tasks import (
     ChatRequest,
@@ -410,6 +410,80 @@ async def speech_to_text(
     )
 
 
+@router.post(
+    "/org/stt",
+)
+@limiter.limit(get_account_type_limit)
+async def speech_to_text(
+    request: Request,
+    audio: UploadFile(...) = File(...),  # type: ignore
+    recognise_speakers: bool = Form(False),
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+) -> STTTranscript:
+    """
+    Upload an audio file and get the transcription text of the audio
+    """
+    endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
+    user = current_user
+
+    filename = secure_filename(audio.filename)
+    # Add a timestamp to the file name
+    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    unique_file_name = f"{timestamp}_{filename}"
+    file_path = os.path.join("/tmp", unique_file_name)
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(audio.file, buffer)
+
+    blob_name, blob_url = upload_audio_file(file_path=file_path)
+    audio_file = blob_name
+    os.remove(file_path)
+    request_response = {}
+
+    data = {
+        "input": {
+            "task": "transcribe",
+            "audio_file": audio_file,
+            "organisation": True,
+            "recognise_speakers": recognise_speakers,
+        }
+    }
+
+    start_time = time.time()
+
+    try:
+        request_response = await call_endpoint_with_retry(endpoint, data)
+    except TimeoutError as e:
+        logging.error(f"Job timed out: {str(e)}")
+        raise HTTPException(
+            status_code=503, detail="Service unavailable due to timeout."
+        )
+    except ConnectionError as e:
+        logging.error(f"Connection lost: {str(e)}")
+        raise HTTPException(
+            status_code=503, detail="Service unavailable due to connection error."
+        )
+
+    end_time = time.time()
+    logging.info(f"Response: {request_response}")
+
+    # Calculate the elapsed time
+    elapsed_time = end_time - start_time
+    logging.info(f"Elapsed time: {elapsed_time} seconds")
+    transcription = request_response.get("audio_transcription")
+
+    # Log endpoint in database
+    await log_endpoint(db, user, request, start_time, end_time)
+
+    return STTTranscript(
+        audio_transcription=request_response.get("audio_transcription"),
+        diarization_output=request_response.get("diarization_output", {}),
+        formatted_diarization_output=request_response.get(
+            "formatted_diarization_output", ""
+        ),
+    )
+
+
 # Route for the nllb translation endpoint
 @router.post(
     "/nllb_translate",
@@ -526,7 +600,9 @@ async def webhook(payload: dict):
         #     phone_number_id,
         # )
 
-        message = handle_openai_message(payload,source_language, target_language,from_number,sender_name)
+        message = handle_openai_message(
+            payload, source_language, target_language, from_number, sender_name
+        )
 
         if message:
             send_message(
@@ -538,7 +614,7 @@ async def webhook(payload: dict):
     except Exception as error:
         logging.error(f"Error in webhook processing: {str(error)}")
         raise HTTPException(status_code=500, detail="Internal Server Error") from error
-    
+
     finally:
         # Always send a success status to WhatsApp
         return {"status": "success"}
@@ -556,13 +632,15 @@ async def verify_webhook(mode: str, token: str, challenge: str):
 
 
 def handle_openai_message(
-        payload,source_language, target_language,from_number,sender_name
+    payload, source_language, target_language, from_number, sender_name
 ):
 
     if audio_info := get_audio(payload):
         if audio_info:
-            audio_url = fetch_media_url(audio_info['id'], os.getenv("WHATSAPP_TOKEN"))
-            local_audio_path = download_whatsapp_audio(audio_url, os.getenv("WHATSAPP_TOKEN"))
+            audio_url = fetch_media_url(audio_info["id"], os.getenv("WHATSAPP_TOKEN"))
+            local_audio_path = download_whatsapp_audio(
+                audio_url, os.getenv("WHATSAPP_TOKEN")
+            )
             blob_name, blob_url = upload_audio_file(local_audio_path)
             endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
             audio_file = blob_name
@@ -587,29 +665,30 @@ def handle_openai_message(
                 logging.error("Job timed out.")
 
             end_time = time.time()
-            logging.info(f"Full response from transcription service: {request_response}")
-
+            logging.info(
+                f"Full response from transcription service: {request_response}"
+            )
 
             # Calculate the elapsed time
             elapsed_time = end_time - start_time
             logging.info(f"Elapsed time: {elapsed_time} seconds")
 
             return request_response.get("audio_transcription")
-    
+
     elif reaction := get_reaction(payload):
         mess_id = reaction["message_id"]
         emoji = reaction["emoji"]
         update_feedback(mess_id, emoji)
         return f"Dear {sender_name}, Thanks for your feedback {emoji}."
-    
+
     else:
         input_text = get_message(payload)
         classification = classify_input(input_text)
         guide = get_guide_based_on_classification(classification)
         messages = [
-            {'role': 'system', 'content': guide},
-            {'role': 'user', 'content': input_text}
-            ]
+            {"role": "system", "content": guide},
+            {"role": "user", "content": input_text},
+        ]
         response = get_completion_from_messages(messages)
         if is_json(response):
             json_object = json.loads(response)
@@ -620,13 +699,21 @@ def handle_openai_message(
 
             if task == "translation":
                 detected_language = detect_language(json_object["text"])
-                save_user_preference(from_number, detected_language, json_object["target_language"])
-                translation = translate_text(json_object["text"], detected_language, json_object["target_language"])
+                save_user_preference(
+                    from_number, detected_language, json_object["target_language"]
+                )
+                translation = translate_text(
+                    json_object["text"],
+                    detected_language,
+                    json_object["target_language"],
+                )
                 return f""" Here is the translation: {translation} """
             elif task == "greeting":
                 return json_object["text"]
             elif task == "setLanguage":
-                save_user_preference(from_number, source_language, json_object["language"])
+                save_user_preference(
+                    from_number, source_language, json_object["language"]
+                )
                 return "Language set"
             elif task == "conversation":
                 return json_object["text"]
