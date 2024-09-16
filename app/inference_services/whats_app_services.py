@@ -2,14 +2,13 @@ import json
 import logging
 import mimetypes
 import os
-from typing import Any, Dict, List, Union
-
-from fastapi import HTTPException
-import requests
-from requests_toolbelt import MultipartEncoder
 import secrets
 from datetime import datetime
+from typing import Any, Dict, List, Union
 
+import requests
+from fastapi import HTTPException
+from requests_toolbelt import MultipartEncoder
 
 # Setup logging
 logging.basicConfig(
@@ -51,20 +50,23 @@ headers = {"Content-Type": "application/json"}
 #     logging.info(f"Response: {r.json()}")
 #     return r.json()
 
+
 def download_whatsapp_audio(url, access_token):
     try:
         # Generate a random string and get the current timestamp
         random_string = secrets.token_hex(8)  # Generates a secure random hex string
-        current_time = datetime.now().strftime("%Y%m%d_%H%M%S")  # Formats the date and time
+        current_time = datetime.now().strftime(
+            "%Y%m%d_%H%M%S"
+        )  # Formats the date and time
 
         # Define the local path for temporary storage with the random string and time
-        local_audio_path = f'audio_{random_string}_{current_time}.mp3'
-        
+        local_audio_path = f"audio_{random_string}_{current_time}.mp3"
+
         # Download the audio file
         headers = {"Authorization": f"Bearer {access_token}"}
         response = requests.get(url, headers=headers, stream=True)
         if response.status_code == 200:
-            with open(local_audio_path, 'wb') as f:
+            with open(local_audio_path, "wb") as f:
                 f.write(response.content)
 
             logging.error(f"Whatsapp audio download was successfull: {local_audio_path}")
@@ -670,7 +672,6 @@ def download_media(media_url, access_token, file_path="downloaded_media_file"):
         )
 
 
-
 def preprocess(data):
     """
     Preprocesses the data received from the webhook.
@@ -1016,10 +1017,12 @@ def valid_payload(payload):
                 for change in entry["changes"]:
                     if "value" in change:
                         # Check for either 'messages' or 'statuses' in the 'value'
-                        if "messages" in change["value"] or "statuses" in change["value"]:
+                        if (
+                            "messages" in change["value"]
+                            or "statuses" in change["value"]
+                        ):
                             return True
     return False
-
 
 
 def get_phone_number_id(payload):
