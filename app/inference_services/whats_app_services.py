@@ -69,6 +69,7 @@ def download_whatsapp_audio(url, access_token):
             with open(local_audio_path, "wb") as f:
                 f.write(response.content)
 
+            logging.error(f"Whatsapp audio download was successfull: {local_audio_path}")
             return local_audio_path
         else:
             raise HTTPException(status_code=500, detail="Failed to download audio file")

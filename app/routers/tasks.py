@@ -636,18 +636,34 @@ def handle_openai_message(
 ):
 
     if audio_info := get_audio(payload):
-        if audio_info:
-            audio_url = fetch_media_url(audio_info["id"], os.getenv("WHATSAPP_TOKEN"))
-            local_audio_path = download_whatsapp_audio(
-                audio_url, os.getenv("WHATSAPP_TOKEN")
-            )
+        if not audio_info:
+            logging.error("No audio information provided.")
+            return "Failed to transcribe audio."
+
+        audio_url = fetch_media_url(audio_info['id'], os.getenv("WHATSAPP_TOKEN"))
+        if not audio_url:
+            logging.error("Failed to fetch media URL.")
+            return "Failed to transcribe audio."
+
+        local_audio_path = download_whatsapp_audio(audio_url, os.getenv("WHATSAPP_TOKEN"))
+        if not local_audio_path:
+            logging.error("Failed to download audio from WhatsApp.")
+            return "Failed to transcribe audio."
+
+        try:
             blob_name, blob_url = upload_audio_file(local_audio_path)
+            logging.info(f"Audio bucket upload complete: {local_audio_path}, Blob URL: {blob_url}")
+
             endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
             audio_file = blob_name
-            os.remove(local_audio_path)
             request_response = {}
 
             start_time = time.time()
+
+            if os.path.exists(local_audio_path):
+                os.remove(local_audio_path)
+                logging.info(f"Cleaned up local audio file: {local_audio_path}")
+
             try:
                 request_response = endpoint.run_sync(
                     {
@@ -659,22 +675,24 @@ def handle_openai_message(
                             "recognise_speakers": False,
                         }
                     },
-                    timeout=600,  # Timeout in seconds.
+                    timeout=600  # Timeout in seconds.
                 )
-            except TimeoutError:
-                logging.error("Job timed out.")
+            except TimeoutError as e:
+                logging.error(f"Transcription job timed out: {str(e)}")
+            except Exception as e:
+                logging.error(f"Unexpected error during transcription: {str(e)}")
 
             end_time = time.time()
-            logging.info(
-                f"Full response from transcription service: {request_response}"
-            )
-
-            # Calculate the elapsed time
             elapsed_time = end_time - start_time
-            logging.info(f"Elapsed time: {elapsed_time} seconds")
+            logging.info(f"Elapsed time: {elapsed_time} seconds for transcription.")
 
-            return request_response.get("audio_transcription")
-
+            return request_response.get("audio_transcription", "Failed to transcribe audio.")
+        
+        finally:
+            if os.path.exists(local_audio_path):
+                os.remove(local_audio_path)
+                logging.info(f"Cleaned up local audio file: {local_audio_path}")
+    
     elif reaction := get_reaction(payload):
         mess_id = reaction["message_id"]
         emoji = reaction["emoji"]
