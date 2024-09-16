@@ -1,9 +1,10 @@
 import json
 import logging
 from datetime import timedelta
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, responses, status
+from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,7 +37,15 @@ logging.basicConfig(level=logging.INFO)
 
 
 @router.get("/")
-async def home(request: Request, _: str = Depends(oauth2_scheme)):
+async def home(
+    request: Request,
+    token: Optional[str] = Depends(
+        OAuth2PasswordBearerWithCookie(tokenUrl="/auth/token", auto_error=False)
+    ),
+):
+    if not token:  # if token is invalid or not present
+        # Redirect to login page
+        return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
     context = {"request": request}
     return templates.TemplateResponse("home.html", context)
 
