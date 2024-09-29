@@ -38,6 +38,10 @@ class SummarisationResponse(BaseModel):
     summarized_text: str
 
 
+class AudioDetectedLanguageResponse(BaseModel):
+    detected_language: str
+
+
 class TranslationResponse(BaseModel):
     text: str
     # confidences: List[int] | None = None
