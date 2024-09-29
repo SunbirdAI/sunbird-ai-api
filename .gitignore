@@ -14,6 +14,8 @@ key.json
 
 # Private JSON files
 service_account_key.json
+service-account-key.json
+service-account-key.json.b64
 credentials.json
 firebase-credentials.json
 service-account-file.json
