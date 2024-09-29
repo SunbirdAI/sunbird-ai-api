@@ -64,6 +64,7 @@ from app.inference_services.whats_app_services import (
     welcome_message,
 )
 from app.schemas.tasks import (
+    AudioDetectedLanguageResponse,
     ChatRequest,
     ChatResponse,
     LanguageIdRequest,
@@ -306,6 +307,68 @@ async def summarise(
 
     # Log endpoint in database
     await log_endpoint(db, user, request, start_time, end_time)
+
+    # Calculate the elapsed time
+    elapsed_time = end_time - start_time
+    logging.info(f"Elapsed time: {elapsed_time} seconds")
+
+    return request_response
+
+
+@router.post(
+    "/auto_detect_audio_language",
+    response_model=AudioDetectedLanguageResponse,
+)
+@limiter.limit(get_account_type_limit)
+async def auto_detect_audio_language(
+    request: Request,
+    audio: UploadFile(...) = File(...),  # type: ignore
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    Upload an audio file and get the language of the audio
+    """
+    endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
+    _ = current_user
+
+    filename = secure_filename(audio.filename)
+    # Add a timestamp to the file name
+    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    unique_file_name = f"{timestamp}_{filename}"
+    file_path = os.path.join("/tmp", unique_file_name)
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(audio.file, buffer)
+
+    blob_name, blob_url = upload_audio_file(file_path=file_path)
+    audio_file = blob_name
+    os.remove(file_path)
+    request_response = {}
+
+    data = {
+        "input": {
+            "task": "auto_detect_audio_language",
+            "audio_file": audio_file,
+        }
+    }
+
+    start_time = time.time()
+
+    try:
+        request_response = await call_endpoint_with_retry(endpoint, data)
+    except TimeoutError as e:
+        logging.error(f"Job timed out: {str(e)}")
+        raise HTTPException(
+            status_code=503, detail="Service unavailable due to timeout."
+        )
+    except ConnectionError as e:
+        logging.error(f"Connection lost: {str(e)}")
+        raise HTTPException(
+            status_code=503, detail="Service unavailable due to connection error."
+        )
+
+    end_time = time.time()
+    logging.info(f"Response: {request_response}")
 
     # Calculate the elapsed time
     elapsed_time = end_time - start_time
@@ -640,19 +703,23 @@ def handle_openai_message(
             logging.error("No audio information provided.")
             return "Failed to transcribe audio."
 
-        audio_url = fetch_media_url(audio_info['id'], os.getenv("WHATSAPP_TOKEN"))
+        audio_url = fetch_media_url(audio_info["id"], os.getenv("WHATSAPP_TOKEN"))
         if not audio_url:
             logging.error("Failed to fetch media URL.")
             return "Failed to transcribe audio."
 
-        local_audio_path = download_whatsapp_audio(audio_url, os.getenv("WHATSAPP_TOKEN"))
+        local_audio_path = download_whatsapp_audio(
+            audio_url, os.getenv("WHATSAPP_TOKEN")
+        )
         if not local_audio_path:
             logging.error("Failed to download audio from WhatsApp.")
             return "Failed to transcribe audio."
 
         try:
             blob_name, blob_url = upload_audio_file(local_audio_path)
-            logging.info(f"Audio bucket upload complete: {local_audio_path}, Blob URL: {blob_url}")
+            logging.info(
+                f"Audio bucket upload complete: {local_audio_path}, Blob URL: {blob_url}"
+            )
 
             endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
             audio_file = blob_name
@@ -675,7 +742,7 @@ def handle_openai_message(
                             "recognise_speakers": False,
                         }
                     },
-                    timeout=600  # Timeout in seconds.
+                    timeout=600,  # Timeout in seconds.
                 )
             except TimeoutError as e:
                 logging.error(f"Transcription job timed out: {str(e)}")
@@ -686,13 +753,15 @@ def handle_openai_message(
             elapsed_time = end_time - start_time
             logging.info(f"Elapsed time: {elapsed_time} seconds for transcription.")
 
-            return request_response.get("audio_transcription", "Failed to transcribe audio.")
-        
+            return request_response.get(
+                "audio_transcription", "Failed to transcribe audio."
+            )
+
         finally:
             if os.path.exists(local_audio_path):
                 os.remove(local_audio_path)
                 logging.info(f"Cleaned up local audio file: {local_audio_path}")
-    
+
     elif reaction := get_reaction(payload):
         mess_id = reaction["message_id"]
         emoji = reaction["emoji"]
