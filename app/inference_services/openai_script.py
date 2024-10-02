@@ -91,6 +91,14 @@ Respond in JSON format:
 }
 """
 
+current_language_guide = """
+You are a translation bot. If a user asks about their current target language, respond with the currently set target language. If no target language has been set, inform the user that the default language is Luganda ('lug').
+
+Respond in JSON format:
+{
+    "task": "currentLanguage",
+}
+"""
 
 set_language_guide = """
 You are a translation bot. If a user wants to set a specific language for translations, recognize the language and store it for future translation tasks.
@@ -109,10 +117,12 @@ You are an assistant that categorizes user inputs into predefined tasks. Based o
 2. Help: When the user needs guidance or asks how to use the bot.
 3. Translation: When the user asks for a translation.
 4. Set Language: When the user wants to set a language for future translations.
-5. Conversation: For general conversations not related to the above tasks.
+5. Current Language: When the user wants to know their current target language.
+6. Conversation: For general conversations not related to the above tasks.
 
 Categorize the user's input and return the category name.
 """
+
 
 
 def classify_input(input_text):
@@ -133,6 +143,8 @@ def get_guide_based_on_classification(classification):
         return translation_guide
     elif classification == "set language":
         return set_language_guide
+    elif classification == "current language":
+        return current_language_guide
     else:
         return conversation_guide
 

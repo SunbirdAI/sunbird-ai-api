@@ -697,6 +697,15 @@ async def verify_webhook(mode: str, token: str, challenge: str):
 def handle_openai_message(
     payload, source_language, target_language, from_number, sender_name,phone_number_id
 ):
+    # Language mapping dictionary
+    language_mapping = {
+        'lug': 'Luganda',
+        'ach': 'Acholi',
+        'teo': 'Ateso',
+        'lgg': 'Lugbara',
+        'nyn': 'Runyankole',
+        'eng': 'English'
+    }
 
     if audio_info := get_audio(payload):
         if not audio_info:
@@ -807,6 +816,10 @@ def handle_openai_message(
                 return f""" Here is the translation: {translation} """
             elif task == "greeting":
                 return json_object["text"]
+            elif task == "currentLanguage":
+                # Get the full language name using the code
+                language_name = language_mapping.get(target_language, "Luganda") 
+                return f"Your current target language is {language_name}"
             elif task == "setLanguage":
                 save_user_preference(
                     from_number, source_language, json_object["language"]
