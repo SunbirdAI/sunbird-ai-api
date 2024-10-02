@@ -664,7 +664,7 @@ async def webhook(payload: dict):
         # )
 
         message = handle_openai_message(
-            payload, source_language, target_language, from_number, sender_name
+            payload, source_language, target_language, from_number, sender_name,phone_number_id
         )
 
         if message:
@@ -695,7 +695,7 @@ async def verify_webhook(mode: str, token: str, challenge: str):
 
 
 def handle_openai_message(
-    payload, source_language, target_language, from_number, sender_name
+    payload, source_language, target_language, from_number, sender_name,phone_number_id
 ):
 
     if audio_info := get_audio(payload):
@@ -714,6 +714,10 @@ def handle_openai_message(
         if not local_audio_path:
             logging.error("Failed to download audio from WhatsApp.")
             return "Failed to transcribe audio."
+        
+        send_message(
+                "Audio has been received ...", os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id
+            )
 
         try:
             blob_name, blob_url = upload_audio_file(local_audio_path)
@@ -731,6 +735,10 @@ def handle_openai_message(
                 os.remove(local_audio_path)
                 logging.info(f"Cleaned up local audio file: {local_audio_path}")
 
+            send_message(
+                "Your transcription is being processed ...", os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id
+            )
+
             try:
                 request_response = endpoint.run_sync(
                     {
@@ -746,15 +754,17 @@ def handle_openai_message(
                 )
             except TimeoutError as e:
                 logging.error(f"Transcription job timed out: {str(e)}")
+                return "Failed to transcribe audio."
             except Exception as e:
                 logging.error(f"Unexpected error during transcription: {str(e)}")
+                return "Failed to transcribe audio."
 
             end_time = time.time()
             elapsed_time = end_time - start_time
             logging.info(f"Elapsed time: {elapsed_time} seconds for transcription.")
 
             return request_response.get(
-                "audio_transcription", "Failed to transcribe audio."
+                "audio_transcription"
             )
 
         finally:
@@ -897,7 +907,7 @@ def translate_text(text, source_language, target_language):
 
     # URL for the endpoint
     url = f"https://api.runpod.ai/v2/{RUNPOD_ENDPOINT_ID}/runsync"
-    logging.info(f"Endpoint URL: {url}")
+    # logging.info(f"Endpoint URL: {url}")
 
     # Authorization token
     token = os.getenv("RUNPOD_API_KEY")
@@ -912,23 +922,23 @@ def translate_text(text, source_language, target_language):
             "text": text.strip(),
         }
     }
-    logging.info(f"Request data prepared: {data}")
+    # logging.info(f"Request data prepared: {data}")
 
     # Headers with authorization token
     headers = {"Authorization": token, "Content-Type": "application/json"}
-    logging.info(f"Request headers prepared: {headers}")
+    # logging.info(f"Request headers prepared: {headers}")
 
     # Sending the request to the API
     logging.info("Sending request to the translation API")
     response = requests.post(url, headers=headers, json=data)
-    logging.info(f"Response received: {response.json()}")
+    # logging.info(f"Response received: {response.json()}")
 
     # Handling the response
     if response.status_code == 200:
         translated_text = response.json()["output"]["translated_text"]
-        logging.info(f"Translation successful: {translated_text}")
+        # logging.info(f"Translation successful: {translated_text}")
     else:
-        logging.error(f"Error {response.status_code}: {response.text}")
+        # logging.error(f"Error {response.status_code}: {response.text}")
         raise Exception(f"Error {response.status_code}: {response.text}")
 
     return translated_text
