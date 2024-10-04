@@ -132,3 +132,62 @@ def update_feedback(message_id, feedback):
     except Exception as e:
         logging.error(f"Error updating feedback: {e}")
         return False
+    
+    # Method to save all messages sent by users
+def save_message(user_id, message_text):
+    """
+    Save message details to Firestore
+
+    Args:
+        user_id (str): ID of the user
+        message_text (str): Text of the message sent
+
+    Returns:
+        str: Document ID of the saved message
+    """
+    doc_ref = db.collection("whatsapp_messages").add(
+        {
+            "user_id": user_id,
+            "message_text": message_text,
+            "timestamp": firestore.SERVER_TIMESTAMP,
+        }
+    )
+    logging.info(f"Message saved with document ID: {doc_ref[1].id}")
+    return doc_ref[1].id
+
+# Method to retrieve all messages sent by a specific user
+def get_user_messages(user_id):
+    """
+    Retrieve all messages sent by a specific user from Firestore
+
+    Args:
+        user_id (str): ID of the user
+
+    Returns:
+        list: List of all messages sent by the user
+    """
+    messages_ref = db.collection("whatsapp_messages")
+    query = messages_ref.where("user_id", "==", user_id).stream()
+    messages = []
+    for doc in query:
+        messages.append(doc.to_dict())
+    return messages
+
+# Method to retrieve the last five messages sent by a specific user
+def get_user_last_five_messages(user_id):
+    """
+    Retrieve the last five messages sent by a specific user from Firestore
+
+    Args:
+        user_id (str): ID of the user
+
+    Returns:
+        list: List of the last five messages sent by the user
+    """
+    messages_ref = db.collection("whatsapp_messages")
+    # Order the messages by timestamp descending and limit to the last 5
+    query = messages_ref.where("user_id", "==", user_id).order_by("timestamp", direction=firestore.Query.DESCENDING).limit(5).stream()
+    messages = []
+    for doc in query:
+        messages.append(doc.to_dict())
+    return messages

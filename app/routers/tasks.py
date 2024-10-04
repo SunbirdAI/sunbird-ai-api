@@ -39,6 +39,8 @@ from app.inference_services.user_preference import (
     save_translation,
     save_user_preference,
     update_feedback,
+    save_message,
+    get_user_last_five_messages
 )
 from app.inference_services.whats_app_services import (
     download_media,
@@ -789,11 +791,13 @@ def handle_openai_message(
 
     else:
         input_text = get_message(payload)
+        save_message(from_number, input_text)
         classification = classify_input(input_text)
         guide = get_guide_based_on_classification(classification)
+        usermessage = get_user_last_five_messages(from_number)
         messages = [
             {"role": "system", "content": guide},
-            {"role": "user", "content": input_text},
+            {"role": "user", "content": usermessage},
         ]
         response = get_completion_from_messages(messages)
         if is_json(response):
