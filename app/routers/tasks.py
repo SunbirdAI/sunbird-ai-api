@@ -796,7 +796,14 @@ def handle_openai_message(
 
         # Get last five messages for context
         last_five_messages = get_user_last_five_messages(from_number)
-        messages_context = ' '.join([msg['message_text'] for msg in last_five_messages])
+
+        # Format the previous messages for context clarity
+        formatted_message_history = "\n".join(
+            [f"Message {i+1}: {msg['message_text']}" for i, msg in enumerate(last_five_messages)]
+        )
+
+        # Combine the message context to inform the model
+        messages_context = f"Previous messages (starting from the most recent):\n{formatted_message_history}\nCurrent message:\n{input_text}"
 
         # Classify the user input and get the appropriate guide
         classification = classify_input(input_text)
@@ -831,8 +838,11 @@ def handle_openai_message(
                 return json_object["text"]
             elif task == "currentLanguage":
                 # Get the full language name using the code
-                language_name = language_mapping.get(target_language, "Luganda") 
-                return f"Your current target language is {language_name}"
+                language_name = language_mapping.get(target_language, "Luganda")
+                if language_name:
+                    return f"Your current target language is {language_name}"
+                else:
+                    return f"You currently don't have a set language."
             elif task == "setLanguage":
                 save_user_preference(
                     from_number, source_language, json_object["language"]
