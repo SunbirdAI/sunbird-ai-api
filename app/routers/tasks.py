@@ -790,16 +790,25 @@ def handle_openai_message(
         return f"Dear {sender_name}, Thanks for your feedback {emoji}."
 
     else:
+        # Extract relevant information
         input_text = get_message(payload)
         save_message(from_number, input_text)
+
+        # Get last five messages for context
+        last_five_messages = get_user_last_five_messages(from_number)
+        messages_context = ' '.join([msg['message_text'] for msg in last_five_messages])
+
+        # Classify the user input and get the appropriate guide
         classification = classify_input(input_text)
         guide = get_guide_based_on_classification(classification)
-        last_five_messages = get_user_last_five_messages(from_number)
+
+        # Generate response from OpenAI
         messages = [
             {"role": "system", "content": guide},
-            {"role": "user", "content": ' '.join([msg['message_text'] for msg in last_five_messages])},
+            {"role": "user", "content": messages_context},
         ]
         response = get_completion_from_messages(messages)
+        
         if is_json(response):
             json_object = json.loads(response)
             # print ("Is valid json? true")
