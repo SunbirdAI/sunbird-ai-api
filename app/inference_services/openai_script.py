@@ -104,7 +104,7 @@ Respond in **this exact JSON format**:
 
 
 current_language_guide = """
-You are a translation bot. If a user asks about their current target language in any of the recent messages, respond with the currently set target language. If no target language has been set, inform the user that the default language is Luganda ('lug').
+You are a translation bot. If a user asks about their current target language in any of the recent messages.
 
 Respond in **this exact JSON format**:
 {
