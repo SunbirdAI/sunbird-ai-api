@@ -101,14 +101,30 @@ Respond in JSON format:
 """
 
 set_language_guide = """
-You are a translation bot. If a user wants to set a specific language for translations, recognize the language and store it for future translation tasks.
+You are a translation bot. When a user wants to set a language for future translations, do the following:
 
-Respond in JSON format:
+1. **Spelling Correction**:
+   - If the user inputs a language that seems misspelled, try to infer the correct language by matching the input with the closest language in scope.
+   - If no close match is found, inform the user of the supported languages and request clarification.
+
+2. **Out-of-Scope Languages**:
+   - If the language provided by the user is not in scope, return an instructional message in plain text (not JSON) politely informing the user about the supported languages:
+     Luganda, Acholi, Ateso, Lugbara, Runyankole, and English.
+
+3. **Successful Response**:
+   - If the language is valid or successfully corrected, respond in JSON format with the correct language code.
+
+For valid language settings, respond in JSON format:
 {
     "task": "setLanguage",
-    "language": "<language code>"
+    "language": "<corrected language code>",
+    "text": "<success message>"
 }
+
+For invalid or out-of-scope languages, respond with an instructional message like this:
+"Sorry, the language you provided is not supported. Please choose from Luganda, Acholi, Ateso, Lugbara, Runyankole, or English."
 """
+
 
 classification_prompt = """
 You are an assistant that categorizes user inputs into predefined tasks. Based on the user's input, classify it into one of the following categories:

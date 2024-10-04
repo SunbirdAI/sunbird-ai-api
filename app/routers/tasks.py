@@ -794,10 +794,10 @@ def handle_openai_message(
         save_message(from_number, input_text)
         classification = classify_input(input_text)
         guide = get_guide_based_on_classification(classification)
-        usermessage = get_user_last_five_messages(from_number)
+        last_five_messages = get_user_last_five_messages(from_number)
         messages = [
             {"role": "system", "content": guide},
-            {"role": "user", "content": usermessage},
+            {"role": "user", "content": ' '.join([msg['message_text'] for msg in last_five_messages])},
         ]
         response = get_completion_from_messages(messages)
         if is_json(response):
@@ -809,9 +809,9 @@ def handle_openai_message(
 
             if task == "translation":
                 detected_language = detect_language(json_object["text"])
-                save_user_preference(
-                    from_number, detected_language, json_object["target_language"]
-                )
+                # save_user_preference(
+                #     from_number, detected_language, json_object["target_language"]
+                # )
                 translation = translate_text(
                     json_object["text"],
                     detected_language,
