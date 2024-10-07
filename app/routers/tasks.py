@@ -64,6 +64,8 @@ from app.inference_services.whats_app_services import (
     set_default_target_language,
     valid_payload,
     welcome_message,
+    reply_to_message,
+    send_audio,
 )
 from app.schemas.tasks import (
     AudioDetectedLanguageResponse,
@@ -700,6 +702,21 @@ def handle_openai_message(
         'eng': 'English'
     }
 
+    if interactive_response := get_interactive_response(payload):
+        return f"Dear {sender_name}, Thanks for that response."
+
+    if location := get_location(payload):
+        return f"Dear {sender_name}, We have no support for messages of type locations."
+
+    if image := get_image(payload):
+        return f"Dear {sender_name}, We have no support for messages of type image."
+
+    if video := get_video(payload):
+        return f"Dear {sender_name}, We have no support for messages of type video."
+
+    if docs := get_document(payload):
+        return f"Dear {sender_name}, We do not support documents."
+
     if audio_info := get_audio(payload):
         if not audio_info:
             logging.error("No audio information provided.")
@@ -742,18 +759,19 @@ def handle_openai_message(
             )
 
             try:
-                request_response = endpoint.run_sync(
-                    {
-                        "input": {
-                            "task": "transcribe",
-                            "target_lang": target_language,
-                            "adapter": target_language,
-                            "audio_file": audio_file,
-                            "recognise_speakers": False,
-                        }
-                    },
-                    timeout=600,  # Timeout in seconds.
-                )
+                # request_response = endpoint.run_sync(
+                #     {
+                #         "input": {
+                #             "task": "transcribe",
+                #             "target_lang": target_language,
+                #             "adapter": target_language,
+                #             "audio_file": audio_file,
+                #             "recognise_speakers": False,
+                #         }
+                #     },
+                #     timeout=600,  # Timeout in seconds.
+                # )
+                send_audio(os.getenv("WHATSAPP_TOKEN"),blob_name,phone_number_id,from_number)
             except TimeoutError as e:
                 logging.error(f"Transcription job timed out: {str(e)}")
                 return "Failed to transcribe audio."
@@ -765,9 +783,10 @@ def handle_openai_message(
             elapsed_time = end_time - start_time
             logging.info(f"Elapsed time: {elapsed_time} seconds for transcription.")
 
-            return request_response.get(
-                "audio_transcription"
-            )
+            # return request_response.get(
+            #     "audio_transcription"
+            # )
+            return "We sent you back your audio, this feature is still in test."
 
         finally:
             if os.path.exists(local_audio_path):
@@ -874,10 +893,71 @@ def handle_openai_message(
                 return f"Language set to {language_name}"
             
             elif task == "conversation":
-                return json_object["text"]
+
+                detected_language = detect_language(input_text)
+                
+                if target_language:
+                    translation = translate_text(
+                        input_text,
+                        detected_language,
+                        target_language,
+                    )
+                else:
+                    translation = translate_text(
+                        input_text,
+                        detected_language,
+                        'lug',
+                    )
+
+                message = json_object["text"]
+
+                save_translation(
+                from_number,
+                input_text,
+                translation,
+                detected_language,
+                target_language,
+                mess_id,
+                )
+
+                reply_to_message(
+                os.getenv("WHATSAPP_TOKEN"), mess_id,  from_number, phone_number_id, message,
+                )
+
+                return f""" Here is the translation: {translation} """
             
             elif task == "help":
-                return json_object["text"]
+                detected_language = detect_language(input_text)
+                
+                if target_language:
+                    translation = translate_text(
+                        input_text,
+                        detected_language,
+                        target_language,
+                    )
+                else:
+                    translation = translate_text(
+                        input_text,
+                        detected_language,
+                        'lug',
+                    )
+
+                message = json_object["text"]
+
+                save_translation(
+                from_number,
+                input_text,
+                translation,
+                detected_language,
+                target_language,
+                mess_id,
+                )
+
+                reply_to_message(
+                os.getenv("WHATSAPP_TOKEN"), mess_id,  from_number, phone_number_id, message,
+                )
+
+                return f""" Here is the translation: {translation} """
             
         else:
             return response
