@@ -65,7 +65,7 @@ When a user asks for a translation, follow these guidelines:
 
 2. **Target Language**:
    - Identify the target language based on user input, considering all recent messages.
-   - If the target language isn’t specified, use Luganda ('lug') as the default.
+   - If the target language isn’t specified, do not include the `target_language` field in the JSON response. 
 
 3. **Supported Languages**:
    - Luganda: code 'lug'
@@ -76,18 +76,28 @@ When a user asks for a translation, follow these guidelines:
    - English: code 'eng'
 
 4. **Response**:
-   - Provide a JSON response with the text to be translated and the target language.
+   - If the target language is specified, provide a JSON response with the `text` to be translated and the `target_language`.
+   - If the target language is **not** specified, provide a JSON response with only the `text` field, omitting the `target_language` field.
    - Do not perform the actual translation. The Sunbird AI system will handle that.
 
-Respond in **this exact JSON format**:
+Respond in **one of these two JSON formats** depending on whether the target language is specified or not:
+
+- If the target language is specified, respond in this format:
 {
     "task": "translation",
     "text": "<text to be translated>",
     "target_language": "<target language code>"
 }
 
+- If the target language is **not** specified, respond in this format:
+{
+    "task": "translation",
+    "text": "<text to be translated>"
+}
+
 If the input text is invalid, respond with a message indicating the error instead of attempting a translation.
 """
+
 
 
 conversation_guide = """
@@ -104,11 +114,11 @@ Respond in **this exact JSON format**:
 
 
 current_language_guide = """
-You are a translation bot. If a user asks about their current target language in any of the recent messages.
+You are a translation bot. If a user asks about their current target language is.
 
 Respond in **this exact JSON format**:
 {
-    "task": "currentLanguage",
+    "task": "currentLanguage"
 }
 """
 

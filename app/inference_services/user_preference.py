@@ -40,9 +40,9 @@ def get_user_preference(user_id):
     doc = db.collection("whatsapp_user_preferences").document(user_id).get()
     if doc.exists:
         preferences = doc.to_dict()
-        return preferences["source_language"], preferences["target_language"]
+        return preferences["target_language"]
     else:
-        return None, None
+        return None
 
 
 # Helper function to save user preference
