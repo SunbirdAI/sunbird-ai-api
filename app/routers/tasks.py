@@ -861,11 +861,11 @@ def handle_openai_message(
                     return f"You currently don't have a set language."
                 
             elif task == "setLanguage":
-
+                setTargetLanguage = json_object["language"]
                 save_user_preference(
-                    from_number, None, json_object["language"]
+                    from_number, None, setTargetLanguage
                 )
-                return f"Language set to {json_object["language"]}"
+                return f"Language set to {setTargetLanguage}"
             
             elif task == "conversation":
                 return json_object["text"]
