@@ -654,19 +654,10 @@ async def webhook(payload: dict):
         phone_number_id = get_phone_number_id(payload)
         from_number = get_from_number(payload)
         sender_name = get_name(payload)
-        source_language, target_language = get_user_preference(from_number)
-
-        # message = handle_message(
-        #     payload,
-        #     from_number,
-        #     sender_name,
-        #     source_language,
-        #     target_language,
-        #     phone_number_id,
-        # )
+        target_language = get_user_preference(from_number)
 
         message = handle_openai_message(
-            payload, source_language, target_language, from_number, sender_name,phone_number_id
+            payload, target_language, from_number, sender_name,phone_number_id
         )
 
         if message:
@@ -697,7 +688,7 @@ async def verify_webhook(mode: str, token: str, challenge: str):
 
 
 def handle_openai_message(
-    payload, source_language, target_language, from_number, sender_name,phone_number_id
+    payload, target_language, from_number, sender_name,phone_number_id
 ):
     # Language mapping dictionary
     language_mapping = {
@@ -828,30 +819,60 @@ def handle_openai_message(
                 # save_user_preference(
                 #     from_number, detected_language, json_object["target_language"]
                 # )
-                translation = translate_text(
-                    json_object["text"],
-                    detected_language,
-                    json_object["target_language"],
+                if json_object["target_language"]:
+                    translation = translate_text(
+                        json_object["text"],
+                        detected_language,
+                        json_object["target_language"],
+                    )
+                elif target_language:
+                    translation = translate_text(
+                        json_object["text"],
+                        detected_language,
+                        target_language,
+                    )
+                else:
+                    translation = translate_text(
+                        json_object["text"],
+                        detected_language,
+                        'lug',
+                    )
+
+                save_translation(
+                from_number,
+                json_object["text"],
+                translation,
+                detected_language,
+                target_language,
+                mess_id,
                 )
                 return f""" Here is the translation: {translation} """
+            
             elif task == "greeting":
                 return json_object["text"]
             elif task == "currentLanguage":
                 # Get the full language name using the code
-                language_name = language_mapping.get(target_language, "Luganda")
+                target_language = get_user_preference(from_number)
+
+                language_name = language_mapping.get(target_language)
                 if language_name:
                     return f"Your current target language is {language_name}"
                 else:
                     return f"You currently don't have a set language."
+                
             elif task == "setLanguage":
+
                 save_user_preference(
-                    from_number, source_language, json_object["language"]
+                    from_number, detect_language, json_object["language"]
                 )
                 return "Language set"
+            
             elif task == "conversation":
                 return json_object["text"]
+            
             elif task == "help":
                 return json_object["text"]
+            
         else:
             return response
 
