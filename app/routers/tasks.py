@@ -863,9 +863,9 @@ def handle_openai_message(
             elif task == "setLanguage":
 
                 save_user_preference(
-                    from_number, detect_language, json_object["language"]
+                    from_number, None, json_object["language"]
                 )
-                return "Language set"
+                return f"Language set to {json_object["language"]}"
             
             elif task == "conversation":
                 return json_object["text"]
