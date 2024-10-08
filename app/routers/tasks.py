@@ -868,7 +868,42 @@ def handle_openai_message(
                 return f""" Here is the translation: {translation} """
             
             elif task == "greeting":
-                return json_object["text"]
+                detected_language = detect_language(input_text)
+                translation = ""
+                if target_language:
+                    translation = translate_text(
+                        input_text,
+                        detected_language,
+                        target_language,
+                    )
+                else:
+                    translation = translate_text(
+                        input_text,
+                        detected_language,
+                        'lug',
+                    )
+                target_language = detect_language(translation)
+                message = json_object["text"]
+
+                save_translation(
+                from_number,
+                input_text,
+                translation,
+                detected_language,
+                target_language,
+                mess_id,
+                )
+
+                send_message(
+                message, os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id
+                )
+
+                # reply_to_message(
+                # os.getenv("WHATSAPP_TOKEN"), mess_id,  from_number, phone_number_id, message,
+                # )
+
+                return f""" Here is the translation: {translation} """
+            
             elif task == "currentLanguage":
                 # Get the full language name using the code
                 target_language = get_user_preference(from_number)
@@ -895,7 +930,7 @@ def handle_openai_message(
             elif task == "conversation":
 
                 detected_language = detect_language(input_text)
-                
+                translation = ""
                 if target_language:
                     translation = translate_text(
                         input_text,
@@ -908,7 +943,7 @@ def handle_openai_message(
                         detected_language,
                         'lug',
                     )
-
+                target_language = detect_language(translation)
                 message = json_object["text"]
 
                 save_translation(
@@ -932,7 +967,7 @@ def handle_openai_message(
             
             elif task == "help":
                 detected_language = detect_language(input_text)
-                
+                translation = ""
                 if target_language:
                     translation = translate_text(
                         input_text,
@@ -945,7 +980,7 @@ def handle_openai_message(
                         detected_language,
                         'lug',
                     )
-
+                target_language = detect_language(translation)
                 message = json_object["text"]
 
                 save_translation(
