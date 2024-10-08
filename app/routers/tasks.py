@@ -43,7 +43,6 @@ from app.inference_services.user_preference import (
     get_user_last_five_messages
 )
 from app.inference_services.whats_app_services import (
-    download_media,
     download_whatsapp_audio,
     fetch_media_url,
     get_audio,
@@ -740,44 +739,45 @@ def handle_openai_message(
 
         try:
             blob_name, blob_url = upload_audio_file(local_audio_path)
-            logging.info(
-                f"Audio bucket upload complete: {local_audio_path}, Blob URL: {blob_url}"
-            )
+            # logging.info(
+            #     f"Audio bucket upload complete: {local_audio_path}, Blob URL: {blob_url}"
+            # )
 
-            endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
-            audio_file = blob_name
-            request_response = {}
+            # endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
+            # audio_file = blob_name
+            # request_response = {}
 
             start_time = time.time()
 
-            if os.path.exists(local_audio_path):
-                os.remove(local_audio_path)
-                logging.info(f"Cleaned up local audio file: {local_audio_path}")
+            # if os.path.exists(local_audio_path):
+            #     os.remove(local_audio_path)
+            #     logging.info(f"Cleaned up local audio file: {local_audio_path}")
 
             send_message(
                 "Your transcription is being processed ...", os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id
             )
 
-            try:
-                # request_response = endpoint.run_sync(
-                #     {
-                #         "input": {
-                #             "task": "transcribe",
-                #             "target_lang": target_language,
-                #             "adapter": target_language,
-                #             "audio_file": audio_file,
-                #             "recognise_speakers": False,
-                #         }
-                #     },
-                #     timeout=600,  # Timeout in seconds.
-                # )
-                send_audio(os.getenv("WHATSAPP_TOKEN"),blob_name,phone_number_id,from_number)
-            except TimeoutError as e:
-                logging.error(f"Transcription job timed out: {str(e)}")
-                return "Failed to transcribe audio."
-            except Exception as e:
-                logging.error(f"Unexpected error during transcription: {str(e)}")
-                return "Failed to transcribe audio."
+            # try:
+            #     request_response = endpoint.run_sync(
+            #         {
+            #             "input": {
+            #                 "task": "transcribe",
+            #                 "target_lang": target_language,
+            #                 "adapter": target_language,
+            #                 "audio_file": audio_file,
+            #                 "recognise_speakers": False,
+            #             }
+            #         },
+            #         timeout=600,  # Timeout in seconds.
+            #     )
+            # except TimeoutError as e:
+            #     logging.error(f"Transcription job timed out: {str(e)}")
+            #     return "Failed to transcribe audio."
+            # except Exception as e:
+            #     logging.error(f"Unexpected error during transcription: {str(e)}")
+            #     return "Failed to transcribe audio."
+            
+            send_audio(os.getenv("WHATSAPP_TOKEN"),blob_name,phone_number_id,from_number)
 
             end_time = time.time()
             elapsed_time = end_time - start_time
@@ -920,9 +920,13 @@ def handle_openai_message(
                 mess_id,
                 )
 
-                reply_to_message(
-                os.getenv("WHATSAPP_TOKEN"), mess_id,  from_number, phone_number_id, message,
+                send_message(
+                message, os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id
                 )
+
+                # reply_to_message(
+                # os.getenv("WHATSAPP_TOKEN"), mess_id,  from_number, phone_number_id, message,
+                # )
 
                 return f""" Here is the translation: {translation} """
             
@@ -953,9 +957,13 @@ def handle_openai_message(
                 mess_id,
                 )
 
-                reply_to_message(
-                os.getenv("WHATSAPP_TOKEN"), mess_id,  from_number, phone_number_id, message,
+                send_message(
+                message, os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id
                 )
+
+                # reply_to_message(
+                # os.getenv("WHATSAPP_TOKEN"), mess_id,  from_number, phone_number_id, message,
+                # )
 
                 return f""" Here is the translation: {translation} """
             
