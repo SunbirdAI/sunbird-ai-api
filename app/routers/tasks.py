@@ -65,6 +65,7 @@ from app.inference_services.whats_app_services import (
     welcome_message,
     reply_to_message,
     send_audio,
+    get_message_id,
 )
 from app.schemas.tasks import (
     AudioDetectedLanguageResponse,
@@ -802,6 +803,7 @@ def handle_openai_message(
     else:
         # Extract relevant information
         input_text = get_message(payload)
+        mess_id = get_message_id(payload)
         save_message(from_number, input_text)
 
         # Get last five messages for context
@@ -869,7 +871,7 @@ def handle_openai_message(
             
             elif task == "greeting":
                 detected_language = detect_language(input_text)
-                translation = ""
+                translation = " "
                 if target_language:
                     translation = translate_text(
                         input_text,
@@ -882,6 +884,7 @@ def handle_openai_message(
                         detected_language,
                         'lug',
                     )
+
                 target_language = detect_language(translation)
                 message = json_object["text"]
 
