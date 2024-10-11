@@ -149,7 +149,7 @@ You are a translation bot. The user may send multiple messages about setting a l
 For valid language settings, respond in **this exact JSON format**:
 {
     "task": "setLanguage",
-    "language": "<language code>",
+    "language": "<language code>"
 }
 
 For invalid or out-of-scope languages, respond with an instructional message like this:
