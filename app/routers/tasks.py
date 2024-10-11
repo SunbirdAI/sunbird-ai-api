@@ -897,13 +897,13 @@ def handle_openai_message(
                 mess_id,
                 )
 
-                send_message(
-                message, os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id
-                )
-
-                # reply_to_message(
-                # os.getenv("WHATSAPP_TOKEN"), mess_id,  from_number, phone_number_id, message,
+                # send_message(
+                # message, os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id
                 # )
+
+                reply_to_message(
+                os.getenv("WHATSAPP_TOKEN"), mess_id,  from_number, phone_number_id, message,
+                )
 
                 return f""" Here is the translation: {translation} """
             
@@ -958,13 +958,13 @@ def handle_openai_message(
                 mess_id,
                 )
 
-                send_message(
-                message, os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id
-                )
-
-                # reply_to_message(
-                # os.getenv("WHATSAPP_TOKEN"), mess_id,  from_number, phone_number_id, message,
+                # send_message(
+                # message, os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id
                 # )
+
+                reply_to_message(
+                os.getenv("WHATSAPP_TOKEN"), mess_id,  from_number, phone_number_id, message,
+                )
 
                 return f""" Here is the translation: {translation} """
             
@@ -995,13 +995,13 @@ def handle_openai_message(
                 mess_id,
                 )
 
-                send_message(
-                message, os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id
-                )
-
-                # reply_to_message(
-                # os.getenv("WHATSAPP_TOKEN"), mess_id,  from_number, phone_number_id, message,
+                # send_message(
+                # message, os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id
                 # )
+
+                reply_to_message(
+                os.getenv("WHATSAPP_TOKEN"), mess_id,  from_number, phone_number_id, message,
+                )
 
                 return f""" Here is the translation: {translation} """
             
