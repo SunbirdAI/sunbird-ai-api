@@ -674,36 +674,16 @@ def download_media(media_url, access_token, file_path="downloaded_media_file"):
         )
 
 
-# def preprocess(data):
-#     """
-#     Preprocesses the data received from the webhook.
-
-#     This method is designed to only be used internally.
-
-#     Args:
-#         data[dict]: The data received from the webhook
-#     """
-#     return data["entry"][0]["changes"][0]["value"]
-
 def preprocess(data):
     """
     Preprocesses the data received from the webhook.
-    
-    Safely extracts 'value' from the first 'entry' and 'changes' if they exist.
-    
+
+    This method is designed to only be used internally.
+
     Args:
         data[dict]: The data received from the webhook
     """
-    try:
-        if 'entry' in data and isinstance(data['entry'], list) and len(data['entry']) > 0:
-            entry = data['entry'][0]
-            if 'changes' in entry and isinstance(entry['changes'], list) and len(entry['changes']) > 0:
-                return entry['changes'][0]['value']
-        logging.error("Malformed webhook payload: missing 'entry' or 'changes'")
-    except Exception as e:
-        logging.error(f"Error in preprocessing webhook payload: {str(e)}")
-    
-    return None  # Return None if something goes wrong
+    return data["entry"][0]["changes"][0]["value"]
 
 
 def get_mobile(data) -> Union[str, None]:
@@ -736,20 +716,6 @@ def get_name(data) -> Union[str, None]:
         return contact["contacts"][0]["profile"]["name"]
 
 
-# def get_message(data) -> Union[str, None]:
-#     """
-#     Extracts the text message of the sender from the data received from the webhook.
-
-#     Args:
-#         data[dict]: The data received from the webhook
-#     Returns:
-#         str: The text message received from the sender
-
-#     """
-#     data = preprocess(data)
-#     if "messages" in data:
-#         return data["messages"][0]["text"]["body"]
-
 def get_message(data) -> Union[str, None]:
     """
     Extracts the text message of the sender from the data received from the webhook.
@@ -758,53 +724,12 @@ def get_message(data) -> Union[str, None]:
         data[dict]: The data received from the webhook
     Returns:
         str: The text message received from the sender
+
     """
-    data = preprocess(data)  # Assuming preprocess function handles any normalization needed
+    data = preprocess(data)
+    if "messages" in data:
+        return data["messages"][0]["text"]["body"]
 
-    # Traverse the nested structure to find the 'messages' key
-    if 'entry' in data and isinstance(data['entry'], list):
-        for entry in data['entry']:
-            if 'changes' in entry and isinstance(entry['changes'], list):
-                for change in entry['changes']:
-                    if 'value' in change and 'messages' in change['value']:
-                        messages = change['value']['messages']
-                        if messages and "text" in messages[0]:
-                            return messages[0]["text"]["body"]
-
-    logging.error("No 'messages' or 'text' found in the payload")
-    return None
-
-    
-def get_messages_from_payload(payload):
-    try:
-        # Ensure 'entry' and 'changes' are in the payload
-        if 'entry' in payload and isinstance(payload['entry'], list):
-            for entry in payload['entry']:
-                if 'changes' in entry and isinstance(entry['changes'], list):
-                    for change in entry['changes']:
-                        if 'value' in change and 'messages' in change['value']:
-                            # Extract messages here
-                            return change['value']['messages']
-        logging.error("No 'messages' found in the payload")
-        return None
-    except Exception as e:
-        logging.error(f"Error parsing payload: {str(e)}")
-        return None
-
-
-# def get_message_id(data) -> Union[str, None]:
-#     """
-#     Extracts the message id of the sender from the data received from the webhook.
-
-#     Args:
-#         data[dict]: The data received from the webhook
-#     Returns:
-#         str: The message id of the sender
-
-#     """
-#     data = preprocess(data)
-#     if "messages" in data:
-#         return data["messages"][0]["id"]
 
 def get_message_id(data) -> Union[str, None]:
     """
@@ -814,22 +739,11 @@ def get_message_id(data) -> Union[str, None]:
         data[dict]: The data received from the webhook
     Returns:
         str: The message id of the sender
+
     """
-    data = preprocess(data)  # Assuming preprocess normalizes data if needed
-
-    # Traverse the nested structure to find 'messages'
-    if 'entry' in data and isinstance(data['entry'], list):
-        for entry in data['entry']:
-            if 'changes' in entry and isinstance(entry['changes'], list):
-                for change in entry['changes']:
-                    if 'value' in change and 'messages' in change['value']:
-                        messages = change['value']['messages']
-                        if messages and "id" in messages[0]:
-                            return messages[0]["id"]
-
-    logging.error("No 'messages' or 'id' found in the payload")
-    return None
-
+    data = preprocess(data)
+    if "messages" in data:
+        return data["messages"][0]["id"]
 
 
 def get_message_timestamp(data) -> Union[str, None]:
