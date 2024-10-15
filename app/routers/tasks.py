@@ -732,6 +732,14 @@ def handle_openai_message(
         if not local_audio_path:
             logging.error("Failed to download audio from WhatsApp.")
             return "Failed to transcribe audio."
+        
+        # Upload the audio file to GCS and return the blob and URL
+        blob_name, blob_url = upload_audio_file(local_audio_path)
+
+        if blob_name and blob_url:
+            logging.info(f"Audio file successfully uploaded to GCS: {blob_url}")
+        else:
+            raise Exception("Failed to upload audio to GCS")
 
         # Step 4: Notify the user that the audio has been received
         send_message("Audio has been loaded ...", os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id)
@@ -755,7 +763,7 @@ def handle_openai_message(
                             "task": "transcribe",
                             "target_lang": target_language,
                             "adapter": target_language,
-                            "audio_file": local_audio_path,  # Corrected to pass local file path
+                            "audio_file": blob_name,  # Corrected to pass local file path
                             "recognise_speakers": False,
                         }
                     },
