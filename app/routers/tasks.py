@@ -66,6 +66,7 @@ from app.inference_services.whats_app_services import (
     reply_to_message,
     send_audio,
     get_message_id,
+    get_messages_from_payload,
 )
 from app.schemas.tasks import (
     AudioDetectedLanguageResponse,
@@ -653,29 +654,28 @@ async def webhook(payload: dict):
         if not valid_payload(payload):
             return {"status": "ignored"}
 
-        phone_number_id = get_phone_number_id(payload)
-        from_number = get_from_number(payload)
-        sender_name = get_name(payload)
-        target_language = get_user_preference(from_number)
+        messages = get_messages_from_payload(payload)
+        if messages:
+            phone_number_id = get_phone_number_id(payload)
+            from_number = get_from_number(payload)
+            sender_name = get_name(payload)
+            target_language = get_user_preference(from_number)
 
-        message = handle_openai_message(
-            payload, target_language, from_number, sender_name,phone_number_id
-        )
-
-        if message:
-            send_message(
-                message, os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id
+            message = handle_openai_message(
+                payload, target_language, from_number, sender_name, phone_number_id
             )
 
-        # return {"status": "success"}
+            if message:
+                send_message(
+                    message, os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id
+                )
+
+        return {"status": "success"}
 
     except Exception as error:
         logging.error(f"Error in webhook processing: {str(error)}")
         raise HTTPException(status_code=500, detail="Internal Server Error") from error
 
-    finally:
-        # Always send a success status to WhatsApp
-        return {"status": "success"}
 
 
 @router.get("/webhook")
@@ -764,7 +764,7 @@ def handle_openai_message(
                     },
                     timeout=150,  # Set a timeout for the transcription job.
                 )
-                
+
             except TimeoutError as e:
                 logging.error(f"Transcription job timed out: {str(e)}")
                 return "Failed to transcribe audio."
