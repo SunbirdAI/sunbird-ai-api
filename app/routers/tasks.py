@@ -717,79 +717,71 @@ def handle_openai_message(
     if docs := get_document(payload):
         return f"Dear {sender_name}, We do not support documents."
 
+    # Step 1: Retrieve audio information from the payload
     if audio_info := get_audio(payload):
         if not audio_info:
             logging.error("No audio information provided.")
             return "Failed to transcribe audio."
 
+        # Step 4: Notify the user that the audio has been received
+        send_message("Audio has been received ...", os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id)
+        
+        # Step 2: Fetch the media URL using the WhatsApp token
         audio_url = fetch_media_url(audio_info["id"], os.getenv("WHATSAPP_TOKEN"))
         if not audio_url:
             logging.error("Failed to fetch media URL.")
             return "Failed to transcribe audio."
 
-        local_audio_path = download_whatsapp_audio(
-            audio_url, os.getenv("WHATSAPP_TOKEN")
-        )
+        # Step 3: Download the audio file locally
+        local_audio_path = download_whatsapp_audio(audio_url, os.getenv("WHATSAPP_TOKEN"))
         if not local_audio_path:
             logging.error("Failed to download audio from WhatsApp.")
             return "Failed to transcribe audio."
-        
-        send_message(
-                "Audio has been received ...", os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id
-            )
+
+        # Step 4: Notify the user that the audio has been received
+        send_message("Audio has been loaded ...", os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id)
 
         try:
-            blob_name, blob_url = upload_audio_file(local_audio_path)
-            # logging.info(
-            #     f"Audio bucket upload complete: {local_audio_path}, Blob URL: {blob_url}"
-            # )
-
-            # endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
-            # audio_file = blob_name
-            # request_response = {}
+            # Step 6: Initialize the Runpod endpoint for transcription
+            endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
 
             start_time = time.time()
 
-            # if os.path.exists(local_audio_path):
-            #     os.remove(local_audio_path)
-            #     logging.info(f"Cleaned up local audio file: {local_audio_path}")
+            # Step 5: Notify the user that transcription is in progress
+            send_message("Your transcription is being processed ...", os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id)
 
-            send_message(
-                "Your transcription is being processed ...", os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id
-            )
+            try:
+                # Step 7: Call the transcription service with the correct parameters
+                request_response = endpoint.run_sync(
+                    {
+                        "input": {
+                            "task": "transcribe",
+                            "target_lang": target_language,
+                            "adapter": target_language,
+                            "audio_file": local_audio_path,  # Corrected to pass local file path
+                            "recognise_speakers": False,
+                        }
+                    },
+                    timeout=150,  # Set a timeout for the transcription job.
+                )
+                
+            except TimeoutError as e:
+                logging.error(f"Transcription job timed out: {str(e)}")
+                return "Failed to transcribe audio."
+            except Exception as e:
+                logging.error(f"Unexpected error during transcription: {str(e)}")
+                return "Failed to transcribe audio."
 
-            # try:
-            #     request_response = endpoint.run_sync(
-            #         {
-            #             "input": {
-            #                 "task": "transcribe",
-            #                 "target_lang": target_language,
-            #                 "adapter": target_language,
-            #                 "audio_file": audio_file,
-            #                 "recognise_speakers": False,
-            #             }
-            #         },
-            #         timeout=600,  # Timeout in seconds.
-            #     )
-            # except TimeoutError as e:
-            #     logging.error(f"Transcription job timed out: {str(e)}")
-            #     return "Failed to transcribe audio."
-            # except Exception as e:
-            #     logging.error(f"Unexpected error during transcription: {str(e)}")
-            #     return "Failed to transcribe audio."
-            
-            send_audio(os.getenv("WHATSAPP_TOKEN"),blob_name,phone_number_id,from_number)
-
+            # Step 8: Log the time taken for the transcription
             end_time = time.time()
             elapsed_time = end_time - start_time
             logging.info(f"Elapsed time: {elapsed_time} seconds for transcription.")
 
-            # return request_response.get(
-            #     "audio_transcription"
-            # )
-            return "We sent you back your audio, this feature is still in test."
+            # Step 9: Return the transcription result
+            return request_response.get("audio_transcription", "Transcription not found.")
 
         finally:
+            # Step 10: Clean up the local audio file
             if os.path.exists(local_audio_path):
                 os.remove(local_audio_path)
                 logging.info(f"Cleaned up local audio file: {local_audio_path}")
