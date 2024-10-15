@@ -723,7 +723,6 @@ def handle_openai_message(
             logging.error("No audio information provided.")
             return "Failed to transcribe audio."
 
-        # Step 4: Notify the user that the audio has been received
         send_message("Audio has been received ...", os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id)
         
         # Step 2: Fetch the media URL using the WhatsApp token
@@ -741,13 +740,15 @@ def handle_openai_message(
         # Step 4: Notify the user that the audio has been received
         send_message("Audio has been loaded ...", os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id)
 
+        request_response = {}
+
         try:
             # Step 6: Initialize the Runpod endpoint for transcription
             endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
 
             start_time = time.time()
 
-            # Step 5: Notify the user that transcription is in progress
+            # Step 7: Notify the user that transcription is in progress
             send_message("Your transcription is being processed ...", os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id)
 
             try:
@@ -765,6 +766,9 @@ def handle_openai_message(
                     timeout=150,  # Set a timeout for the transcription job.
                 )
 
+                # Step 8: Notify the user that transcription is in progress
+                send_message("Your transcription is ready ...", os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id)
+
             except TimeoutError as e:
                 logging.error(f"Transcription job timed out: {str(e)}")
                 return "Failed to transcribe audio."
@@ -775,16 +779,17 @@ def handle_openai_message(
             # Step 8: Log the time taken for the transcription
             end_time = time.time()
             elapsed_time = end_time - start_time
+            logging.info(f"Here is the response: {request_response}")
             logging.info(f"Elapsed time: {elapsed_time} seconds for transcription.")
 
             # Step 9: Return the transcription result
-            return request_response.get("audio_transcription", "Transcription not found.")
+            return request_response.get("audio_transcription")
 
         finally:
             # Step 10: Clean up the local audio file
             if os.path.exists(local_audio_path):
                 os.remove(local_audio_path)
-                logging.info(f"Cleaned up local audio file: {local_audio_path}")
+                logging.info(f"Cleaned up local audio file: {request_response}")
 
     elif reaction := get_reaction(payload):
         mess_id = reaction["message_id"]
