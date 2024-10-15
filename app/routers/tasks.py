@@ -98,6 +98,8 @@ runpod.api_key = os.getenv("RUNPOD_API_KEY")
 whatsapp_token = os.getenv("WHATSAPP_TOKEN")
 verify_token = os.getenv("VERIFY_TOKEN")
 
+processed_messages = set()
+
 languages_obj = {
     "1": "lug",
     "2": "ach",
@@ -687,7 +689,18 @@ async def verify_webhook(mode: str, token: str, challenge: str):
 
 def handle_openai_message(
     payload, target_language, from_number, sender_name,phone_number_id
-):
+): 
+    message_id = get_message_id(payload)  # Extract unique message ID from the payload
+
+    if message_id in processed_messages:
+        logging.info(f"Message ID {message_id} already processed. Skipping.")
+        return
+
+    # Add message_id to processed messages
+    processed_messages.add(message_id)
+
+    logging.info(f"Message ID {message_id} added to processed messages.")
+
     # Language mapping dictionary
     language_mapping = {
         'lug': 'Luganda',
