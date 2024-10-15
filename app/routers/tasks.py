@@ -645,7 +645,6 @@ async def chat(chat_request: ChatRequest, current_user=Depends(get_current_user)
 
     return ChatResponse(chat_response=response)
 
-
 @router.post("/webhook")
 async def webhook(payload: dict):
     try:
@@ -676,8 +675,6 @@ async def webhook(payload: dict):
         logging.error(f"Error in webhook processing: {str(error)}")
         raise HTTPException(status_code=500, detail="Internal Server Error") from error
 
-
-
 @router.get("/webhook")
 async def verify_webhook(mode: str, token: str, challenge: str):
     if mode and token:
@@ -687,7 +684,6 @@ async def verify_webhook(mode: str, token: str, challenge: str):
         logging.info("WEBHOOK_VERIFIED")
         return {"challenge": challenge}
     raise HTTPException(status_code=400, detail="Bad Request")
-
 
 def handle_openai_message(
     payload, target_language, from_number, sender_name,phone_number_id
