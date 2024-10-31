@@ -650,7 +650,7 @@ async def chat(chat_request: ChatRequest, current_user=Depends(get_current_user)
 @router.post("/webhook")
 async def webhook(payload: dict):
     try:
-        logging.info(f"Received payload: {json.dumps(payload, indent=2)}")
+        logging.info('Received payload: %s', json.dumps(payload, indent=2))
 
         if not valid_payload(payload):
             return {"status": "ignored"}
@@ -674,7 +674,7 @@ async def webhook(payload: dict):
         return {"status": "success"}
 
     except Exception as error:
-        logging.error(f"Error in webhook processing: {str(error)}")
+        logging.error('Error in webhook processing: %s', str(error))
         raise HTTPException(status_code=500, detail="Internal Server Error") from error
 
 @router.get("/webhook")
@@ -693,13 +693,13 @@ def handle_openai_message(
     message_id = get_message_id(payload)  # Extract unique message ID from the payload
 
     if message_id in processed_messages:
-        logging.info(f"Message ID {message_id} already processed. Skipping.")
+        logging.info('Message ID %s already processed. Skipping.', {message_id} )
         return
 
     # Add message_id to processed messages
     processed_messages.add(message_id)
 
-    logging.info(f"Message ID {message_id} added to processed messages.")
+    logging.info('Message ID %s added to processed messages.', message_id)
 
     # Language mapping dictionary
     language_mapping = {
@@ -712,18 +712,23 @@ def handle_openai_message(
     }
 
     if interactive_response := get_interactive_response(payload):
+        response = interactive_response
         return f"Dear {sender_name}, Thanks for that response."
 
     if location := get_location(payload):
+        response = location
         return f"Dear {sender_name}, We have no support for messages of type locations."
 
     if image := get_image(payload):
+        response = image
         return f"Dear {sender_name}, We have no support for messages of type image."
 
     if video := get_video(payload):
+        response = video
         return f"Dear {sender_name}, We have no support for messages of type video."
 
     if docs := get_document(payload):
+        response = docs
         return f"Dear {sender_name}, We do not support documents."
 
     # Step 1: Retrieve audio information from the payload
@@ -733,6 +738,9 @@ def handle_openai_message(
             return "Failed to transcribe audio."
 
         send_message("Audio has been received ...", os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id)
+
+        if not target_language:
+            target_language = "lug"
         
         # Step 2: Fetch the media URL using the WhatsApp token
         audio_url = fetch_media_url(audio_info["id"], os.getenv("WHATSAPP_TOKEN"))
@@ -750,22 +758,65 @@ def handle_openai_message(
         blob_name, blob_url = upload_audio_file(local_audio_path)
 
         if blob_name and blob_url:
-            logging.info(f"Audio file successfully uploaded to GCS: {blob_url}")
+            logging.info('Audio file successfully uploaded to GCS: %s', blob_url)
         else:
             raise Exception("Failed to upload audio to GCS")
 
         # Step 4: Notify the user that the audio has been received
         send_message("Audio has been loaded ...", os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id)
 
-        request_response = {}
+        # Step 5: Initialize the Runpod endpoint for transcription
+        endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
+
+        data = {
+            "input": {
+                "task": "auto_detect_audio_language",
+                "audio_file": blob_name,
+            }
+        }
+
+        start_time = time.time()
 
         try:
-            # Step 6: Initialize the Runpod endpoint for transcription
-            endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
+
+            audio_lang_response = call_endpoint_with_retry(endpoint, data)
+
+        except TimeoutError as e:
+
+            logging.error('Job timed out %s', str(e))
+            raise HTTPException(
+                status_code=503, detail="Service unavailable due to timeout."
+            ) from e
+        
+        except ConnectionError as e:
+            
+            logging.error('Connection lost: %s', str(e))
+            raise HTTPException(
+                status_code=503, detail="Service unavailable due to connection error."
+            ) from e
+
+        end_time = time.time()
+        logging.info('Audio language auto detection response: %s ', audio_lang_response.get("detected_language"))
+
+        # Calculate the elapsed time
+        elapsed_time = end_time - start_time
+        logging.info('Audio language auto detection elapsed time: %s seconds', elapsed_time)
+
+        audio_language = audio_lang_response.get("detected_language")
+        request_response = {}
+
+        if audio_language in language_mapping:
+            # Language is in the mapping
+            logging.info("Language detected in audio is %s", audio_language)
+        else:
+            # Language is not in our scope
+            return "Audio Language not detected"
+
+        try:
 
             start_time = time.time()
 
-            # Step 7: Notify the user that transcription is in progress
+            # Step 6: Notify the user that transcription is in progress
             send_message("Your transcription is being processed ...", os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id)
 
             try:
@@ -774,8 +825,8 @@ def handle_openai_message(
                     {
                         "input": {
                             "task": "transcribe",
-                            "target_lang": target_language,
-                            "adapter": target_language,
+                            "target_lang": audio_language,
+                            "adapter": audio_language,
                             "audio_file": blob_name,  # Corrected to pass local file path
                             "recognise_speakers": False,
                         }
@@ -787,26 +838,35 @@ def handle_openai_message(
                 send_message("Your transcription is ready ...", os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id)
 
             except TimeoutError as e:
-                logging.error(f"Transcription job timed out: {str(e)}")
+                logging.error('Transcription job timed out: %s', str(e))
                 return "Failed to transcribe audio."
             except Exception as e:
-                logging.error(f"Unexpected error during transcription: {str(e)}")
+                logging.error('Unexpected error during transcription: %s', str(e))
                 return "Failed to transcribe audio."
 
-            # Step 8: Log the time taken for the transcription
+            # Step 9: Log the time taken for the transcription
             end_time = time.time()
             elapsed_time = end_time - start_time
-            logging.info(f"Here is the response: {request_response}")
-            logging.info(f"Elapsed time: {elapsed_time} seconds for transcription.")
+            logging.info('Here is the response: %s', request_response)
+            logging.info('Elapsed time: %s seconds for transcription.', elapsed_time)
 
-            # Step 9: Return the transcription result
-            return request_response.get("audio_transcription")
+            send_message("Translating to your target language if you haven't set a target language the default is Lugande.....", os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id)
+
+            detected_language = detect_language(request_response.get("audio_transcription"))
+            translation = translate_text(
+                        request_response.get("audio_transcription"),
+                        detected_language,
+                        target_language,
+                    )
+
+            # Step 10: Return the translation result
+            return translation
 
         finally:
-            # Step 10: Clean up the local audio file
+            # Step 11: Clean up the local audio file
             if os.path.exists(local_audio_path):
                 os.remove(local_audio_path)
-                logging.info(f"Cleaned up local audio file: {request_response}")
+                logging.info('Cleaned up local audio file: %s', request_response)
 
     elif reaction := get_reaction(payload):
         mess_id = reaction["message_id"]
@@ -845,7 +905,7 @@ def handle_openai_message(
         if is_json(response):
             json_object = json.loads(response)
             # print ("Is valid json? true")
-            logging.info(f"Open AI response: {json_object}")
+            logging.info('Open AI response: %s', json_object)
             task = json_object["task"]
             # print(task)
 
@@ -929,12 +989,12 @@ def handle_openai_message(
                 if language_name:
                     return f"Your current target language is {language_name}"
                 else:
-                    return f"You currently don't have a set language."
+                    return "You currently don't have a set language."
                 
             elif task == "setLanguage":
                 settargetlanguage = json_object["language"]
 
-                logging.info(f"This language set: {settargetlanguage}")
+                logging.info('This language set: %s', settargetlanguage)
 
                 save_user_preference(
                     from_number, None, settargetlanguage
@@ -1027,18 +1087,23 @@ def handle_message(
     payload, from_number, sender_name, source_language, target_language, phone_number_id
 ):
     if interactive_response := get_interactive_response(payload):
+        response = interactive_response
         return f"Dear {sender_name}, Thanks for that response."
 
     if location := get_location(payload):
+        response = location
         return f"Dear {sender_name}, We have no support for messages of type locations."
 
     if image := get_image(payload):
+        response = image
         return f"Dear {sender_name}, We have no support for messages of type image."
 
     if video := get_video(payload):
+        response = video
         return f"Dear {sender_name}, We have no support for messages of type video."
 
     if docs := get_document(payload):
+        response = docs
         return f"Dear {sender_name}, We do not support documents."
 
     # if audio := get_audio(payload):
@@ -1162,7 +1227,7 @@ def detect_language(text):
             timeout=60,
         )
 
-        logging.info(f"Request response: {request_response}")
+        logging.info('Request response: %s', request_response)
 
         if request_response:
             return request_response["language"]
@@ -1172,9 +1237,9 @@ def detect_language(text):
                 detail="Language detection failed. No output from the service.",
             )
 
-    except TimeoutError:
+    except TimeoutError as e:
         logging.error("Job timed out.")
         raise HTTPException(
             status_code=408,
             detail="The language identification job timed out. Please try again later.",
-        )
+        ) from e
