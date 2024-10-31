@@ -768,6 +768,7 @@ def handle_openai_message(
         # Step 5: Initialize the Runpod endpoint for transcription
         endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
 
+        logging.info('Audio data found for langauge detection')
         data = {
             "input": {
                 "task": "auto_detect_audio_language",
@@ -778,9 +779,8 @@ def handle_openai_message(
         start_time = time.time()
 
         try:
-
+            logging.info('Audio file ready for langauge detection')
             audio_lang_response = call_endpoint_with_retry(endpoint, data)
-
         except TimeoutError as e:
 
             logging.error('Job timed out %s', str(e))
