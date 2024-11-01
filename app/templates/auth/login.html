@@ -32,7 +32,7 @@
     <div class="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
         <form class="space-y-6" action="#" method="POST">
             {{ forms.input_field_with_label(id="username", name="username", type="text", label_text="Username") }}
-
+    
             <div>
                 <div class="flex items-center justify-between">
                     <label for="password" class="block text-sm font-medium leading-6 text-gray-900">Password</label>
@@ -46,10 +46,18 @@
             {% for error in errors %}
             <p class="text-sm text-red-500">{{ error }}</p>
             {% endfor %}
-
+    
             {{ forms.button(type="Submit", text="Sign in") }}
         </form>
+    
+        <!-- Add Google Sign-In Button -->
+        <div class="mt-4 text-center">
+            <a href="{{ url_for('auth/google_login') }}" class="text-blue-500 hover:text-blue-600 font-semibold">
+                Sign in with Google
+            </a>
+        </div>
+    
         {{ forms.toggle_auth(prompt_text="Don't have an account?", action_text="Sign up", path="/register") }}
-    </div>
+    </div>    
 </div>
 {% endblock content %}

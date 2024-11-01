@@ -42,3 +42,15 @@ async def update_user_password_reset_token(
         await db.refresh(user)
 
     return user
+
+async def update_user_organization(
+    db: AsyncSession, user_id: int, organization_name: str
+) -> User:
+    result = await db.execute(select(User).filter(User.id == user_id))
+    user = result.scalars().first()
+    if user:
+        user.organization = organization_name
+        await db.commit()
+        await db.refresh(user)
+    return user
+
