@@ -164,13 +164,12 @@ async def change_password(
 
     return {"message": "Password change successful", "success": True}
 
-@router.get("/auth/google/login", name="auth/google_login")
+@router.get("/google/login", name="auth/google_login")
 async def google_login(request: Request):
     redirect_uri = request.url_for("google_callback")
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
-
-@router.get("/auth/google/callback")
+@router.get("/google/callback", name="google_callback")
 async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
     token = await oauth.google.authorize_access_token(request)
     user_info = await oauth.google.parse_id_token(request, token)
@@ -212,5 +211,3 @@ async def save_organization(
 
     # Redirect to account or another relevant page
     return RedirectResponse(url="/account", status_code=status.HTTP_303_SEE_OTHER)
-
-

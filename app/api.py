@@ -24,6 +24,8 @@ from app.routers.auth import router as auth_router
 from app.routers.frontend import router as frontend_router
 from app.routers.tasks import router as tasks_router
 from app.utils.exception_utils import validation_exception_handler
+from starlette.middleware.sessions import SessionMiddleware
+
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
@@ -86,6 +88,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Add SessionMiddleware to enable session-based authentication
+app.add_middleware(SessionMiddleware, secret_key=os.getenv("SECRET_KEY"))
 
 static_files_directory = Path(__file__).parent.absolute() / "static"
 app.mount("/static", StaticFiles(directory=static_files_directory), name="static")
