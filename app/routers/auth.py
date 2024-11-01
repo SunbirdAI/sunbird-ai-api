@@ -169,7 +169,6 @@ async def google_login(request: Request):
     redirect_uri = request.url_for("google_callback")
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
-
 @router.get("/auth/google/callback")
 async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
     token = await oauth.google.authorize_access_token(request)
@@ -212,5 +211,3 @@ async def save_organization(
 
     # Redirect to account or another relevant page
     return RedirectResponse(url="/account", status_code=status.HTTP_303_SEE_OTHER)
-
-
