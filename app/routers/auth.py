@@ -1,15 +1,20 @@
 import uuid
+import os
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
+from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from authlib.integrations.starlette_client import OAuth
+
 
 from app.crud.users import (
     create_user,
     get_user_by_email,
     get_user_by_username,
+    update_user_organization,
     update_user_password_reset_token,
 )
 from app.deps import get_current_user, get_db
@@ -31,8 +36,25 @@ from app.utils.auth_utils import (
     verify_password,
 )
 from app.utils.email_utils import send_password_reset_email
+from dotenv import load_dotenv
+
+
 
 router = APIRouter()
+oauth = OAuth()
+
+load_dotenv()
+
+# Set up Google OAuth configuration
+oauth.register(
+    name="google",
+    client_id= os.getenv("GOOGLE_CLIENT_ID"),
+    client_secret= os.getenv("GOOGLE_CLIENT_SECRET"),
+    authorize_url="https://accounts.google.com/o/oauth2/auth",
+    authorize_params=None,
+    access_token_url="https://accounts.google.com/o/oauth2/token",
+    client_kwargs={"scope": "openid profile email"},
+)
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
@@ -141,3 +163,54 @@ async def change_password(
     await db.commit()
 
     return {"message": "Password change successful", "success": True}
+
+@router.get("/auth/google/login")
+async def google_login(request: Request):
+    redirect_uri = request.url_for("google_callback")
+    return await oauth.google.authorize_redirect(request, redirect_uri)
+
+
+@router.get("/auth/google/callback")
+async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
+    token = await oauth.google.authorize_access_token(request)
+    user_info = await oauth.google.parse_id_token(request, token)
+
+    email = user_info.get("email")
+    if not email:
+        raise HTTPException(status_code=400, detail="No email found in Google profile")
+
+    db_user = await get_user_by_email(db, email)
+    is_new_user = False
+
+    if db_user is None:
+        # Register new user
+        user_data = UserInDB(
+            email=email,
+            username=email.split("@")[0],
+            hashed_password=None,  # No password for Google-authenticated users
+        )
+        db_user = await create_user(db, user_data)
+        is_new_user = True
+
+    # Generate access token
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(data={"sub": db_user.username}, expires_delta=access_token_expires)
+
+    # Set token in a cookie
+    response = RedirectResponse(url="/account") if not is_new_user else RedirectResponse(url="/auth/setup-organization")
+    response.set_cookie(key="access_token", value=f"Bearer {access_token}", httponly=True)
+    return response
+
+@router.post("/auth/save-organization")
+async def save_organization(
+    organization_name: str = Form(...),
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    # Update the user's organization in the database
+    await update_user_organization(db, current_user.id, organization_name)
+
+    # Redirect to account or another relevant page
+    return RedirectResponse(url="/account", status_code=status.HTTP_303_SEE_OTHER)
+
+

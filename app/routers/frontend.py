@@ -67,6 +67,10 @@ async def terms_of_service(request: Request):  # type: ignore
     context = {"request": request}
     return templates.TemplateResponse("terms_of_service.html", context)
 
+@router.get("/auth/setup-organization")
+async def setup_organization(request: Request):
+    return templates.TemplateResponse("setup_organization.html", {"request": request})
+
 
 @router.post("/login")
 async def login(  # noqa F811
