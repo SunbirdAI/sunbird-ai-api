@@ -166,10 +166,10 @@ async def change_password(
 
 @router.get("/google/login", name="auth/google_login")
 async def google_login(request: Request):
-    redirect_uri = request.url_for("google_callback")
+    redirect_uri = request.url_for("/google/callback")
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
-@router.get("/google/callback", name="google_callback")
+@router.get("/google/callback")
 async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
     token = await oauth.google.authorize_access_token(request)
     user_info = await oauth.google.parse_id_token(request, token)
@@ -196,11 +196,11 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
     access_token = create_access_token(data={"sub": db_user.username}, expires_delta=access_token_expires)
 
     # Set token in a cookie
-    response = RedirectResponse(url="/account") if not is_new_user else RedirectResponse(url="/auth/setup-organization")
+    response = RedirectResponse(url="/account") if not is_new_user else RedirectResponse(url="/setup-organization")
     response.set_cookie(key="access_token", value=f"Bearer {access_token}", httponly=True)
     return response
 
-@router.post("/auth/save-organization")
+@router.post("/save-organization")
 async def save_organization(
     organization_name: str = Form(...),
     db: AsyncSession = Depends(get_db),
