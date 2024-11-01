@@ -164,7 +164,7 @@ async def change_password(
 
     return {"message": "Password change successful", "success": True}
 
-@router.get("/auth/google/login")
+@router.get("/auth/google/login", name="auth/google_login")
 async def google_login(request: Request):
     redirect_uri = request.url_for("google_callback")
     return await oauth.google.authorize_redirect(request, redirect_uri)
