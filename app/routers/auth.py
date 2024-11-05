@@ -169,7 +169,7 @@ async def change_password(
 
     return {"message": "Password change successful", "success": True}
 
-@router.get("/google/login", name='"auth:google_login"' )
+@router.get("/google/login", name='auth:google_login' )
 async def google_login(request: Request):
     # Get the redirect URI from the request
     redirect_uri = request.url_for('auth:google_callback')
