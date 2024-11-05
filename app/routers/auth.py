@@ -8,6 +8,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from authlib.integrations.starlette_client import OAuth
+from starlette.config import Config
 
 
 from app.crud.users import (
@@ -45,15 +46,19 @@ oauth = OAuth()
 
 load_dotenv()
 
-# Set up Google OAuth configuration
+# Initialize OAuth with proper configuration
+config = Config('.env')
+oauth = OAuth(config)
+
 oauth.register(
-    name="google",
-    client_id= os.getenv("GOOGLE_CLIENT_ID"),
-    client_secret= os.getenv("GOOGLE_CLIENT_SECRET"),
-    authorize_url="https://accounts.google.com/o/oauth2/auth",
-    authorize_params=None,
-    access_token_url="https://accounts.google.com/o/oauth2/token",
-    client_kwargs={"scope": "openid profile email"},
+    name='google',
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    client_id=os.getenv("GOOGLE_CLIENT_ID"),
+    client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
+    client_kwargs={
+        'scope': 'openid email profile',
+        'prompt': 'select_account'  # Forces Google account selection
+    }
 )
 
 
@@ -164,41 +169,77 @@ async def change_password(
 
     return {"message": "Password change successful", "success": True}
 
-@router.get("/google/login", name="auth/google_login")
+@router.get("/google/login")
 async def google_login(request: Request):
-    redirect_uri = request.url_for("google_callback")
+    # Get the redirect URI from the request
+    redirect_uri = request.url_for('google_callback')
+    
+    # Store the intended destination in session
+    request.session['next'] = str(request.query_params.get('next', '/'))
+    
+    # Redirect to Google login
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
-@router.get("/google/callback", name="google_callback")
+@router.get("/google/callback")
 async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
-    token = await oauth.google.authorize_access_token(request)
-    user_info = await oauth.google.parse_id_token(request, token)
+    try:
+        # Get token from Google
+        token = await oauth.google.authorize_access_token(request)
+        
+        # Get user info from Google
+        user_info = token.get('userinfo')
+        if not user_info:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Failed to get user info from Google"
+            )
 
-    email = user_info.get("email")
-    if not email:
-        raise HTTPException(status_code=400, detail="No email found in Google profile")
+        # Extract user details
+        email = user_info['email']
+        name = user_info.get('name', email.split('@')[0])
+        
+        # Check if user exists
+        db_user = await get_user_by_email(db, email)
+        is_new_user = False
 
-    db_user = await get_user_by_email(db, email)
-    is_new_user = False
+        if not db_user:
+            # Create new user
+            user_data = UserInDB(
+                email=email,
+                username=name,
+                hashed_password=None,  # No password for Google auth users
+                # is_google_user=True
+            )
+            db_user = await create_user(db, user_data)
+            is_new_user = True
 
-    if db_user is None:
-        # Register new user
-        user_data = UserInDB(
-            email=email,
-            username=email.split("@")[0],
-            hashed_password=None,  # No password for Google-authenticated users
+        # Create access token
+        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            data={"sub": db_user.username, "account_type": db_user.account_type},
+            expires_delta=access_token_expires
         )
-        db_user = await create_user(db, user_data)
-        is_new_user = True
 
-    # Generate access token
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(data={"sub": db_user.username}, expires_delta=access_token_expires)
+        # Get redirect URL from session or default to home
+        redirect_url = request.session.get('next', '/')
+        if is_new_user:
+            redirect_url = '/setup-organization'
 
-    # Set token in a cookie
-    response = RedirectResponse(url="/account") if not is_new_user else RedirectResponse(url="/setup-organization")
-    response.set_cookie(key="access_token", value=f"Bearer {access_token}", httponly=True)
-    return response
+        # Create response with token cookie
+        response = RedirectResponse(url=redirect_url)
+        response.set_cookie(
+            key="access_token",
+            value=f"Bearer {access_token}",
+            httponly=True,
+            secure=True,  # Enable for HTTPS
+            samesite='lax'
+        )
+        
+        return response
+        
+    except Exception as e:
+        print(f"Error in Google callback: {str(e)}")
+        return RedirectResponse(url='/login?error=google_auth_failed')
 
 @router.post("/save-organization")
 async def save_organization(
