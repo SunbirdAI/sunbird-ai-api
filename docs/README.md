@@ -1,5 +1,78 @@
 # API ARCHITECTURE DOCUMENTATION
 
+## API and Inference Architecture Overview Diagram
+
+```mermaid
+flowchart TD
+    subgraph User
+        U[User]
+    end
+
+    subgraph GoogleCloud[User-Facing API Server - Google Cloud Cloud Run]
+        APIServer[API Server<br>FastAPI on Cloud Run]
+        Postgres[(PostgreSQL Database)]
+    end
+
+    subgraph RunPod[Inference Server - RunPod]
+        TranslationModel[Translation Model]
+        ASRModel[ASR STT Model]
+        LanguageClassificationModel[Language Classification Model]
+        AudioDetectionModel[Auto Audio Language Detection Model]
+        SummarisationModel[Summarisation Model]
+    end
+
+    U -->|Makes API Request| APIServer
+    APIServer -->|Reads/Writes User Data and Logs| Postgres
+    APIServer -->|Forwards to Inference Server| TranslationModel
+    APIServer -->|Forwards to Inference Server| ASRModel
+    APIServer -->|Forwards to Inference Server| LanguageClassificationModel
+    APIServer -->|Forwards to Inference Server| AudioDetectionModel
+    APIServer -->|Forwards to Inference Server| SummarisationModel
+    TranslationModel -->|Returns Prediction| APIServer
+    ASRModel -->|Returns Prediction| APIServer
+    LanguageClassificationModel -->|Returns Prediction| APIServer
+    AudioDetectionModel -->|Returns Prediction| APIServer
+    SummarisationModel -->|Returns Prediction| APIServer
+    APIServer -->|Displays to User| U
+```
+
+### Sequence Diagram
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant API_Server as API Server (FastAPI on Cloud Run)
+    participant DB as PostgreSQL Database
+    participant Inference_Server as Inference Server (RunPod)
+
+    User ->> API_Server: Sends Request (e.g., Translation, Summarisation)
+    API_Server ->> DB: Logs request (EndpointLog)
+    API_Server ->> Inference_Server: Forwards request to appropriate model
+    Inference_Server ->> Inference_Server: Model processes request (e.g., Translation)
+    Inference_Server ->> API_Server: Returns prediction result
+    API_Server ->> DB: Stores additional data if needed
+    API_Server ->> User: Returns prediction response
+```
+
+### Detailed Description of the Mermaid Documentation
+
+1. **Architecture Overview**:
+   - **User-facing API Server (FastAPI)**: Hosted on Google Cloud Platform (Cloud Run), the API server provides endpoints for tasks like translation, language classification, summarization, STT, and TTS. It also manages user data and logs request information using a PostgreSQL database.
+   - **Inference Server (RunPod)**: The serverless endpoint on RunPod hosts the inference models that handle specific tasks:
+     - **Translation Model**: Handles text-to-text translations, focusing on English and several Ugandan languages.
+     - **ASR (STT) Model**: Processes audio-to-text conversions (speech recognition), supporting the same language set.
+     - **Language Classification Model**: Classifies the language of given text inputs.
+     - **Auto Audio Language Detection Model**: Detects the language spoken in uploaded audio files.
+     - **Summarization Model**: Summarizes provided text content.
+
+2. **Sequence Diagram**:
+   - **Step 1**: A user initiates a request through the API server, specifying the desired task (e.g., translation or summarization).
+   - **Step 2**: The API server logs the request in the PostgreSQL database for monitoring purposes.
+   - **Step 3**: The API server forwards the request to the appropriate model on the inference server.
+   - **Step 4**: The model processes the request and generates a prediction or output (e.g., translated text, recognized speech).
+   - **Step 5**: The inference server sends the prediction result back to the API server.
+   - **Step 6**: The API server may store additional data if needed and then sends the final result back to the user.
+
 ## API Models
 
 ```mermaid
