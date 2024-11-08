@@ -16,6 +16,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
+from starlette.middleware.sessions import SessionMiddleware
 from tenacity import RetryError, retry, stop_after_attempt, wait_exponential
 
 from app.docs import description, tags_metadata
@@ -24,8 +25,6 @@ from app.routers.auth import router as auth_router
 from app.routers.frontend import router as frontend_router
 from app.routers.tasks import router as tasks_router
 from app.utils.exception_utils import validation_exception_handler
-from starlette.middleware.sessions import SessionMiddleware
-
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)

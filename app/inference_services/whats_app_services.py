@@ -69,9 +69,7 @@ def download_whatsapp_audio(url, access_token):
             with open(local_audio_path, "wb") as f:
                 f.write(response.content)
 
-            logging.info(
-                f"Whatsapp audio download was successfull: {local_audio_path}"
-            )
+            logging.info(f"Whatsapp audio download was successfull: {local_audio_path}")
             return local_audio_path
         else:
             raise HTTPException(status_code=500, detail="Failed to download audio file")
@@ -744,22 +742,24 @@ def get_message_id(data) -> Union[str, None]:
     data = preprocess(data)
     if "messages" in data:
         return data["messages"][0]["id"]
-    
+
+
 def get_messages_from_payload(payload):
     try:
         # Ensure 'entry' and 'changes' are in the payload
-        if 'entry' in payload and isinstance(payload['entry'], list):
-            for entry in payload['entry']:
-                if 'changes' in entry and isinstance(entry['changes'], list):
-                    for change in entry['changes']:
-                        if 'value' in change and 'messages' in change['value']:
+        if "entry" in payload and isinstance(payload["entry"], list):
+            for entry in payload["entry"]:
+                if "changes" in entry and isinstance(entry["changes"], list):
+                    for change in entry["changes"]:
+                        if "value" in change and "messages" in change["value"]:
                             # Extract messages here
-                            return change['value']['messages']
+                            return change["value"]["messages"]
         logging.error("No 'messages' found in the payload")
         return None
     except Exception as e:
         logging.error(f"Error parsing payload: {str(e)}")
         return None
+
 
 def get_message_timestamp(data) -> Union[str, None]:
     """ "

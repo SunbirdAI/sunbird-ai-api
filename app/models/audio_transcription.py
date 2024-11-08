@@ -15,6 +15,7 @@ class AudioTranscription(Base):
     filename = Column(String(255), nullable=False)
     uploaded = Column(DateTime, default=datetime.utcnow)
     transcription = Column(Text, nullable=True)
+    language = Column(String(255), nullable=True)
 
     def to_dict(self):
         return {
@@ -25,4 +26,5 @@ class AudioTranscription(Base):
             "filename": self.filename,
             "uploaded": self.uploaded,
             "transcription": self.transcription,
+            "language": self.language,
         }

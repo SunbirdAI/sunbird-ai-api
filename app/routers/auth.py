@@ -1,15 +1,15 @@
-import uuid
 import os
+import uuid
 from datetime import timedelta
 
+from authlib.integrations.starlette_client import OAuth
+from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from authlib.integrations.starlette_client import OAuth
 from starlette.config import Config
-
 
 from app.crud.users import (
     create_user,
@@ -37,9 +37,6 @@ from app.utils.auth_utils import (
     verify_password,
 )
 from app.utils.email_utils import send_password_reset_email
-from dotenv import load_dotenv
-
-
 
 router = APIRouter()
 oauth = OAuth()
@@ -47,18 +44,18 @@ oauth = OAuth()
 load_dotenv()
 
 # Initialize OAuth with proper configuration
-config = Config('.env')
+config = Config(".env")
 oauth = OAuth(config)
 
 oauth.register(
-    name='google',
-    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    name="google",
+    server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
     client_id=os.getenv("GOOGLE_CLIENT_ID"),
     client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
     client_kwargs={
-        'scope': 'openid email profile',
-        'prompt': 'select_account'  # Forces Google account selection
-    }
+        "scope": "openid email profile",
+        "prompt": "select_account",  # Forces Google account selection
+    },
 )
 
 
@@ -169,35 +166,37 @@ async def change_password(
 
     return {"message": "Password change successful", "success": True}
 
-@router.get("/google/login", name='auth:google_login' )
+
+@router.get("/google/login", name="auth:google_login")
 async def google_login(request: Request):
     # Get the redirect URI from the request
-    redirect_uri = request.url_for('auth:google_callback')
-    
+    redirect_uri = request.url_for("auth:google_callback")
+
     # Store the intended destination in session
-    request.session['next'] = str(request.query_params.get('next', '/'))
-    
+    request.session["next"] = str(request.query_params.get("next", "/"))
+
     # Redirect to Google login
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
-@router.get("/google/callback", name='auth:google_callback')
+
+@router.get("/google/callback", name="auth:google_callback")
 async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
     try:
         # Get token from Google
         token = await oauth.google.authorize_access_token(request)
-        
+
         # Get user info from Google
-        user_info = token.get('userinfo')
+        user_info = token.get("userinfo")
         if not user_info:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Failed to get user info from Google"
+                detail="Failed to get user info from Google",
             )
 
         # Extract user details
-        email = user_info['email']
-        name = user_info.get('name', email.split('@')[0])
-        
+        email = user_info["email"]
+        name = user_info.get("name", email.split("@")[0])
+
         # Check if user exists
         db_user = await get_user_by_email(db, email)
         is_new_user = False
@@ -217,13 +216,13 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = create_access_token(
             data={"sub": db_user.username, "account_type": db_user.account_type},
-            expires_delta=access_token_expires
+            expires_delta=access_token_expires,
         )
 
         # Get redirect URL from session or default to home
-        redirect_url = request.session.get('next', '/')
+        redirect_url = request.session.get("next", "/")
         if is_new_user:
-            redirect_url = '/setup-organization'
+            redirect_url = "/setup-organization"
 
         # Create response with token cookie
         response = RedirectResponse(url=redirect_url)
@@ -232,20 +231,21 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
             value=f"Bearer {access_token}",
             httponly=True,
             secure=True,  # Enable for HTTPS
-            samesite='lax'
+            samesite="lax",
         )
-        
+
         return response
-        
+
     except Exception as e:
         print(f"Error in Google callback: {str(e)}")
-        return RedirectResponse(url='/login?error=google_auth_failed')
+        return RedirectResponse(url="/login?error=google_auth_failed")
+
 
 @router.post("/save-organization")
 async def save_organization(
     organization_name: str = Form(...),
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user)
+    current_user=Depends(get_current_user),
 ):
     # Update the user's organization in the database
     await update_user_organization(db, current_user.id, organization_name)

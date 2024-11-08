@@ -9,7 +9,7 @@ from app.schemas import audio_transcription as schema
 
 
 async def create_audio_transcription(
-    db: AsyncSession, user, audio_file_url, filename, transcription
+    db: AsyncSession, user, audio_file_url, filename, transcription, language
 ) -> schema.AudioTranscriptionCreate:
     db_audio_transcription = models.AudioTranscription(
         email=user.email,
@@ -17,6 +17,7 @@ async def create_audio_transcription(
         audio_file_url=audio_file_url,
         filename=filename,
         transcription=transcription,
+        language=language,
     )
     db.add(db_audio_transcription)
     await db.commit()
