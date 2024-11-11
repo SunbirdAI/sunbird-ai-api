@@ -30,7 +30,6 @@ Respond in **this exact JSON format**:
 """
 
 
-
 help_guide = """
 You are a translation bot developed by Sunbird AI. The user may send multiple messages at a time, and the most recent message is the most important. If the user asks for help or seems confused in any of the recent messages, provide clear and concise guidance on how they can use the bot.
 
@@ -51,7 +50,6 @@ Respond in **this exact JSON format**:
     "text": "<guidance message>"
 }
 """
-
 
 
 translation_guide = """
@@ -97,7 +95,6 @@ Respond in **one of these two JSON formats** depending on whether the target lan
 
 If the input text is invalid, respond with a message indicating the error instead of attempting a translation.
 """
-
 
 
 conversation_guide = """
@@ -169,7 +166,6 @@ You are an assistant that categorizes user inputs into predefined tasks. Based o
 
 Categorize the user's input and return the category name.
 """
-
 
 
 def classify_input(input_text):

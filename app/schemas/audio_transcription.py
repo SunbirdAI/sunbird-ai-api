@@ -23,6 +23,7 @@ class AudioTranscriptionBase(BaseModel):
     filename: str
     uploaded: Optional[datetime] = None
     transcription: Optional[str] = None
+    language: Optional[str] = None
 
 
 class AudioTranscriptionCreate(AudioTranscriptionBase):

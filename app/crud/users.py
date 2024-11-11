@@ -43,6 +43,7 @@ async def update_user_password_reset_token(
 
     return user
 
+
 async def update_user_organization(
     db: AsyncSession, user_id: int, organization_name: str
 ) -> User:
@@ -53,4 +54,3 @@ async def update_user_organization(
         await db.commit()
         await db.refresh(user)
     return user
-
