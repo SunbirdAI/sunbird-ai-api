@@ -7,7 +7,7 @@ Welcome to the Sunbird AI API documentation. The Sunbird AI API provides you acc
 You can create an account and test the endpoints directly on this page.
 
 ## Getting started
-You can checkout the [usage guide](https://github.com/SunbirdAI/sunbird-ai-api/blob/main/tutorial.md) for a full tutorial.
+You can checkout the [usage guide](https://salt.sunbird.ai/API/) for a full tutorial.
 
 ### Signing up
 If you don't already have an account, use the `/auth/register` endpoint to create one. (You can scroll down this page to try it out)
