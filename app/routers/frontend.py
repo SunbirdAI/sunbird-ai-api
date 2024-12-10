@@ -46,6 +46,7 @@ async def home(
     if not token:  # if token is invalid or not present
         # Redirect to login page
         return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
+
     context = {"request": request}
     return templates.TemplateResponse("home.html", context)
 
@@ -69,26 +70,28 @@ async def terms_of_service(request: Request):  # type: ignore
 
 
 @router.get("/setup-organization")
-async def setup_organization(request: Request, user_id: str = Query(...)):
+async def setup_organization(request: Request):
     # Render the setup page with the user ID
     return templates.TemplateResponse(
         "auth/setup_organization.html",
-        {"request": request, "user_id": user_id},
+        {"request": request},
     )
 
 
 @router.post("/setup-organization")
 async def save_organization(
     request: Request,
-    user_id: str = Query(...),
     organization_name: str = Form(...),
     db: AsyncSession = Depends(get_db),
+    # current_user=Depends(get_current_user),
 ):
     # Update the user's organization in the database
-    logging.info(f"Token in request: {request.cookies.get('access_token')}")
+    token = request.cookies.get("access_token").split("Bearer ")[-1]
+    print(f"request token {request.cookies.get('access_token')} {token}")
+    username = get_username_from_token(token)
 
     logging.info(f"Save to database {organization_name}")
-    await update_user_organization(db, int(user_id), organization_name)
+    await update_user_organization(db, username, organization_name)
 
     # Redirect to account or another relevant page
     return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)

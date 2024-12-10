@@ -176,7 +176,8 @@ async def change_password(
 async def google_login(request: Request):
     # Get the redirect URI from the request
     redirect_uri = request.url_for("auth:google_callback")
-    # logging.info(f"Redirect URI {redirect_uri}")
+    if os.getenv("ENVIRONMENT") != 'development':
+        redirect_uri = redirect_uri.replace("http", "https")
 
     # Store the intended destination in session
     request.session["next"] = str(request.query_params.get("next", "/"))
@@ -201,7 +202,7 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
 
         # Extract user details
         email = user_info["email"]
-        name = user_info.get("name", email.split("@")[0])
+        username = email.split("@")[0]
 
         # Check if user exists
         db_user = await get_user_by_email(db, email)
@@ -211,7 +212,7 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
             # Create new user
             user_data = UserGoogle(
                 email=email,
-                username=name,
+                username=username,
             )
             db_user = await create_user(db, user_data)
             is_new_user = True
@@ -230,10 +231,11 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
         )
 
         # Determine redirect URL
-        redirect_url = f"/setup-organization?user_id={db_user.id}" if is_new_user else "/"
+        redirect_url = f"/setup-organization" if db_user.organization == 'Unknown' else "/"
 
-        # Create response with token cookie
+        # Include token in header response
         response = RedirectResponse(url=redirect_url)
+
         response.set_cookie(
             key="access_token",
             value=f"Bearer {access_token}",
