@@ -1,5 +1,6 @@
 import os
 import uuid
+import logging
 from datetime import timedelta
 
 from authlib.integrations.starlette_client import OAuth
@@ -15,7 +16,7 @@ from app.crud.users import (
     create_user,
     get_user_by_email,
     get_user_by_username,
-    update_user_organization,
+    # update_user_organization,
     update_user_password_reset_token,
 )
 from app.deps import get_current_user, get_db
@@ -27,6 +28,7 @@ from app.schemas.users import (
     Token,
     User,
     UserCreate,
+    UserGoogle,
     UserInDB,
 )
 from app.utils.auth_utils import (
@@ -107,7 +109,7 @@ async def request_password_reset(
     response = {"success": False, "error": True, "message": "Something went wrong!"}
     try:
         user = await get_user_by_email(db, request.email)
-        if not user:
+        if not user or user.oauth_type != 'Credentials':
             raise HTTPException(status_code=404, detail="User not found")
 
         reset_token = str(uuid.uuid4())
@@ -135,7 +137,7 @@ async def reset_password(request: ResetPassword, db: AsyncSession = Depends(get_
         )
         user = result.scalars().first()
 
-        if not user:
+        if not user or user.oauth_type != 'Credentials':
             raise HTTPException(status_code=404, detail="Invalid reset token provided")
 
         user.hashed_password = get_password_hash(request.new_password)
@@ -159,18 +161,22 @@ async def change_password(
 ):
     user = current_user
     user = await get_user_by_email(db, user.email)
-    if not verify_password(request.old_password, user.hashed_password):
-        raise HTTPException(status_code=400, detail="Wrong old password given")
-    user.hashed_password = get_password_hash(request.new_password)
-    await db.commit()
+    if user.oauth_type == 'Credentials':
+        if not verify_password(request.old_password, user.hashed_password):
+            raise HTTPException(status_code=400, detail="Wrong old password given")
+        user.hashed_password = get_password_hash(request.new_password)
+        await db.commit()
 
-    return {"message": "Password change successful", "success": True}
+        return {"message": "Password change successful", "success": True}
+
+    return {"message": "Password change failed", "success": False}
 
 
 @router.get("/google/login", name="auth:google_login")
 async def google_login(request: Request):
     # Get the redirect URI from the request
     redirect_uri = request.url_for("auth:google_callback")
+    # logging.info(f"Redirect URI {redirect_uri}")
 
     # Store the intended destination in session
     request.session["next"] = str(request.query_params.get("next", "/"))
@@ -203,14 +209,18 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
 
         if not db_user:
             # Create new user
-            user_data = UserInDB(
+            user_data = UserGoogle(
                 email=email,
                 username=name,
-                hashed_password=None,  # No password for Google auth users
-                # is_google_user=True
             )
             db_user = await create_user(db, user_data)
             is_new_user = True
+
+        if not db_user:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to create user in database",
+            )
 
         # Create access token
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -219,10 +229,8 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
             expires_delta=access_token_expires,
         )
 
-        # Get redirect URL from session or default to home
-        redirect_url = request.session.get("next", "/")
-        if is_new_user:
-            redirect_url = "/setup-organization"
+        # Determine redirect URL
+        redirect_url = f"/setup-organization?user_id={db_user.id}" if is_new_user else "/"
 
         # Create response with token cookie
         response = RedirectResponse(url=redirect_url)
@@ -230,25 +238,12 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
             key="access_token",
             value=f"Bearer {access_token}",
             httponly=True,
-            secure=True,  # Enable for HTTPS
+            secure=True,  # Ensure secure=True in production
             samesite="lax",
         )
 
         return response
 
     except Exception as e:
-        print(f"Error in Google callback: {str(e)}")
+        logging.error(f"Error during Google callback: {e}")
         return RedirectResponse(url="/login?error=google_auth_failed")
-
-
-@router.post("/save-organization")
-async def save_organization(
-    organization_name: str = Form(...),
-    db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user),
-):
-    # Update the user's organization in the database
-    await update_user_organization(db, current_user.id, organization_name)
-
-    # Redirect to account or another relevant page
-    return RedirectResponse(url="/account", status_code=status.HTTP_303_SEE_OTHER)
