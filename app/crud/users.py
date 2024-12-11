@@ -12,6 +12,7 @@ async def create_user(db: AsyncSession, user: schema.UserInDB) -> schema.User:
         username=user.username,
         organization=user.organization,
         hashed_password=user.hashed_password,
+        oauth_type=user.oauth_type
     )
     db.add(db_user)
     await db.commit()
@@ -36,7 +37,7 @@ async def update_user_password_reset_token(
 ):
     result = await db.execute(select(User).filter(User.id == user_id))
     user = result.scalars().first()
-    if user:
+    if user and user.oauth_type == 'Credentials':
         user.password_reset_token = reset_token
         await db.commit()
         await db.refresh(user)
@@ -45,9 +46,9 @@ async def update_user_password_reset_token(
 
 
 async def update_user_organization(
-    db: AsyncSession, user_id: int, organization_name: str
+    db: AsyncSession, username: str, organization_name: str
 ) -> User:
-    result = await db.execute(select(User).filter(User.id == user_id))
+    result = await db.execute(select(User).filter(User.username == username))
     user = result.scalars().first()
     if user:
         user.organization = organization_name
