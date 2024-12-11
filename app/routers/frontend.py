@@ -110,6 +110,10 @@ async def login(  # noqa F811
         errors.append("Incorrect username or password")
         context = {"request": request, "errors": errors}
         return templates.TemplateResponse("auth/login.html", context)
+    if user and user.oauth_type == 'Google':
+        errors.append("Please use Google Sign In Method")
+        context = {"request": request, "errors": errors}
+        return templates.TemplateResponse("auth/login.html", context)
 
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
