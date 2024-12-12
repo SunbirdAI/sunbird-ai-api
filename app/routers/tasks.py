@@ -754,54 +754,54 @@ def handle_openai_message(
         # Step 5: Initialize the Runpod endpoint for transcription
         endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
 
-        logging.info("Audio data found for langauge detection")
-        data = {
-            "input": {
-                "task": "auto_detect_audio_language",
-                "audio_file": blob_name,
-            }
-        }
+        # logging.info("Audio data found for langauge detection")
+        # data = {
+        #     "input": {
+        #         "task": "auto_detect_audio_language",
+        #         "audio_file": blob_name,
+        #     }
+        # }
 
-        start_time = time.time()
+        # start_time = time.time()
 
-        try:
-            logging.info("Audio file ready for langauge detection")
-            audio_lang_response = call_endpoint_with_retry(endpoint, data)
-        except TimeoutError as e:
+        # try:
+        #     logging.info("Audio file ready for langauge detection")
+        #     audio_lang_response = call_endpoint_with_retry(endpoint, data)
+        # except TimeoutError as e:
 
-            logging.error("Job timed out %s", str(e))
-            raise HTTPException(
-                status_code=503, detail="Service unavailable due to timeout."
-            ) from e
+        #     logging.error("Job timed out %s", str(e))
+        #     raise HTTPException(
+        #         status_code=503, detail="Service unavailable due to timeout."
+        #     ) from e
 
-        except ConnectionError as e:
+        # except ConnectionError as e:
 
-            logging.error("Connection lost: %s", str(e))
-            raise HTTPException(
-                status_code=503, detail="Service unavailable due to connection error."
-            ) from e
+        #     logging.error("Connection lost: %s", str(e))
+        #     raise HTTPException(
+        #         status_code=503, detail="Service unavailable due to connection error."
+        #     ) from e
 
-        end_time = time.time()
-        logging.info(
-            "Audio language auto detection response: %s ",
-            audio_lang_response.get("detected_language"),
-        )
+        # end_time = time.time()
+        # logging.info(
+        #     "Audio language auto detection response: %s ",
+        #     audio_lang_response.get("detected_language"),
+        # )
 
-        # Calculate the elapsed time
-        elapsed_time = end_time - start_time
-        logging.info(
-            "Audio language auto detection elapsed time: %s seconds", elapsed_time
-        )
+        # # Calculate the elapsed time
+        # elapsed_time = end_time - start_time
+        # logging.info(
+        #     "Audio language auto detection elapsed time: %s seconds", elapsed_time
+        # )
 
-        audio_language = audio_lang_response.get("detected_language")
-        request_response = {}
+        # audio_language = audio_lang_response.get("detected_language")
+        # request_response = {}
 
-        if audio_language in language_mapping:
-            # Language is in the mapping
-            logging.info("Language detected in audio is %s", audio_language)
-        else:
-            # Language is not in our scope
-            return "Audio Language not detected"
+        # if audio_language in language_mapping:
+        #     # Language is in the mapping
+        #     logging.info("Language detected in audio is %s", audio_language)
+        # else:
+        #     # Language is not in our scope
+        #     return "Audio Language not detected"
 
         try:
 
@@ -821,8 +821,8 @@ def handle_openai_message(
                     {
                         "input": {
                             "task": "transcribe",
-                            "target_lang": audio_language,
-                            "adapter": audio_language,
+                            "target_lang": target_language,
+                            "adapter": target_language,
                             "audio_file": blob_name,  # Corrected to pass local file path
                             "recognise_speakers": False,
                         }
