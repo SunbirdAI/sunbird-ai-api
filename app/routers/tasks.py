@@ -328,7 +328,7 @@ async def summarise(
 @limiter.limit(get_account_type_limit)
 async def auto_detect_audio_language(
     request: Request,
-    audio: UploadFile = File(...),  # type: ignore
+    audio: UploadFile(...) = File(...),  # type: ignore
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
@@ -389,7 +389,7 @@ async def auto_detect_audio_language(
 @limiter.limit(get_account_type_limit)
 async def speech_to_text(
     request: Request,
-    audio: UploadFile = File(...),  # type: ignore
+    audio: UploadFile(...) = File(...),  # type: ignore
     language: NllbLanguage = Form("lug"),
     adapter: NllbLanguage = Form("lug"),
     recognise_speakers: bool = Form(False),
@@ -487,7 +487,7 @@ async def speech_to_text(
 @limiter.limit(get_account_type_limit)
 async def speech_to_text(
     request: Request,
-    audio: UploadFile = File(...),  # type: ignore
+    audio: UploadFile(...) = File(...),  # type: ignore
     recognise_speakers: bool = Form(False),
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
