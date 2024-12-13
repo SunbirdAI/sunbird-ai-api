@@ -176,8 +176,9 @@ async def change_password(
 async def google_login(request: Request):
     # Get the redirect URI from the request
     redirect_uri = request.url_for("auth:google_callback")
-    if os.getenv("ENVIRONMENT") != 'development':
-        redirect_uri = redirect_uri.replace("http", "https")
+    if os.getenv("ENVIRONMENT") == 'production':
+        redirect_uri = "https://api.sunbird.ai/auth/google/callback"
+        logging.info(f"{redirect_uri}")
 
     # Store the intended destination in session
     request.session["next"] = str(request.query_params.get("next", "/"))
