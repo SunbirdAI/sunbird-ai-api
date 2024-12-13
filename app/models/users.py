@@ -13,4 +13,4 @@ class User(Base):
     organization = Column(String, nullable=False, default="Unknown")
     account_type = Column(String, nullable=False, default="Free")
     password_reset_token = Column(String, nullable=True)
-    oauth_type = Column(String, nullable=False, default="Credentials")
+    oauth_type = Column(String, nullable=True, default="Credentials")
