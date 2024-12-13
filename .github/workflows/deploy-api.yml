@@ -3,7 +3,10 @@ name: Deploy to Cloud Run
 on:
   push:
     branches:
-      - main # Update the branch as needed
+      - main  # Update the branch as needed
+  # pull_request:
+  #   branches:
+  #     - main
 
 jobs:
   deploy:
@@ -13,19 +16,7 @@ jobs:
       # Checkout the code
       - name: Checkout code
         uses: actions/checkout@v3
-
-      # Set up Python environment (for Alembic)
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.10" # Specify the Python version
-
-      # Install dependencies
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt  # Ensure Alembic is in your requirements
-
+      
       # Set up Google Cloud authentication
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v1.1.1
@@ -39,13 +30,6 @@ jobs:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
           service_account_key: ${{ secrets.GCP_SA_KEY }}
           export_default_credentials: true
-
-      # Run Alembic migrations
-      - name: Run Alembic migrations
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }} # Ensure this is set in your repo secrets
-        run: |
-          alembic upgrade head  # Runs the migration to the latest version
 
       # Authenticate Docker with GCP
       - name: Authenticate Docker
@@ -65,5 +49,5 @@ jobs:
           export APP=${{ secrets.APP_NAME }}
           export TAG=gcr.io/${{ secrets.GCP_PROJECT_ID }}/${APP}
           export REGION=${{ secrets.GCP_REGION }}
-
+          
           gcloud run deploy $APP --image $TAG --platform managed --region $REGION --allow-unauthenticated

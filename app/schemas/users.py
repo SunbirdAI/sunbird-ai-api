@@ -31,6 +31,7 @@ class UserGoogle(UserBase):
     account_type: AccountType = AccountType.free
     oauth_type: OAuthType = OAuthType.google
 
+
 class UserInDB(UserBase):
     hashed_password: Optional[str] = None
 
