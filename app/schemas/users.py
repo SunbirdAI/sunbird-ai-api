@@ -1,5 +1,6 @@
 from enum import Enum
 from typing import Optional
+
 from pydantic import BaseModel, ConfigDict, EmailStr
 
 
@@ -10,9 +11,9 @@ class AccountType(str, Enum):
 
 
 class OAuthType(str, Enum):
-    credentials = 'Credentials'
-    google = 'Google'
-    github = 'GitHub'
+    credentials = "Credentials"
+    google = "Google"
+    github = "GitHub"
 
 
 class UserBase(BaseModel):
