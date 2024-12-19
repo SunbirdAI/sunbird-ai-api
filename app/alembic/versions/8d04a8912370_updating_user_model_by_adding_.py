@@ -23,7 +23,7 @@ def upgrade() -> None:
     # Remove the server default after adding the column
     op.alter_column('users', 'oauth_type', server_default=None)
     # ### end Alembic commands ###
-    op.execute("UPDATE users SET oauth_type = Credentials")
+    op.execute("UPDATE users SET oauth_type = 'Credentials'")
 
 
 def downgrade() -> None:

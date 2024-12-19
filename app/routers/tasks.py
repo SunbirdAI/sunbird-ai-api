@@ -76,6 +76,7 @@ from app.schemas.tasks import (
     NllbLanguage,
     NllbTranslationRequest,
     NllbTranslationResponse,
+    SttbLanguage,
     STTTranscript,
     SummarisationRequest,
     SummarisationResponse,
@@ -390,8 +391,8 @@ async def auto_detect_audio_language(
 async def speech_to_text(
     request: Request,
     audio: UploadFile(...) = File(...),  # type: ignore
-    language: NllbLanguage = Form("lug"),
-    adapter: NllbLanguage = Form("lug"),
+    language: SttbLanguage = Form("lug"),
+    adapter: SttbLanguage = Form("lug"),
     recognise_speakers: bool = Form(False),
     whisper: bool = Form(False),
     db: AsyncSession = Depends(get_db),

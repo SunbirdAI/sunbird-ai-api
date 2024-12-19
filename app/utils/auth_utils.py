@@ -30,11 +30,13 @@ def get_password_hash(password: str):
     return pwd_context.hash(password)
 
 
-async def authenticate_user(db: AsyncSession, username: str, password: Optional[str] = None):
+async def authenticate_user(
+    db: AsyncSession, username: str, password: Optional[str] = None
+):
     user = await get_user_by_username(db, username)
     if not user:
         return False
-    if user.oauth_type == 'Credentials':
+    if user.oauth_type == "Credentials":
         if not password or not verify_password(password, user.hashed_password):
             # Return False if the password is invalid
             return False

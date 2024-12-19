@@ -14,4 +14,3 @@ echo $AWS_PROD_DATABASE_CONNECTION_URL
 # psql -h sunbirdai-api-db.cluster-cuzp9mi8kwc3.eu-west-1.rds.amazonaws.com -U postgres -d sunbirdaiapidb -p 5432
 # psql -h sunbird-noise-db.cuzp9mi8kwc3.eu-west-1.rds.amazonaws.com -U postgres -d postgres -p 5432
 # pg_restore --verbose --clean --no-acl --no-owner -h sunbirdai-api-db.cluster-cuzp9mi8kwc3.eu-west-1.rds.amazonaws.com -U postgres -d sunbirdaiapidb latest.dump
-

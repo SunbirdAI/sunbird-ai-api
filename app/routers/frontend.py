@@ -3,7 +3,16 @@ import logging
 from datetime import timedelta
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request, responses, status, Query
+from fastapi import (
+    APIRouter,
+    Depends,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    responses,
+    status,
+)
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
@@ -15,8 +24,13 @@ from app.crud.audio_transcription import (
 from app.crud.audio_transcription import (
     get_audio_transcriptions as crud_audio_transcriptions,
 )
-from app.crud.users import create_user, get_user_by_email, get_user_by_username, update_user_organization
-from app.deps import get_db, get_current_user
+from app.crud.users import (
+    create_user,
+    get_user_by_email,
+    get_user_by_username,
+    update_user_organization,
+)
+from app.deps import get_current_user, get_db
 # from app.routers.auth import get_current_user
 from app.schemas.audio_transcription import AudioTranscriptionBase, ItemQueryParams
 from app.schemas.users import User, UserCreate, UserInDB
@@ -110,7 +124,7 @@ async def login(  # noqa F811
         errors.append("Incorrect username or password")
         context = {"request": request, "errors": errors}
         return templates.TemplateResponse("auth/login.html", context)
-    if user and user.oauth_type == 'Google':
+    if user and user.oauth_type == "Google":
         errors.append("Please use Google Sign In Method")
         context = {"request": request, "errors": errors}
         return templates.TemplateResponse("auth/login.html", context)

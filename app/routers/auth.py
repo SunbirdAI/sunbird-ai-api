@@ -1,6 +1,6 @@
+import logging
 import os
 import uuid
-import logging
 from datetime import timedelta
 
 from authlib.integrations.starlette_client import OAuth
@@ -12,11 +12,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from starlette.config import Config
 
-from app.crud.users import (
+from app.crud.users import (  # update_user_organization,
     create_user,
     get_user_by_email,
     get_user_by_username,
-    # update_user_organization,
     update_user_password_reset_token,
 )
 from app.deps import get_current_user, get_db
@@ -109,7 +108,7 @@ async def request_password_reset(
     response = {"success": False, "error": True, "message": "Something went wrong!"}
     try:
         user = await get_user_by_email(db, request.email)
-        if not user or user.oauth_type != 'Credentials':
+        if not user or user.oauth_type != "Credentials":
             raise HTTPException(status_code=404, detail="User not found")
 
         reset_token = str(uuid.uuid4())
@@ -137,7 +136,7 @@ async def reset_password(request: ResetPassword, db: AsyncSession = Depends(get_
         )
         user = result.scalars().first()
 
-        if not user or user.oauth_type != 'Credentials':
+        if not user or user.oauth_type != "Credentials":
             raise HTTPException(status_code=404, detail="Invalid reset token provided")
 
         user.hashed_password = get_password_hash(request.new_password)
@@ -161,7 +160,7 @@ async def change_password(
 ):
     user = current_user
     user = await get_user_by_email(db, user.email)
-    if user.oauth_type == 'Credentials':
+    if user.oauth_type == "Credentials":
         if not verify_password(request.old_password, user.hashed_password):
             raise HTTPException(status_code=400, detail="Wrong old password given")
         user.hashed_password = get_password_hash(request.new_password)
@@ -176,7 +175,7 @@ async def change_password(
 async def google_login(request: Request):
     # Get the redirect URI from the request
     redirect_uri = request.url_for("auth:google_callback")
-    if os.getenv("ENVIRONMENT") == 'production':
+    if os.getenv("ENVIRONMENT") == "production":
         redirect_uri = "https://api.sunbird.ai/auth/google/callback"
         logging.info(f"{redirect_uri}")
 
@@ -232,7 +231,9 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
         )
 
         # Determine redirect URL
-        redirect_url = f"/setup-organization" if db_user.organization == 'Unknown' else "/"
+        redirect_url = (
+            f"/setup-organization" if db_user.organization == "Unknown" else "/"
+        )
 
         # Include token in header response
         response = RedirectResponse(url=redirect_url)
