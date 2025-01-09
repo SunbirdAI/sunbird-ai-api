@@ -68,6 +68,19 @@ class NllbLanguage(str, Enum):
     runyankole = "nyn"
 
 
+class SttbLanguage(str, Enum):
+    acholi = "ach"
+    ateso = "teo"
+    english = "eng"
+    luganda = "lug"
+    lugbara = "lgg"
+    runyankole = "nyn"
+    swahili = "swa"
+    kinyarwanda = "kin"
+    lusoga = "xog"
+    lumasaba = "myx"
+
+
 class NllbTranslationRequest(BaseModel):
     source_language: NllbLanguage
     target_language: NllbLanguage

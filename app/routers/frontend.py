@@ -3,7 +3,16 @@ import logging
 from datetime import timedelta
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request, responses, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    responses,
+    status,
+)
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
@@ -15,9 +24,14 @@ from app.crud.audio_transcription import (
 from app.crud.audio_transcription import (
     get_audio_transcriptions as crud_audio_transcriptions,
 )
-from app.crud.users import create_user, get_user_by_email, get_user_by_username
-from app.deps import get_db
-from app.routers.auth import get_current_user
+from app.crud.users import (
+    create_user,
+    get_user_by_email,
+    get_user_by_username,
+    update_user_organization,
+)
+from app.deps import get_current_user, get_db
+# from app.routers.auth import get_current_user
 from app.schemas.audio_transcription import AudioTranscriptionBase, ItemQueryParams
 from app.schemas.users import User, UserCreate, UserInDB
 from app.utils.auth_utils import (
@@ -46,6 +60,7 @@ async def home(
     if not token:  # if token is invalid or not present
         # Redirect to login page
         return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
+
     context = {"request": request}
     return templates.TemplateResponse("home.html", context)
 
@@ -70,7 +85,30 @@ async def terms_of_service(request: Request):  # type: ignore
 
 @router.get("/setup-organization")
 async def setup_organization(request: Request):
-    return templates.TemplateResponse("setup_organization.html", {"request": request})
+    # Render the setup page with the user ID
+    return templates.TemplateResponse(
+        "auth/setup_organization.html",
+        {"request": request},
+    )
+
+
+@router.post("/setup-organization")
+async def save_organization(
+    request: Request,
+    organization_name: str = Form(...),
+    db: AsyncSession = Depends(get_db),
+    # current_user=Depends(get_current_user),
+):
+    # Update the user's organization in the database
+    token = request.cookies.get("access_token").split("Bearer ")[-1]
+    print(f"request token {request.cookies.get('access_token')} {token}")
+    username = get_username_from_token(token)
+
+    logging.info(f"Save to database {organization_name}")
+    await update_user_organization(db, username, organization_name)
+
+    # Redirect to account or another relevant page
+    return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.post("/login")
@@ -84,6 +122,10 @@ async def login(  # noqa F811
     user = await authenticate_user(db, username, password)
     if not user:
         errors.append("Incorrect username or password")
+        context = {"request": request, "errors": errors}
+        return templates.TemplateResponse("auth/login.html", context)
+    if user and user.oauth_type == "Google":
+        errors.append("Please use Google Sign In Method")
         context = {"request": request, "errors": errors}
         return templates.TemplateResponse("auth/login.html", context)
 

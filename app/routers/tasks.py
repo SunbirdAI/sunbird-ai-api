@@ -77,6 +77,7 @@ from app.schemas.tasks import (
     NllbLanguage,
     NllbTranslationRequest,
     NllbTranslationResponse,
+    SttbLanguage,
     STTTranscript,
     SummarisationRequest,
     SummarisationResponse,
@@ -396,8 +397,8 @@ async def auto_detect_audio_language(
 async def speech_to_text(
     request: Request,
     audio: UploadFile(...) = File(...),  # type: ignore
-    language: NllbLanguage = Form("lug"),
-    adapter: NllbLanguage = Form("lug"),
+    language: SttbLanguage = Form("lug"),
+    adapter: SttbLanguage = Form("lug"),
     recognise_speakers: bool = Form(False),
     whisper: bool = Form(False),
     db: AsyncSession = Depends(get_db),
@@ -760,54 +761,54 @@ async def verify_webhook(mode: str, token: str, challenge: str):
 #         # Step 5: Initialize the Runpod endpoint for transcription
 #         endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
 
-#         logging.info("Audio data found for langauge detection")
-#         data = {
-#             "input": {
-#                 "task": "auto_detect_audio_language",
-#                 "audio_file": blob_name,
-#             }
-#         }
+        logging.info("Audio data found for langauge detection")
+        data = {
+            "input": {
+                "task": "auto_detect_audio_language",
+                "audio_file": blob_name,
+            }
+        }
 
-#         start_time = time.time()
+        start_time = time.time()
 
-#         try:
-#             logging.info("Audio file ready for langauge detection")
-#             audio_lang_response = call_endpoint_with_retry(endpoint, data)
-#         except TimeoutError as e:
+        try:
+            logging.info("Audio file ready for langauge detection")
+            audio_lang_response = call_endpoint_with_retry(endpoint, data)
+        except TimeoutError as e:
 
-#             logging.error("Job timed out %s", str(e))
-#             raise HTTPException(
-#                 status_code=503, detail="Service unavailable due to timeout."
-#             ) from e
+            logging.error("Job timed out %s", str(e))
+            raise HTTPException(
+                status_code=503, detail="Service unavailable due to timeout."
+            ) from e
 
-#         except ConnectionError as e:
+        except ConnectionError as e:
 
-#             logging.error("Connection lost: %s", str(e))
-#             raise HTTPException(
-#                 status_code=503, detail="Service unavailable due to connection error."
-#             ) from e
+            logging.error("Connection lost: %s", str(e))
+            raise HTTPException(
+                status_code=503, detail="Service unavailable due to connection error."
+            ) from e
 
-#         end_time = time.time()
-#         logging.info(
-#             "Audio language auto detection response: %s ",
-#             audio_lang_response.get("detected_language"),
-#         )
+        end_time = time.time()
+        logging.info(
+            "Audio language auto detection response: %s ",
+            audio_lang_response.get("detected_language"),
+        )
 
-#         # Calculate the elapsed time
-#         elapsed_time = end_time - start_time
-#         logging.info(
-#             "Audio language auto detection elapsed time: %s seconds", elapsed_time
-#         )
+        # Calculate the elapsed time
+        elapsed_time = end_time - start_time
+        logging.info(
+            "Audio language auto detection elapsed time: %s seconds", elapsed_time
+        )
 
-#         audio_language = audio_lang_response.get("detected_language")
-#         request_response = {}
+        audio_language = audio_lang_response.get("detected_language")
+        request_response = {}
 
-#         if audio_language in language_mapping:
-#             # Language is in the mapping
-#             logging.info("Language detected in audio is %s", audio_language)
-#         else:
-#             # Language is not in our scope
-#             return "Audio Language not detected"
+        if audio_language in language_mapping:
+            # Language is in the mapping
+            logging.info("Language detected in audio is %s", audio_language)
+        else:
+            # Language is not in our scope
+            return "Audio Language not detected"
 
 #         try:
 
@@ -821,20 +822,20 @@ async def verify_webhook(mode: str, token: str, challenge: str):
 #                 phone_number_id,
 #             )
 
-#             try:
-#                 # Step 7: Call the transcription service with the correct parameters
-#                 request_response = endpoint.run_sync(
-#                     {
-#                         "input": {
-#                             "task": "transcribe",
-#                             "target_lang": audio_language,
-#                             "adapter": audio_language,
-#                             "audio_file": blob_name,  # Corrected to pass local file path
-#                             "recognise_speakers": False,
-#                         }
-#                     },
-#                     timeout=150,  # Set a timeout for the transcription job.
-#                 )
+            try:
+                # Step 7: Call the transcription service with the correct parameters
+                request_response = endpoint.run_sync(
+                    {
+                        "input": {
+                            "task": "transcribe",
+                            "target_lang": audio_language,
+                            "adapter": audio_language,
+                            "audio_file": blob_name,  # Corrected to pass local file path
+                            "recognise_speakers": False,
+                        }
+                    },
+                    timeout=150,  # Set a timeout for the transcription job.
+                )
 
 #                 # Step 8: Notify the user that transcription is in progress
 #                 send_message(
