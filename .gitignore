@@ -9,6 +9,7 @@ __pycache__/
 *.py[cod]
 test.db
 .coverage
+.pylintrc
 env/
 key.json
 

@@ -7,7 +7,7 @@ import time
 from typing import Any, List, Dict, Union
 import requests
 from datetime import datetime
-from fastapi import APIRouter, HTTPException
+from fastapi import HTTPException
 from dotenv import load_dotenv
 from requests_toolbelt import MultipartEncoder
 import runpod
@@ -32,35 +32,6 @@ class WhatsAppService:
             "Content-Type": "application/json",
         }
 
-    # def send_message(self, recipient_id: str, message: str, preview_url: bool = True) -> Union[Dict, None]:
-    #     url = f"{self.base_url}/{self.phone_number_id}/messages"
-    #     data = {
-    #         "messaging_product": "whatsapp",
-    #         "to": recipient_id,
-    #         "text": {"preview_url": preview_url, "body": message},
-    #     }
-    #     logging.info(f"Sending message to {recipient_id}")
-    #     response = requests.post(url, headers=self.headers, json=data)
-    #     if response.status_code == 200:
-    #         logging.info("Message sent successfully.")
-    #         return response.json()
-    #     else:
-    #         logging.error(f"Failed to send message: {response.text}")
-    #         return None
-
-    # def download_media(self, media_url: str, save_path: str) -> Union[str, None]:
-    #     response = requests.get(media_url, headers=self.headers)
-    #     if response.status_code == 200:
-    #         with open(save_path, "wb") as file:
-    #             file.write(response.content)
-    #         logging.info(f"Media downloaded successfully to {save_path}.")
-    #         return save_path
-    #     else:
-    #         logging.error(f"Failed to download media: {response.text}")
-    #         return None
-        
-    #######################################################################
-
     def download_whatsapp_audio(self, url, access_token):
         try:
             # Generate a random string and get the current timestamp
@@ -79,7 +50,7 @@ class WhatsAppService:
                 with open(local_audio_path, "wb") as f:
                     f.write(response.content)
 
-                logging.info(f"Whatsapp audio download was successfull: {local_audio_path}")
+                logging.info(f"Whatsapp audio download was successfull: {local_audio_path}") # pylint: disable=logging-fstring-interpolation
                 return local_audio_path
             else:
                 raise HTTPException(status_code=500, detail="Failed to download audio file")
@@ -1267,51 +1238,51 @@ class WhatsAppService:
             # Step 5: Initialize the Runpod endpoint for transcription
             endpoint = runpod.Endpoint(os.getenv("RUNPOD_ENDPOINT_ID"))
 
-            logging.info("Audio data found for langauge detection")
-            data = {
-                "input": {
-                    "task": "auto_detect_audio_language",
-                    "audio_file": blob_name,
-                }
-            }
+            # logging.info("Audio data found for langauge detection")
+            # data = {
+            #     "input": {
+            #         "task": "auto_detect_audio_language",
+            #         "audio_file": blob_name,
+            #     }
+            # }
 
-            start_time = time.time()
+            # start_time = time.time()
 
-            try:
-                logging.info("Audio file ready for langauge detection")
-                audio_lang_response = call_endpoint_with_retry(endpoint, data)
-            except TimeoutError as e:
+            # try:
+            #     logging.info("Audio file ready for langauge detection")
+            #     audio_lang_response = call_endpoint_with_retry(endpoint, data)
+            # except TimeoutError as e:
 
-                logging.error("Job timed out %s", str(e))
-                raise HTTPException(
-                    status_code=503, detail="Service unavailable due to timeout."
-                ) from e
+            #     logging.error("Job timed out %s", str(e))
+            #     raise HTTPException(
+            #         status_code=503, detail="Service unavailable due to timeout."
+            #     ) from e
 
-            except ConnectionError as e:
+            # except ConnectionError as e:
 
-                logging.error("Connection lost: %s", str(e))
-                raise HTTPException(
-                    status_code=503, detail="Service unavailable due to connection error."
-                ) from e
+            #     logging.error("Connection lost: %s", str(e))
+            #     raise HTTPException(
+            #         status_code=503, detail="Service unavailable due to connection error."
+            #     ) from e
 
-            end_time = time.time()
-            logging.info(
-                "Audio language auto detection response: %s ",
-                audio_lang_response.get("detected_language"),
-            )
+            # end_time = time.time()
+            # logging.info(
+            #     "Audio language auto detection response: %s ",
+            #     audio_lang_response.get("detected_language"),
+            # )
 
-            # Calculate the elapsed time
-            elapsed_time = end_time - start_time
-            logging.info(
-                "Audio language auto detection elapsed time: %s seconds", elapsed_time
-            )
+            # # Calculate the elapsed time
+            # elapsed_time = end_time - start_time
+            # logging.info(
+            #     "Audio language auto detection elapsed time: %s seconds", elapsed_time
+            # )
 
-            audio_language = audio_lang_response.get("detected_language")
+            # audio_language = audio_lang_response.get("detected_language")
             request_response = {}
 
-            if audio_language in language_mapping:
+            if target_language in language_mapping:
                 # Language is in the mapping
-                logging.info("Language detected in audio is %s", audio_language)
+                logging.info("Language detected in audio is %s", target_language)
             else:
                 # Language is not in our scope
                 return "Audio Language not detected"
@@ -1334,8 +1305,8 @@ class WhatsAppService:
                         {
                             "input": {
                                 "task": "transcribe",
-                                "target_lang": audio_language,
-                                "adapter": audio_language,
+                                "target_lang": target_language,
+                                "adapter": target_language,
                                 "audio_file": blob_name,  # Corrected to pass local file path
                                 "recognise_speakers": False,
                             }
