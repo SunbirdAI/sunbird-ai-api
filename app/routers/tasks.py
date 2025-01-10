@@ -1,14 +1,10 @@
 import datetime
 import json
 import logging
-import mimetypes
 import os
-import re
 import shutil
 import time
-import uuid
 
-import requests
 import runpod
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
@@ -22,25 +18,13 @@ from tenacity import (
     stop_after_attempt,
     wait_exponential,
 )
-from twilio.rest import Client
 from werkzeug.utils import secure_filename
 
 from app.crud.audio_transcription import create_audio_transcription
 from app.crud.monitoring import log_endpoint
 from app.deps import get_current_user, get_db
-from app.inference_services.openai_script import (
-    classify_input,
-    get_completion_from_messages,
-    get_guide_based_on_classification,
-    is_json,
-)
 from app.inference_services.user_preference import (
-    get_user_last_five_messages,
-    get_user_preference,
-    save_message,
-    save_translation,
-    save_user_preference,
-    update_feedback,
+    get_user_preference
 )
 from app.schemas.tasks import (
     AudioDetectedLanguageResponse,
