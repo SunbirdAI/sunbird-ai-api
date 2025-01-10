@@ -605,14 +605,14 @@ async def webhook(payload: dict):
     try:
         logging.info("Received payload: %s", json.dumps(payload, indent=2))
 
-        if not valid_payload(payload):
+        if not whatsapp_service.valid_payload(payload):
             return {"status": "ignored"}
 
-        messages = get_messages_from_payload(payload)
+        messages = whatsapp_service.get_messages_from_payload(payload)
         if messages:
-            phone_number_id = get_phone_number_id(payload)
-            from_number = get_from_number(payload)
-            sender_name = get_name(payload)
+            phone_number_id = whatsapp_service.get_phone_number_id(payload)
+            from_number = whatsapp_service.get_from_number(payload)
+            sender_name = whatsapp_service.get_name(payload)
             target_language = get_user_preference(from_number)
 
             message = whatsapp_service.handle_openai_message(
