@@ -23,3 +23,4 @@ slowapi==0.1.9
 twilio==9.2.3
 tenacity==8.5.0
 Werkzeug==3.0.3
+pydub==0.25.1
