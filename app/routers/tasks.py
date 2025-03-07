@@ -4,10 +4,13 @@ import logging
 import os
 import shutil
 import time
+import mimetypes
+from pydub import AudioSegment
+from pydub.exceptions import CouldntDecodeError
 
 import runpod
 from dotenv import load_dotenv
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, Response
 from jose import jwt
 from app.inference_services.whatsapp_service import WhatsAppService
 from slowapi import Limiter
@@ -78,6 +81,17 @@ languages_obj = {
     "11": "nyn",
 }
 
+# Constants for file limits
+MAX_AUDIO_FILE_SIZE_MB = 10  # 15MB limit
+MAX_AUDIO_DURATION_MINUTES = 10  # 15 minutes limit
+ALLOWED_AUDIO_TYPES = {
+    'audio/mpeg': ['.mp3'],
+    'audio/wav': ['.wav'],
+    'audio/x-wav': ['.wav'],
+    'audio/ogg': ['.ogg'],
+    'audio/x-m4a': ['.m4a'],
+    'audio/aac': ['.aac']
+}
 
 def custom_key_func(request: Request):
     header = request.headers.get("Authorization")
@@ -363,87 +377,186 @@ async def speech_to_text(
     current_user=Depends(get_current_user),
 ) -> STTTranscript:
     """
-    Upload an audio file and get the transcription text of the audio
+    Upload an audio file and get the transcription text of the audio.
+    
+    Limitations:
+    - Maximum file size: 15MB
+    - Maximum audio duration: Files longer than 15 minutes will be trimmed to first 15 minutes
+    - Supported formats: MP3, WAV, OGG, M4A, AAC
     """
-    endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
-    user = current_user
-
-    filename = secure_filename(audio.filename)
-    # Add a timestamp to the file name
-    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    unique_file_name = f"{timestamp}_{filename}"
-    file_path = os.path.join("/tmp", unique_file_name)
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(audio.file, buffer)
-
-    blob_name, blob_url = upload_audio_file(file_path=file_path)
-    audio_file = blob_name
-    os.remove(file_path)
-    request_response = {}
-
-    data = {
-        "input": {
-            "task": "transcribe",
-            "target_lang": language,
-            "adapter": adapter,
-            "audio_file": audio_file,
-            "whisper": whisper,
-            "recognise_speakers": recognise_speakers,
-        }
-    }
-
-    start_time = time.time()
-
+    was_audio_trimmed = False
     try:
-        request_response = await call_endpoint_with_retry(endpoint, data)
-    except TimeoutError as e:
-        logging.error(f"Job timed out: {str(e)}")
+        # 1. Validate file size
+        content = await audio.read()
+        file_size_mb = len(content) / (1024 * 1024)  # Convert to MB
+        if file_size_mb > MAX_AUDIO_FILE_SIZE_MB:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File size ({file_size_mb:.1f}MB) exceeds the maximum allowed size of {MAX_AUDIO_FILE_SIZE_MB}MB"
+            )
+        
+        # 2. Validate file type
+        content_type = audio.content_type
+        file_extension = os.path.splitext(audio.filename)[1].lower()
+        if content_type not in ALLOWED_AUDIO_TYPES or file_extension not in ALLOWED_AUDIO_TYPES.get(content_type, []):
+            raise HTTPException(
+                status_code=415,
+                detail=f"Unsupported file type. Supported formats: {', '.join([ext for exts in ALLOWED_AUDIO_TYPES.values() for ext in exts])}"
+            )
+
+        # 3. Save file temporarily and validate/trim duration
+        filename = secure_filename(audio.filename)
+        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        unique_file_name = f"{timestamp}_{filename}"
+        file_path = os.path.join("/tmp", unique_file_name)
+        trimmed_file_path = os.path.join("/tmp", f"trimmed_{unique_file_name}")
+        
+        with open(file_path, "wb") as buffer:
+            buffer.write(content)
+
+        try:
+            audio_segment = AudioSegment.from_file(file_path)
+            duration_minutes = len(audio_segment) / (1000 * 60)  # Convert to minutes
+            
+            if duration_minutes > MAX_AUDIO_DURATION_MINUTES:
+                # Trim to first 15 minutes
+                was_audio_trimmed = True
+                original_duration = duration_minutes
+                trimmed_audio = audio_segment[:(MAX_AUDIO_DURATION_MINUTES * 60 * 1000)]  # Convert minutes to milliseconds
+                trimmed_audio.export(trimmed_file_path, format=file_extension[1:])  # Remove dot from extension
+                os.remove(file_path)  # Remove original file
+                file_path = trimmed_file_path  # Use trimmed file for further processing
+                logging.info(f"Audio file trimmed from {duration_minutes:.1f} minutes to {MAX_AUDIO_DURATION_MINUTES} minutes")
+
+        except CouldntDecodeError:
+            os.remove(file_path)
+            if os.path.exists(trimmed_file_path):
+                os.remove(trimmed_file_path)
+            raise HTTPException(
+                status_code=400,
+                detail="Could not decode audio file. Please ensure the file is not corrupted."
+            )
+
+        # 4. Upload to cloud storage
+        try:
+            blob_name, blob_url = upload_audio_file(file_path=file_path)
+            if not blob_name or not blob_url:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Failed to upload audio file to cloud storage"
+                )
+        except Exception as e:
+            logging.error(f"Cloud storage upload error: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to upload audio file to cloud storage"
+            )
+        finally:
+            os.remove(file_path)
+            if os.path.exists(trimmed_file_path):
+                os.remove(trimmed_file_path)
+
+        # 5. Prepare transcription request
+        endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
+        request_response = {}
+        data = {
+            "input": {
+                "task": "transcribe",
+                "target_lang": language,
+                "adapter": adapter,
+                "audio_file": blob_name,
+                "whisper": whisper,
+                "recognise_speakers": recognise_speakers,
+            }
+        }
+
+        # 6. Process transcription
+        start_time = time.time()
+        try:
+            request_response = await call_endpoint_with_retry(endpoint, data)
+        except TimeoutError as e:
+            logging.error(f"Transcription timeout: {str(e)}")
+            raise HTTPException(
+                status_code=503,
+                detail="Transcription service timed out. Please try again with a shorter audio file."
+            )
+        except ConnectionError as e:
+            logging.error(f"Connection error: {str(e)}")
+            raise HTTPException(
+                status_code=503,
+                detail="Connection error while transcribing. Please try again."
+            )
+        except Exception as e:
+            logging.error(f"Transcription error: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail="An unexpected error occurred during transcription"
+            )
+
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        logging.info(f"Transcription completed in {elapsed_time:.2f} seconds")
+
+        # 7. Process and validate transcription result
+        transcription = request_response.get("audio_transcription")
+        if not transcription:
+            raise HTTPException(
+                status_code=422,
+                detail="No transcription was generated. The audio might be silent or unclear."
+            )
+
+        # 8. Save transcription to database
+        audio_transcription_id = None
+        if isinstance(transcription, str) and len(transcription) > 0:
+            try:
+                db_audio_transcription = await create_audio_transcription(
+                    db, current_user, blob_url, blob_name, transcription, language
+                )
+                audio_transcription_id = db_audio_transcription.id
+                logging.info(f"Transcription saved to database with ID: {audio_transcription_id}")
+            except Exception as e:
+                logging.error(f"Database error: {str(e)}")
+                # Don't raise an exception here as we still want to return the transcription
+
+        # 9. Log the endpoint usage
+        try:
+            await log_endpoint(db, current_user, request, start_time, end_time)
+        except Exception as e:
+            logging.error(f"Failed to log endpoint usage: {str(e)}")
+
+        # 10. Return response
+        response = STTTranscript(
+            audio_transcription=transcription,
+            diarization_output=request_response.get("diarization_output", {}),
+            formatted_diarization_output=request_response.get(
+                "formatted_diarization_output", ""
+            ),
+            audio_transcription_id=audio_transcription_id,
+            audio_url=blob_url,
+            language=language,
+            was_audio_trimmed=was_audio_trimmed,
+            original_duration_minutes=original_duration if was_audio_trimmed else None
+        )
+
+        # Add warning header if audio was trimmed
+        if was_audio_trimmed:
+            headers = {"X-Audio-Trimmed": "true", "X-Original-Duration": f"{original_duration:.1f}"}
+            return Response(
+                content=response.model_dump_json(),
+                media_type="application/json",
+                headers=headers
+            )
+
+        return response
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Unexpected error in speech_to_text: {str(e)}")
         raise HTTPException(
-            status_code=503, detail="Service unavailable due to timeout."
+            status_code=500,
+            detail="An unexpected error occurred while processing your request"
         )
-    except ConnectionError as e:
-        logging.error(f"Connection lost: {str(e)}")
-        raise HTTPException(
-            status_code=503, detail="Service unavailable due to connection error."
-        )
-
-    end_time = time.time()
-    logging.info(f"Response: {request_response}")
-
-    # Calculate the elapsed time
-    elapsed_time = end_time - start_time
-    logging.info(f"Elapsed time: {elapsed_time} seconds")
-    transcription = request_response.get("audio_transcription")
-
-    # Save transcription in database if it exists
-    audio_transcription_id = None
-    if (
-        transcription is not None
-        and isinstance(transcription, str)
-        and len(transcription) > 0
-    ):
-        db_audio_transcription = await create_audio_transcription(
-            db, current_user, blob_url, blob_name, transcription, language
-        )
-        audio_transcription_id = db_audio_transcription.id
-
-        logging.info(
-            f"Audio transcription in database :{db_audio_transcription.to_dict()}"
-        )
-
-    # Log endpoint in database
-    await log_endpoint(db, user, request, start_time, end_time)
-
-    return STTTranscript(
-        audio_transcription=request_response.get("audio_transcription"),
-        diarization_output=request_response.get("diarization_output", {}),
-        formatted_diarization_output=request_response.get(
-            "formatted_diarization_output", ""
-        ),
-        audio_transcription_id=audio_transcription_id,
-        audio_url=blob_url,
-        language=language,
-    )
 
 
 @router.post(

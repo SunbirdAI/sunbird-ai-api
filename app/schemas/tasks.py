@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 from pydantic import BaseModel, Field, constr
 
@@ -7,12 +7,14 @@ from pydantic import BaseModel, Field, constr
 class STTTranscript(BaseModel):
     """changes"""
 
-    audio_transcription: Optional[str] = Field(None)
-    diarization_output: Optional[dict] = Field(None)
-    formatted_diarization_output: Optional[str] = Field(None)
-    audio_transcription_id: Optional[int] = Field(None)
-    audio_url: Optional[str] = Field(None)
-    language: Optional[str] = Field(None)
+    audio_transcription: Optional[str] = None
+    diarization_output: Optional[Dict[str, Any]] = {}
+    formatted_diarization_output: Optional[str] = None
+    audio_transcription_id: Optional[int] = None
+    audio_url: Optional[str] = None
+    language: Optional[str] = None
+    was_audio_trimmed: Optional[bool] = False
+    original_duration_minutes: Optional[float] = None
 
 
 class NllbResponseOutputData(BaseModel):
