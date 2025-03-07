@@ -388,7 +388,8 @@ async def speech_to_text(
     try:
         # 1. Validate file size
         content = await audio.read()
-        file_size_mb = len(content) / (1024 * 1024)  # Convert to MB
+        # Convert to MB
+        file_size_mb = len(content) / (1024 * 1024)  
         if file_size_mb > MAX_AUDIO_FILE_SIZE_MB:
             raise HTTPException(
                 status_code=413,
@@ -416,7 +417,8 @@ async def speech_to_text(
 
         try:
             audio_segment = AudioSegment.from_file(file_path)
-            duration_minutes = len(audio_segment) / (1000 * 60)  # Convert to minutes
+            # Convert to minutes
+            duration_minutes = len(audio_segment) / (1000 * 60)  
             
             if duration_minutes > MAX_AUDIO_DURATION_MINUTES:
                 # Trim to first 15 minutes
