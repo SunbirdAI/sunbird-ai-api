@@ -82,8 +82,8 @@ languages_obj = {
 }
 
 # Constants for file limits
-MAX_AUDIO_FILE_SIZE_MB = 10  # 15MB limit
-MAX_AUDIO_DURATION_MINUTES = 10  # 15 minutes limit
+MAX_AUDIO_FILE_SIZE_MB = 10  # 10MB limit
+MAX_AUDIO_DURATION_MINUTES = 10  # 10 minutes limit
 ALLOWED_AUDIO_TYPES = {
     'audio/mpeg': ['.mp3'],
     'audio/wav': ['.wav'],
@@ -380,8 +380,8 @@ async def speech_to_text(
     Upload an audio file and get the transcription text of the audio.
     
     Limitations:
-    - Maximum file size: 15MB
-    - Maximum audio duration: Files longer than 15 minutes will be trimmed to first 15 minutes
+    - Maximum file size: 10MB
+    - Maximum audio duration: Files longer than 10 minutes will be trimmed to first 10 minutes
     - Supported formats: MP3, WAV, OGG, M4A, AAC
     """
     was_audio_trimmed = False
