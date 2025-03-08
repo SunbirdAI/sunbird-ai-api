@@ -390,11 +390,11 @@ async def speech_to_text(
         content = await audio.read()
         # Convert to MB
         file_size_mb = len(content) / (1024 * 1024)  
-        # if file_size_mb > MAX_AUDIO_FILE_SIZE_MB:
-        #     raise HTTPException(
-        #         status_code=413,
-        #         detail=f"File size ({file_size_mb:.1f}MB) exceeds the maximum allowed size of {MAX_AUDIO_FILE_SIZE_MB}MB"
-        #     )
+        if file_size_mb > MAX_AUDIO_FILE_SIZE_MB:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File size ({file_size_mb:.1f}MB) exceeds the maximum allowed size of {MAX_AUDIO_FILE_SIZE_MB}MB"
+            )
         
         # 2. Validate file type
         content_type = audio.content_type
