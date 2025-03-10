@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 
 import redis.asyncio as redis
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -17,6 +17,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from tenacity import RetryError, retry, stop_after_attempt, wait_exponential
 
 from app.docs import description, tags_metadata
@@ -30,6 +31,24 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+
+# Constants for file upload limits
+MAX_UPLOAD_SIZE = int(os.getenv("MAX_CONTENT_LENGTH", 100 * 1024 * 1024))  # Default 100MB
+
+class LargeUploadMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if request.method == "POST":
+            content_length = request.headers.get("content-length")
+            if content_length:
+                content_length = int(content_length)
+                if content_length > MAX_UPLOAD_SIZE:
+                    logger.warning(f"File upload rejected: size {content_length/1024/1024:.1f}MB exceeds limit of {MAX_UPLOAD_SIZE/1024/1024:.1f}MB")
+                    return Response(
+                        content=f"File too large. Maximum size is {MAX_UPLOAD_SIZE/1024/1024:.1f}MB. For larger files, only the first 10 minutes will be transcribed.",
+                        status_code=413
+                    )
+        response = await call_next(request)
+        return response
 
 
 @retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=1, max=5))
@@ -86,6 +105,9 @@ app = FastAPI(
     openapi_tags=tags_metadata,
     lifespan=lifespan,
 )
+
+# Add custom upload size middleware before other middleware
+app.add_middleware(LargeUploadMiddleware)
 
 # Add SessionMiddleware to enable session-based authentication
 app.add_middleware(SessionMiddleware, secret_key=os.getenv("SECRET_KEY"))
