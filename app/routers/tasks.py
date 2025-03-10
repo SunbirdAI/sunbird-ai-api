@@ -7,6 +7,8 @@ import time
 import mimetypes
 from pydub import AudioSegment
 from pydub.exceptions import CouldntDecodeError
+import tempfile
+import aiofiles
 
 import runpod
 from dotenv import load_dotenv
@@ -82,8 +84,9 @@ languages_obj = {
 }
 
 # Constants for file limits
-MAX_AUDIO_FILE_SIZE_MB = 10  # 15MB limit
-MAX_AUDIO_DURATION_MINUTES = 10  # 15 minutes limit
+MAX_AUDIO_FILE_SIZE_MB = 10  # 10MB limit
+MAX_AUDIO_DURATION_MINUTES = 10  # 10 minutes limit
+CHUNK_SIZE = 1024 * 1024  # 1MB chunks for streaming
 ALLOWED_AUDIO_TYPES = {
     'audio/mpeg': ['.mp3'],
     'audio/wav': ['.wav'],
@@ -380,23 +383,15 @@ async def speech_to_text(
     Upload an audio file and get the transcription text of the audio.
     
     Limitations:
-    - Maximum file size: 15MB
-    - Maximum audio duration: Files longer than 15 minutes will be trimmed to first 15 minutes
+    - Maximum audio duration: Files longer than 10 minutes will be trimmed to first 10 minutes
     - Supported formats: MP3, WAV, OGG, M4A, AAC
+    - Large files are supported but only first 10 minutes will be transcribed
     """
     was_audio_trimmed = False
+    original_duration = None
+    
     try:
-        # 1. Validate file size
-        content = await audio.read()
-        # Convert to MB
-        file_size_mb = len(content) / (1024 * 1024)  
-        if file_size_mb > MAX_AUDIO_FILE_SIZE_MB:
-            raise HTTPException(
-                status_code=413,
-                detail=f"File size ({file_size_mb:.1f}MB) exceeds the maximum allowed size of {MAX_AUDIO_FILE_SIZE_MB}MB"
-            )
-        
-        # 2. Validate file type
+        # 1. Validate file type first to fail fast if unsupported
         content_type = audio.content_type
         file_extension = os.path.splitext(audio.filename)[1].lower()
         if content_type not in ALLOWED_AUDIO_TYPES or file_extension not in ALLOWED_AUDIO_TYPES.get(content_type, []):
@@ -405,30 +400,32 @@ async def speech_to_text(
                 detail=f"Unsupported file type. Supported formats: {', '.join([ext for exts in ALLOWED_AUDIO_TYPES.values() for ext in exts])}"
             )
 
-        # 3. Save file temporarily and validate/trim duration
-        filename = secure_filename(audio.filename)
-        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        unique_file_name = f"{timestamp}_{filename}"
-        file_path = os.path.join("/tmp", unique_file_name)
-        trimmed_file_path = os.path.join("/tmp", f"trimmed_{unique_file_name}")
-        
-        with open(file_path, "wb") as buffer:
-            buffer.write(content)
+        # 2. Create temporary files
+        with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
+            file_path = temp_file.name
+            # Stream the file in chunks to avoid memory issues
+            async with aiofiles.open(file_path, 'wb') as out_file:
+                while content := await audio.read(CHUNK_SIZE):
+                    await out_file.write(content)
+
+        trimmed_file_path = os.path.join(os.path.dirname(file_path), f"trimmed_{os.path.basename(file_path)}")
 
         try:
+            # 3. Load and validate/trim duration
             audio_segment = AudioSegment.from_file(file_path)
-            # Convert to minutes
-            duration_minutes = len(audio_segment) / (1000 * 60)  
+            duration_minutes = len(audio_segment) / (1000 * 60)  # Convert to minutes
             
             if duration_minutes > MAX_AUDIO_DURATION_MINUTES:
-                # Trim to first 15 minutes
+                # Trim to first 10 minutes
                 was_audio_trimmed = True
                 original_duration = duration_minutes
                 trimmed_audio = audio_segment[:(MAX_AUDIO_DURATION_MINUTES * 60 * 1000)]  # Convert minutes to milliseconds
                 trimmed_audio.export(trimmed_file_path, format=file_extension[1:])  # Remove dot from extension
                 os.remove(file_path)  # Remove original file
                 file_path = trimmed_file_path  # Use trimmed file for further processing
-                logging.info(f"Audio file trimmed from {duration_minutes:.1f} minutes to {MAX_AUDIO_DURATION_MINUTES} minutes")
+                logging.info(
+                    f"Audio file trimmed from {duration_minutes:.1f} minutes to {MAX_AUDIO_DURATION_MINUTES} minutes"
+                )
 
         except CouldntDecodeError:
             os.remove(file_path)
@@ -454,7 +451,9 @@ async def speech_to_text(
                 detail="Failed to upload audio file to cloud storage"
             )
         finally:
-            os.remove(file_path)
+            # Clean up temporary files
+            if os.path.exists(file_path):
+                os.remove(file_path)
             if os.path.exists(trimmed_file_path):
                 os.remove(trimmed_file_path)
 
@@ -542,7 +541,12 @@ async def speech_to_text(
 
         # Add warning header if audio was trimmed
         if was_audio_trimmed:
-            headers = {"X-Audio-Trimmed": "true", "X-Original-Duration": f"{original_duration:.1f}"}
+            headers = {
+                "X-Audio-Trimmed": "true",
+                "X-Original-Duration": f"{original_duration:.1f}",
+                "X-Transcribed-Duration": f"{MAX_AUDIO_DURATION_MINUTES}",
+                "Warning": f"Audio file was trimmed from {original_duration:.1f} minutes to {MAX_AUDIO_DURATION_MINUTES} minutes. Only the first {MAX_AUDIO_DURATION_MINUTES} minutes were transcribed."
+            }
             return Response(
                 content=response.model_dump_json(),
                 media_type="application/json",
