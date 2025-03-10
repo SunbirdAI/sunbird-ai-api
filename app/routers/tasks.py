@@ -371,7 +371,7 @@ async def auto_detect_audio_language(
 @limiter.limit(get_account_type_limit)
 async def speech_to_text(
     request: Request,
-    audio: UploadFile(...) = File(...),  # type: ignore
+    audio: UploadFile = File(..., description="Audio file to transcribe"),
     language: SttbLanguage = Form("lug"),
     adapter: SttbLanguage = Form("lug"),
     recognise_speakers: bool = Form(False),
@@ -386,6 +386,8 @@ async def speech_to_text(
     - Maximum audio duration: Files longer than 10 minutes will be trimmed to first 10 minutes
     - Supported formats: MP3, WAV, OGG, M4A, AAC
     - Large files are supported but only first 10 minutes will be transcribed
+    
+    Note: For files larger than 100MB, please use chunked upload or consider splitting the audio file.
     """
     was_audio_trimmed = False
     original_duration = None
