@@ -3,7 +3,8 @@ FROM python:3.11-slim
 RUN apt-get update && apt-get install -y \
  python-is-python3 \
  curl \
- bash
+ bash \
+ ffmpeg
 
 ENV PYTHONUNBUFFERED True
 
