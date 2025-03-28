@@ -1,5 +1,6 @@
 from enum import Enum
 from typing import List, Optional, Dict, Any
+from datetime import datetime, timedelta
 
 from pydantic import BaseModel, Field, constr
 
@@ -131,3 +132,14 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     chat_response: str = Field(min_length=2)
+
+# Create a schema for the upload request
+class UploadRequest(BaseModel):
+    file_name: str
+    content_type: str
+
+# Create a schema for the upload response
+class UploadResponse(BaseModel):
+    upload_url: str
+    file_id: str
+    expires_at: datetime

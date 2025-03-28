@@ -46,6 +46,8 @@ from app.schemas.tasks import (
     STTTranscript,
     SummarisationRequest,
     SummarisationResponse,
+    UploadRequest,
+    UploadResponse,
 )
 from app.utils.auth_utils import ALGORITHM, SECRET_KEY
 from app.utils.upload_audio_file_gcp import upload_audio_file, upload_file_to_bucket
@@ -367,44 +369,84 @@ async def auto_detect_audio_language(
     return request_response
 
 
-@router.post("/generate_upload_url")
-async def generate_upload_url(
-    content_type: str,
-    filename: str,
-    expires_in_seconds: int = 3600,
-):
+# @router.post("/generate_upload_url")
+# async def generate_upload_url(
+#     content_type: str,
+#     filename: str,
+#     expires_in_seconds: int = 3600,
+# ):
+#     """
+#     Generates a signed upload URL that the client can PUT or POST a file to.
+#     - content_type: e.g. "audio/mpeg", "audio/wav", etc.
+#     - filename: the name of the file in GCS (or you can auto-generate one).
+#     - expires_in_seconds: how long the URL should remain valid (default 1 hour).
+#     """
+
+#     # 1. Initialize the GCS client
+#     storage_client = storage.Client()
+
+#     # 2. Reference your GCS bucket
+#     bucket_name = os.getenv("AUDIO_CONTENT_BUCKET_NAME")
+#     bucket = storage_client.bucket(bucket_name)
+
+#     # 3. Create the blob object
+#     #    Optionally, you can prefix it with a folder name, e.g. "uploads/audio/{filename}"
+#     blob = bucket.blob(filename)
+
+#     # 4. Generate the signed URL for upload
+#     url = blob.generate_signed_url(
+#         version="v4",
+#         expiration=timedelta(seconds=expires_in_seconds),
+#         method="PUT",              # or "POST", if you prefer
+#         content_type=content_type, # helps enforce the type on upload
+#     )
+
+#     return {
+#         "upload_url": url,
+#         "gcs_blob_name": filename,
+#         "bucket": bucket_name,
+#         "expires_in": expires_in_seconds
+#     }
+
+@router.post("/generate-upload-url", response_model=UploadResponse)
+async def generate_upload_url(request: UploadRequest):
     """
-    Generates a signed upload URL that the client can PUT or POST a file to.
-    - content_type: e.g. "audio/mpeg", "audio/wav", etc.
-    - filename: the name of the file in GCS (or you can auto-generate one).
-    - expires_in_seconds: how long the URL should remain valid (default 1 hour).
+    Generate a signed URL for direct upload to Google Cloud Storage.
+    This bypasses the Cloud Run request size limits.
     """
-
-    # 1. Initialize the GCS client
-    storage_client = storage.Client()
-
-    # 2. Reference your GCS bucket
-    bucket_name = os.getenv("AUDIO_CONTENT_BUCKET_NAME")
-    bucket = storage_client.bucket(bucket_name)
-
-    # 3. Create the blob object
-    #    Optionally, you can prefix it with a folder name, e.g. "uploads/audio/{filename}"
-    blob = bucket.blob(filename)
-
-    # 4. Generate the signed URL for upload
-    url = blob.generate_signed_url(
-        version="v4",
-        expiration=timedelta(seconds=expires_in_seconds),
-        method="PUT",              # or "POST", if you prefer
-        content_type=content_type, # helps enforce the type on upload
-    )
-
-    return {
-        "upload_url": url,
-        "gcs_blob_name": filename,
-        "bucket": bucket_name,
-        "expires_in": expires_in_seconds
-    }
+    try:
+        # Initialize the storage client
+        storage_client = storage.Client()
+        
+        # Get the bucket - use the same bucket you mentioned in your config
+        bucket = storage_client.bucket("sb-asr-audio-content-sb-gcp-project-01")
+        
+        # Generate a unique file ID
+        file_id = str(uuid.uuid4())
+        
+        # Create a blob with the unique ID as prefix
+        blob_name = f"uploads/{file_id}/{request.file_name}"
+        blob = bucket.blob(blob_name)
+        
+        # Generate a signed URL for uploading
+        expires_at = datetime.utcnow() + timedelta(minutes=10)
+        
+        # Create the signed URL with PUT method
+        signed_url = blob.generate_signed_url(
+            version="v4",
+            expiration=timedelta(minutes=10),
+            method="PUT",
+            content_type=request.content_type,
+        )
+        
+        return UploadResponse(
+            upload_url=signed_url,
+            file_id=file_id,
+            expires_at=expires_at
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating upload URL: {str(e)}")
 
 @router.post("/stt_from_gcs")
 async def speech_to_text_from_gcs(
