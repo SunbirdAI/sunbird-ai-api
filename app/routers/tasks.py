@@ -4,6 +4,7 @@ import logging
 import os
 import shutil
 import time
+from datetime import timedelta
 import mimetypes
 from pydub import AudioSegment
 from pydub.exceptions import CouldntDecodeError
@@ -24,6 +25,7 @@ from tenacity import (
     wait_exponential,
 )
 from werkzeug.utils import secure_filename
+from google.cloud import storage
 
 from app.crud.audio_transcription import create_audio_transcription
 from app.crud.monitoring import log_endpoint
@@ -364,6 +366,228 @@ async def auto_detect_audio_language(
 
     return request_response
 
+
+@router.post("/generate_upload_url")
+async def generate_upload_url(
+    content_type: str,
+    filename: str,
+    expires_in_seconds: int = 3600,
+):
+    """
+    Generates a signed upload URL that the client can PUT or POST a file to.
+    - content_type: e.g. "audio/mpeg", "audio/wav", etc.
+    - filename: the name of the file in GCS (or you can auto-generate one).
+    - expires_in_seconds: how long the URL should remain valid (default 1 hour).
+    """
+
+    # 1. Initialize the GCS client
+    storage_client = storage.Client()
+
+    # 2. Reference your GCS bucket
+    bucket_name = os.getenv("AUDIO_CONTENT_BUCKET_NAME")
+    bucket = storage_client.bucket(bucket_name)
+
+    # 3. Create the blob object
+    #    Optionally, you can prefix it with a folder name, e.g. "uploads/audio/{filename}"
+    blob = bucket.blob(filename)
+
+    # 4. Generate the signed URL for upload
+    url = blob.generate_signed_url(
+        version="v4",
+        expiration=timedelta(seconds=expires_in_seconds),
+        method="PUT",              # or "POST", if you prefer
+        content_type=content_type, # helps enforce the type on upload
+    )
+
+    return {
+        "upload_url": url,
+        "gcs_blob_name": filename,
+        "bucket": bucket_name,
+        "expires_in": expires_in_seconds
+    }
+
+@router.post("/stt_from_gcs")
+async def speech_to_text_from_gcs(
+    request: Request,
+    gcs_blob_name: str = Form(...),
+    language: SttbLanguage = Form("lug"),
+    adapter: SttbLanguage = Form("lug"),
+    recognise_speakers: bool = Form(False),
+    whisper: bool = Form(False),
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+) -> STTTranscript:
+    """
+    Accepts a GCS blob name, downloads the file from GCS, 
+    trims if >10 minutes, uploads a final version (if trimmed),
+    then calls the transcription service.
+    """
+    was_audio_trimmed = False
+    original_duration = None
+    bucket_name = os.getenv("AUDIO_CONTENT_BUCKET_NAME")
+
+    try:
+        # 1. Download the file from GCS
+        storage_client = storage.Client()
+        bucket = storage_client.bucket(bucket_name)
+        blob = bucket.blob(gcs_blob_name)
+
+        if not blob.exists():
+            raise HTTPException(
+                status_code=400,
+                detail=f"GCS blob {gcs_blob_name} does not exist."
+            )
+
+        # Create a local temp file
+        file_extension = os.path.splitext(gcs_blob_name)[1].lower() or ".mp3"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
+            file_path = temp_file.name
+            blob.download_to_filename(file_path)
+
+        trimmed_file_path = os.path.join(
+            os.path.dirname(file_path), 
+            f"trimmed_{os.path.basename(file_path)}"
+        )
+
+        try:
+            # 2. Load and validate/trim duration if > 10 minutes
+            audio_segment = AudioSegment.from_file(file_path)
+            duration_minutes = len(audio_segment) / (1000 * 60)
+
+            if duration_minutes > MAX_AUDIO_DURATION_MINUTES:
+                was_audio_trimmed = True
+                original_duration = duration_minutes
+                trimmed_audio = audio_segment[:(MAX_AUDIO_DURATION_MINUTES * 60 * 1000)]
+                trimmed_audio.export(trimmed_file_path, format=file_extension[1:])
+                os.remove(file_path)  
+                file_path = trimmed_file_path  
+                logging.info(
+                    f"Audio file trimmed from {duration_minutes:.1f} to {MAX_AUDIO_DURATION_MINUTES} minutes."
+                )
+
+        except CouldntDecodeError:
+            os.remove(file_path)
+            if os.path.exists(trimmed_file_path):
+                os.remove(trimmed_file_path)
+            raise HTTPException(
+                status_code=400,
+                detail="Could not decode audio file. Please ensure the file is not corrupted."
+            )
+
+        # 3. Upload final version (trimmed or original) back to GCS if you wish
+        #    This is optional. If you want the final audio stored in GCS as well, do something like:
+        #    new_blob_name = f"processed/{gcs_blob_name}"
+        #    new_blob = bucket.blob(new_blob_name)
+        #    new_blob.upload_from_filename(file_path)
+        #    # Then you can store new_blob_name or new_blob.public_url as needed.
+
+        # 4. Prepare transcription request to your runpod endpoint
+        endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
+        data = {
+            "input": {
+                "task": "transcribe",
+                "target_lang": language,
+                "adapter": adapter,
+                "audio_file": gcs_blob_name, 
+                "whisper": whisper,
+                "recognise_speakers": recognise_speakers,
+            }
+        }
+
+        # 5. Process transcription
+        start_time = time.time()
+        request_response = {}
+        try:
+            request_response = await call_endpoint_with_retry(endpoint, data)
+        except TimeoutError as e:
+            logging.error(f"Transcription timeout: {str(e)}")
+            raise HTTPException(
+                status_code=503,
+                detail="Transcription service timed out. Please try again with a shorter audio file."
+            )
+        except ConnectionError as e:
+            logging.error(f"Connection error: {str(e)}")
+            raise HTTPException(
+                status_code=503,
+                detail="Connection error while transcribing. Please try again."
+            )
+        except Exception as e:
+            logging.error(f"Transcription error: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail="An unexpected error occurred during transcription"
+            )
+        end_time = time.time()
+
+        transcription = request_response.get("audio_transcription")
+        if not transcription:
+            raise HTTPException(
+                status_code=422,
+                detail="No transcription was generated. The audio might be silent or unclear."
+            )
+
+        # 6. Save transcription to DB if needed
+        audio_transcription_id = None
+        if isinstance(transcription, str) and len(transcription) > 0:
+            try:
+                db_audio_transcription = await create_audio_transcription(
+                    db, current_user, f"gs://{bucket_name}/{gcs_blob_name}", 
+                    gcs_blob_name, transcription, language
+                )
+                audio_transcription_id = db_audio_transcription.id
+                logging.info(f"Transcription saved to DB with ID: {audio_transcription_id}")
+            except Exception as e:
+                logging.error(f"Database error: {str(e)}")
+                # Don't raise an exception, continue to return transcription
+
+        # 7. Log usage
+        try:
+            await log_endpoint(db, current_user, request, start_time, end_time)
+        except Exception as e:
+            logging.error(f"Failed to log endpoint usage: {str(e)}")
+
+        # 8. Return response
+        response = STTTranscript(
+            audio_transcription=transcription,
+            diarization_output=request_response.get("diarization_output", {}),
+            formatted_diarization_output=request_response.get("formatted_diarization_output", ""),
+            audio_transcription_id=audio_transcription_id,
+            audio_url=f"gs://{bucket_name}/{gcs_blob_name}",
+            language=language,
+            was_audio_trimmed=was_audio_trimmed,
+            original_duration_minutes=original_duration if was_audio_trimmed else None
+        )
+
+        # Handle trimming warnings
+        if was_audio_trimmed:
+            headers = {
+                "X-Audio-Trimmed": "true",
+                "X-Original-Duration": f"{original_duration:.1f}",
+                "X-Transcribed-Duration": f"{MAX_AUDIO_DURATION_MINUTES}",
+                "Warning": f"Audio trimmed from {original_duration:.1f} min to {MAX_AUDIO_DURATION_MINUTES} min."
+            }
+            return Response(
+                content=response.model_dump_json(),
+                media_type="application/json",
+                headers=headers
+            )
+
+        return response
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Unexpected error in speech_to_text_from_gcs: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="An unexpected error occurred while processing your request"
+        )
+    finally:
+        # Cleanup local files
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        if os.path.exists(trimmed_file_path):
+            os.remove(trimmed_file_path)
 
 @router.post(
     "/stt",
