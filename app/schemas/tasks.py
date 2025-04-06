@@ -1,8 +1,67 @@
-from enum import Enum
-from typing import List, Optional, Dict, Any
+import re
 from datetime import datetime, timedelta
+from enum import Enum
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, constr
+
+
+def to_enum_member_name(lang_name: str) -> str:
+    # Lowercase everything
+    lang_name = lang_name.lower()
+    # Replace spaces, hyphens, apostrophes, and any punctuation with underscores
+    lang_name = re.sub(r"[^a-z0-9]+", "_", lang_name)
+    # Strip any leading or trailing underscores
+    return lang_name.strip("_")
+
+
+# Dictionary mapping language codes to their display names
+LANGUAGE_MAPPING = {
+    "ach": "Acholi",
+    "eng": "English",
+    "ibo": "Igbo",
+    "lgg": "Lugbara",
+    "lug": "Luganda",
+    "nyn": "Runyankole",
+    "swa": "Swahili",
+    "teo": "Ateso",
+    "xog": "Lusoga",
+    "ttj": "Rutooro",
+    "kin": "Kinyarwanda",
+    "myx": "Lumasaba",
+    "adh": "Jopadhola",
+    "alz": "Alur",
+    "bfa": "Bari",
+    "cgg": "Rukiga",
+    "gwr": "Lugwere",
+    "ikx": "Ik",
+    "kdi": "Kumam",
+    "kdj": "Karamojong",
+    "keo": "Kakwa",
+    "koo": "Rukonjo",
+    "kpz": "Kupsabiny",
+    "laj": "Lango",
+    "led": "Lendu",
+    "lsm": "Samia",
+    "lth": "Thur",
+    "luc": "Aringa",
+    "lzm": "Lulubo",
+    "mhi": "Ma'di",
+    "ndp": "Ndo",
+    "pok": "Pokot",
+    "rub": "Lugungu",
+    "ruc": "Ruruuli",
+    "rwm": "Kwamba",
+    "sbx": "Sebei",
+    "soc": "So",
+    "tlj": "Bwisi-Talinga",
+    "nuj": "Lunyole",
+    "nyo": "Runyoro",
+    "luo": "Luo",
+}
+
+# Create a reverse mapping for the Language enum
+LANGUAGE_DISPLAY_TO_CODE = {display: code for code, display in LANGUAGE_MAPPING.items()}
 
 
 class STTTranscript(BaseModel):
@@ -64,11 +123,46 @@ class Language(str, Enum):
 
 class NllbLanguage(str, Enum):
     acholi = "ach"
-    ateso = "teo"
     english = "eng"
-    luganda = "lug"
+    igbo = "ibo"
     lugbara = "lgg"
+    luganda = "lug"
     runyankole = "nyn"
+    swahili = "swa"
+    ateso = "teo"
+    lusoga = "xog"
+    rutooro = "ttj"
+    kinyarwanda = "kin"
+    lumasaba = "myx"
+    jopadhola = "adh"
+    alur = "alz"
+    bari = "bfa"
+    rukiga = "cgg"
+    lugwere = "gwr"
+    ik = "ikx"
+    kumam = "kdi"
+    karamojong = "kdj"
+    kakwa = "keo"
+    rukonjo = "koo"
+    kupsabiny = "kpz"
+    lango = "laj"
+    lendu = "led"
+    samia = "lsm"
+    thur = "lth"
+    aringa = "luc"
+    lulubo = "lzm"
+    ma_di = "mhi"
+    ndo = "ndp"
+    pokot = "pok"
+    lugungu = "rub"
+    ruruuli = "ruc"
+    kwamba = "rwm"
+    sebei = "sbx"
+    so = "soc"
+    bwisi_talinga = "tlj"
+    lunyole = "nuj"
+    runyoro = "nyo"
+    luo = "luo"
 
 
 class SttbLanguage(str, Enum):
@@ -133,10 +227,12 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     chat_response: str = Field(min_length=2)
 
+
 # Create a schema for the upload request
 class UploadRequest(BaseModel):
     file_name: str
     content_type: str
+
 
 # Create a schema for the upload response
 class UploadResponse(BaseModel):
