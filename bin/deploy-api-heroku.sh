@@ -8,7 +8,7 @@ APP_NAME="sunbirdai-api"
 heroku container:login
 
 # Build and Push the Docker Image
-docker build -f Dockerfile.heroku -t registry.heroku.com/$APP_NAME/web .
+docker buildx build --provenance false --platform linux/amd64 -f Dockerfile.heroku -t registry.heroku.com/$APP_NAME/web .
 docker push registry.heroku.com/$APP_NAME/web
 
 # Release the Docker Image

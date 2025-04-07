@@ -1,19 +1,32 @@
-import logging
-import os
 import json
-import secrets
+import logging
 import mimetypes
+import os
+import secrets
 import time
-from typing import Any, List, Dict, Union
-import requests
 from datetime import datetime
-from fastapi import HTTPException
-from dotenv import load_dotenv
-from requests_toolbelt import MultipartEncoder
-import runpod
+from typing import Any, Dict, List, Union
 
-from app.inference_services.openai_script import classify_input, get_completion_from_messages, get_guide_based_on_classification, is_json
-from app.inference_services.user_preference import get_user_last_five_messages, get_user_preference, save_message, save_translation, save_user_preference, update_feedback
+import requests
+import runpod
+from dotenv import load_dotenv
+from fastapi import HTTPException
+from requests_toolbelt import MultipartEncoder
+
+from app.inference_services.openai_script import (
+    classify_input,
+    get_completion_from_messages,
+    get_guide_based_on_classification,
+    is_json,
+)
+from app.inference_services.user_preference import (
+    get_user_last_five_messages,
+    get_user_preference,
+    save_message,
+    save_translation,
+    save_user_preference,
+    update_feedback,
+)
 from app.utils.upload_audio_file_gcp import upload_audio_file
 
 # Load environment variables
@@ -21,6 +34,7 @@ load_dotenv()
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
+
 
 class WhatsAppService:
     def __init__(self, token: str, phone_number_id: str):
@@ -50,16 +64,21 @@ class WhatsAppService:
                 with open(local_audio_path, "wb") as f:
                     f.write(response.content)
 
-                logging.info(f"Whatsapp audio download was successfull: {local_audio_path}") # pylint: disable=logging-fstring-interpolation
+                logging.info(
+                    f"Whatsapp audio download was successfull: {local_audio_path}"
+                )  # pylint: disable=logging-fstring-interpolation
                 return local_audio_path
             else:
-                raise HTTPException(status_code=500, detail="Failed to download audio file")
+                raise HTTPException(
+                    status_code=500, detail="Failed to download audio file"
+                )
 
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
-
-    def send_message(self, message, token, recipient_id, phone_number_id, preview_url=True):
+    def send_message(
+        self, message, token, recipient_id, phone_number_id, preview_url=True
+    ):
         """
         Sends a text message to a WhatsApp user and returns the message ID
 
@@ -74,7 +93,10 @@ class WhatsAppService:
             str: ID of the sent message
         """
         base_url = "https://graph.facebook.com/v12.0"
-        headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        }
         url = f"{base_url}/{phone_number_id}/messages"
         data = {
             "messaging_product": "whatsapp",
@@ -94,8 +116,8 @@ class WhatsAppService:
             logging.error(f"Response: {r.json()}")
             return None
 
-
-    def reply_to_message(self, 
+    def reply_to_message(
+        self,
         token,
         message_id: str,
         recipient_id: str,
@@ -132,8 +154,8 @@ class WhatsAppService:
         logging.info(f"Response: {r.json()}")
         return r.json()
 
-
-    def send_template(self, 
+    def send_template(
+        self,
         token,
         template: str,
         phone_number_id: str,
@@ -182,9 +204,8 @@ class WhatsAppService:
         logging.info(f"Response: {r.json()}")
         return r.json()
 
-
-    def send_templatev2(self, 
-        token, template, recipient_id, components, phone_number_id, lang="en_US"
+    def send_templatev2(
+        self, token, template, recipient_id, components, phone_number_id, lang="en_US"
     ):
         url = f"{self.base_url}/{phone_number_id}/messages?access_token={token}"
         data = {
@@ -207,8 +228,9 @@ class WhatsAppService:
         logging.info(f"Response: {r.json()}")
         return r.json()
 
-
-    def send_location(self, token, lat, long, name, address, recipient_id, phone_number_id):
+    def send_location(
+        self, token, lat, long, name, address, recipient_id, phone_number_id
+    ):
         """
         Sends a location message to a WhatsApp user
 
@@ -242,8 +264,8 @@ class WhatsAppService:
         logging.error(r.json())
         return r.json()
 
-
-    def send_image(self, 
+    def send_image(
+        self,
         token,
         image,
         phone_number_id,
@@ -293,10 +315,8 @@ class WhatsAppService:
         logging.error(r.json())
         return r.json()
 
-
     def send_sticker(self, sticker: str, recipient_id: str, link=True):
         pass
-
 
     def send_audio(self, token, audio, phone_number_id, recipient_id, link=True):
         """
@@ -333,7 +353,6 @@ class WhatsAppService:
         logging.info(f"Status code: {r.status_code}")
         logging.error(f"Response: {r.json()}")
         return r.json()
-
 
     def send_video(self, video, phone_number_id, recipient_id, caption=None, link=True):
         """ "
@@ -372,8 +391,9 @@ class WhatsAppService:
         logging.error(f"Response: {r.json()}")
         return r.json()
 
-
-    def send_document(self, document, phone_number_id, recipient_id, caption=None, link=True):
+    def send_document(
+        self, document, phone_number_id, recipient_id, caption=None, link=True
+    ):
         """ "
         Sends a document message to a WhatsApp user
         Document messages can either be sent by passing the document id or by passing the document link.
@@ -411,9 +431,8 @@ class WhatsAppService:
         logging.error(f"Response: {r.json()}")
         return r.json()
 
-
-    def send_contacts(self, 
-        contacts: List[Dict[Any, Any]], phone_number_id: str, recipient_id: str
+    def send_contacts(
+        self, contacts: List[Dict[Any, Any]], phone_number_id: str, recipient_id: str
     ):
         """send_contacts
 
@@ -442,7 +461,6 @@ class WhatsAppService:
         logging.info(f"Status code: {r.status_code}")
         logging.error(f"Response: {r.json()}")
         return r.json()
-
 
     def upload_media(self, headers, media: str, phone_number_id: str):
         """
@@ -480,7 +498,6 @@ class WhatsAppService:
         logging.info(f"Response: {r.json()}")
         return None
 
-
     def delete_media(self, media_id: str):
         """
         Deletes a media from the cloud api
@@ -497,7 +514,6 @@ class WhatsAppService:
         logging.info(f"Status code: {r.status_code}")
         logging.info(f"Response: {r.json()}")
         return None
-
 
     def mark_as_read(self, token, message_id: str, phone_number_id: str):
         """
@@ -517,10 +533,11 @@ class WhatsAppService:
             "message_id": message_id,
         }
         response = requests.post(
-            f"{self.base_url}/{phone_number_id}/messages", headers=headers, json=json_data
+            f"{self.base_url}/{phone_number_id}/messages",
+            headers=headers,
+            json=json_data,
         ).json()
         return response["success"]
-
 
     def create_button(self, button):
         """
@@ -539,7 +556,6 @@ class WhatsAppService:
         if button.get("footer"):
             data["footer"] = {"text": button.get("footer")}
         return data
-
 
     def send_button(self, button, phone_number_id, recipient_id):
         """
@@ -568,7 +584,6 @@ class WhatsAppService:
         logging.info(f"Status code: {r.status_code}")
         logging.info(f"Response: {r.json()}")
         return r.json()
-
 
     def send_reply_button(self, button, recipient_id, phone_number_id):
         """
@@ -599,7 +614,6 @@ class WhatsAppService:
         logging.info(f"Response: {r.json()}")
         return r.json()
 
-
     def query_media_url(self, media_id, access_token):
         """
         Query media url from media id obtained either by manually uploading media or received media
@@ -623,8 +637,9 @@ class WhatsAppService:
         logging.info(f"Response: {r.json()}")
         return None
 
-
-    def download_media(self, media_url, access_token, file_path="downloaded_media_file"):
+    def download_media(
+        self, media_url, access_token, file_path="downloaded_media_file"
+    ):
         """
         Download the media from the media URL obtained from the WhatsApp Business API.
 
@@ -652,7 +667,6 @@ class WhatsAppService:
                 f"Failed to download media. HTTP Status: {response.status_code}"
             )
 
-
     def preprocess(self, data):
         """
         Preprocesses the data received from the webhook.
@@ -663,7 +677,6 @@ class WhatsAppService:
             data[dict]: The data received from the webhook
         """
         return data["entry"][0]["changes"][0]["value"]
-
 
     def get_mobile(self, data) -> Union[str, None]:
         """
@@ -679,7 +692,6 @@ class WhatsAppService:
         if "contacts" in data:
             return data["contacts"][0]["wa_id"]
 
-
     def get_name(self, data) -> Union[str, None]:
         """
         Extracts the name of the sender from the data received from the webhook.
@@ -693,7 +705,6 @@ class WhatsAppService:
         contact = self.preprocess(data)
         if contact:
             return contact["contacts"][0]["profile"]["name"]
-
 
     def get_message(self, data) -> Union[str, None]:
         """
@@ -709,7 +720,6 @@ class WhatsAppService:
         if "messages" in data:
             return data["messages"][0]["text"]["body"]
 
-
     def get_message_id(self, data) -> Union[str, None]:
         """
         Extracts the message id of the sender from the data received from the webhook.
@@ -723,7 +733,6 @@ class WhatsAppService:
         data = self.preprocess(data)
         if "messages" in data:
             return data["messages"][0]["id"]
-
 
     def get_messages_from_payload(self, payload):
         try:
@@ -741,7 +750,6 @@ class WhatsAppService:
             logging.error(f"Error parsing payload: {str(e)}")
             return None
 
-
     def get_message_timestamp(self, data) -> Union[str, None]:
         """ "
         Extracts the timestamp of the message from the data received from the webhook.
@@ -755,7 +763,6 @@ class WhatsAppService:
         data = self.preprocess(data)
         if "messages" in data:
             return data["messages"][0]["timestamp"]
-
 
     def get_interactive_response(self, data) -> Union[Dict, None]:
         """
@@ -771,7 +778,6 @@ class WhatsAppService:
         if "messages" in data:
             if "interactive" in data["messages"][0]:
                 return data["messages"][0]["interactive"]
-
 
     def get_location(self, data) -> Union[Dict, None]:
         """
@@ -789,7 +795,6 @@ class WhatsAppService:
             if "location" in data["messages"][0]:
                 return data["messages"][0]["location"]
 
-
     def get_image(self, data) -> Union[Dict, None]:
         """ "
         Extracts the image of the sender from the data received from the webhook.
@@ -805,7 +810,6 @@ class WhatsAppService:
             if "image" in data["messages"][0]:
                 return data["messages"][0]["image"]
 
-
     def get_document(self, data) -> Union[Dict, None]:
         """ "
         Extracts the document of the sender from the data received from the webhook.
@@ -820,7 +824,6 @@ class WhatsAppService:
         if "messages" in data:
             if "document" in data["messages"][0]:
                 return data["messages"][0]["document"]
-
 
     # def get_audio(self, data) -> Union[Dict, None]:
     #     """
@@ -838,7 +841,6 @@ class WhatsAppService:
     #         if "audio" in data["messages"][0]:
     #             return data["messages"][0]["audio"]
 
-
     def get_video(self, data) -> Union[Dict, None]:
         """
         Extracts the video of the sender from the data received from the webhook.
@@ -854,7 +856,6 @@ class WhatsAppService:
         if "messages" in data:
             if "video" in data["messages"][0]:
                 return data["messages"][0]["video"]
-
 
     def get_message_type(self, data) -> Union[str, None]:
         """
@@ -872,7 +873,6 @@ class WhatsAppService:
         if "messages" in data:
             return data["messages"][0]["type"]
 
-
     def get_delivery(self, data) -> Union[Dict, None]:
         """
         Extracts the delivery status of the message from the data received from the webhook.
@@ -886,7 +886,6 @@ class WhatsAppService:
         if "statuses" in data:
             return data["statuses"][0]["status"]
 
-
     def changed_field(self, data):
         """
         Helper function to check if the field changed in the data received from the webhook.
@@ -899,7 +898,6 @@ class WhatsAppService:
 
         """
         return data["entry"][0]["changes"][0]["field"]
-
 
     def extract_audio_messages(self, message_received):
         """
@@ -920,7 +918,6 @@ class WhatsAppService:
 
         return audio_messages
 
-
     def handle_request_exception(self, exception):
         """
         Handle request exceptions.
@@ -930,7 +927,6 @@ class WhatsAppService:
         """
         print(f"Error fetching media URL: {exception}")
         # Add more specific error handling or logging if needed.
-
 
     def download_audio_file(self, url, file_path="temp_audio_file.wav"):
         """
@@ -949,7 +945,6 @@ class WhatsAppService:
                 f"Failed to download audio file from {url}. Status code: {response.status_code}"
             )
 
-
     def process_audio_message(self, payload):
         """
         Extract the audio URL from the WhatsApp message payload.
@@ -957,9 +952,10 @@ class WhatsAppService:
         :return: The URL of the audio file.
         """
         # Example path within payload to the audio URL, adjust based on actual payload structure
-        audio_id = payload["entry"][0]["changes"][0]["value"]["messages"][0]["audio"]["id"]
+        audio_id = payload["entry"][0]["changes"][0]["value"]["messages"][0]["audio"][
+            "id"
+        ]
         return audio_id
-
 
     def fetch_media_url(self, media_id, token):
         """
@@ -983,7 +979,6 @@ class WhatsAppService:
                 f"Failed to fetch media URL for ID {media_id}. HTTP Status: {response.status_code}"
             )
 
-
     def get_media_url(self, media_id, token):
         """
         Retrieve the media URL for a given media ID from the WhatsApp Business API.
@@ -1004,9 +999,7 @@ class WhatsAppService:
                 f"Failed to retrieve media URL. HTTP Status: {response.status_code}, Response: {response.text}"
             )
 
-
     # my new code
-
 
     def valid_payload(self, payload):
         if "object" in payload and "entry" in payload:
@@ -1022,14 +1015,11 @@ class WhatsAppService:
                                 return True
         return False
 
-
     def get_phone_number_id(self, payload):
         return payload["entry"][0]["changes"][0]["value"]["metadata"]["phone_number_id"]
 
-
     def get_from_number(self, payload):
         return payload["entry"][0]["changes"][0]["value"]["messages"][0]["from"]
-
 
     def get_reaction(self, payload):
         # Check if the payload contains a reaction
@@ -1041,7 +1031,6 @@ class WhatsAppService:
                 logging.info(f"Reaction: {reaction}")
                 return message["reaction"]
         return None
-
 
     def welcome_message(self, sender_name=""):
         return (
@@ -1074,7 +1063,6 @@ class WhatsAppService:
             "The Translation and Transcription Service Team"
         )
 
-
     def help_message(self):
         return (
             "Help Guide:\n\n"
@@ -1099,15 +1087,13 @@ class WhatsAppService:
             "Thank you for using our service! 😊"
         )
 
-
     def set_default_target_language(self, user_id, save_user_preference):
         default_target_language = "Luganda"
         defualt_source_language = "English"
         save_user_preference(user_id, defualt_source_language, default_target_language)
 
-
-    def handle_language_selection(self, 
-        user_id, selection, source_language, save_user_preference, languages_obj
+    def handle_language_selection(
+        self, user_id, selection, source_language, save_user_preference, languages_obj
     ):
         if int(selection) == 6:
             save_user_preference(user_id, source_language, languages_obj[selection])
@@ -1115,7 +1101,6 @@ class WhatsAppService:
         else:
             save_user_preference(user_id, source_language, languages_obj[selection])
             return f"Language set to {languages_obj[selection]}. You can now send texts to translate."
-
 
     def get_audio(self, payload: dict):
         """
@@ -1144,11 +1129,20 @@ class WhatsAppService:
         except KeyError:
             logging.error("KeyError: Missing expected key in payload.")
             return None
-        
+
     def handle_openai_message(
-        self, payload, target_language, from_number, sender_name, phone_number_id, processed_messages, call_endpoint_with_retry
+        self,
+        payload,
+        target_language,
+        from_number,
+        sender_name,
+        phone_number_id,
+        processed_messages,
+        call_endpoint_with_retry,
     ):
-        message_id = self.get_message_id(payload)  # Extract unique message ID from the payload
+        message_id = self.get_message_id(
+            payload
+        )  # Extract unique message ID from the payload
 
         if message_id in processed_messages:
             logging.info("Message ID %s already processed. Skipping.", {message_id})
@@ -1206,7 +1200,9 @@ class WhatsAppService:
                 target_language = "lug"
 
             # Step 2: Fetch the media URL using the WhatsApp token
-            audio_url = self.fetch_media_url(audio_info["id"], os.getenv("WHATSAPP_TOKEN"))
+            audio_url = self.fetch_media_url(
+                audio_info["id"], os.getenv("WHATSAPP_TOKEN")
+            )
             if not audio_url:
                 logging.error("Failed to fetch media URL.")
                 return "Failed to transcribe audio."
@@ -1333,7 +1329,9 @@ class WhatsAppService:
                 end_time = time.time()
                 elapsed_time = end_time - start_time
                 logging.info("Here is the response: %s", request_response)
-                logging.info("Elapsed time: %s seconds for transcription.", elapsed_time)
+                logging.info(
+                    "Elapsed time: %s seconds for transcription.", elapsed_time
+                )
 
                 self.send_message(
                     "Translating to your target language if you haven't set a target language the default is Lugande.....",
@@ -1467,7 +1465,10 @@ class WhatsAppService:
                     )
 
                     self.send_message(
-                        message, os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id
+                        message,
+                        os.getenv("WHATSAPP_TOKEN"),
+                        from_number,
+                        phone_number_id,
                     )
 
                     # reply_to_message(
@@ -1526,7 +1527,10 @@ class WhatsAppService:
                     )
 
                     self.send_message(
-                        message, os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id
+                        message,
+                        os.getenv("WHATSAPP_TOKEN"),
+                        from_number,
+                        phone_number_id,
                     )
 
                     # reply_to_message(
@@ -1563,7 +1567,10 @@ class WhatsAppService:
                     )
 
                     self.send_message(
-                        message, os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id
+                        message,
+                        os.getenv("WHATSAPP_TOKEN"),
+                        from_number,
+                        phone_number_id,
                     )
 
                     # reply_to_message(
@@ -1575,9 +1582,15 @@ class WhatsAppService:
             else:
                 return response
 
-
     def handle_message(
-        self, payload, from_number, sender_name, source_language, target_language, phone_number_id, languages_obj
+        self,
+        payload,
+        from_number,
+        sender_name,
+        source_language,
+        target_language,
+        phone_number_id,
+        languages_obj,
     ):
         if interactive_response := self.get_interactive_response(payload):
             response = interactive_response
@@ -1609,12 +1622,22 @@ class WhatsAppService:
             return f"Dear {sender_name}, Thanks for your feedback {emoji}."
 
         return self.handle_text_message(
-            payload, from_number, sender_name, source_language, target_language,languages_obj
+            payload,
+            from_number,
+            sender_name,
+            source_language,
+            target_language,
+            languages_obj,
         )
 
-
     def handle_text_message(
-        self, payload, from_number, sender_name, source_language, target_language,languages_obj
+        self,
+        payload,
+        from_number,
+        sender_name,
+        source_language,
+        target_language,
+        languages_obj,
     ):
         msg_body = self.get_message(payload)
 
@@ -1627,7 +1650,11 @@ class WhatsAppService:
 
         if msg_body.isdigit() and msg_body in languages_obj:
             return self.handle_language_selection(
-                from_number, msg_body, source_language, save_user_preference, languages_obj
+                from_number,
+                msg_body,
+                source_language,
+                save_user_preference,
+                languages_obj,
             )
 
         if msg_body.lower() == "help":
@@ -1635,7 +1662,9 @@ class WhatsAppService:
 
         if 3 <= len(msg_body) <= 200:
             detected_language = self.detect_language(msg_body)
-            translation = self.translate_text(msg_body, detected_language, target_language)
+            translation = self.translate_text(
+                msg_body, detected_language, target_language
+            )
             mess_id = self.send_message(
                 translation, self.token, from_number, self.get_phone_number_id(payload)
             )
@@ -1654,7 +1683,6 @@ class WhatsAppService:
 
         return "_Please send text that contains between 3 and 200 characters (about 30 to 50 words)._"
 
-
     def translate_text(self, text, source_language, target_language):
         """
         Translates the given text from source_language to target_language.
@@ -1667,7 +1695,7 @@ class WhatsAppService:
         logging.info("Starting translation process")
 
         # URL for the endpoint
-        RUNPOD_ENDPOINT_ID=os.getenv("RUNPOD_ENDPOINT_ID")
+        RUNPOD_ENDPOINT_ID = os.getenv("RUNPOD_ENDPOINT_ID")
         url = f"https://api.runpod.ai/v2/{RUNPOD_ENDPOINT_ID}/runsync"
         # logging.info(f"Endpoint URL: {url}")
 
@@ -1704,7 +1732,6 @@ class WhatsAppService:
             raise Exception(f"Error {response.status_code}: {response.text}")
 
         return translated_text
-
 
     def detect_language(self, text):
         endpoint = runpod.Endpoint(os.getenv("RUNPOD_ENDPOINT_ID"))
