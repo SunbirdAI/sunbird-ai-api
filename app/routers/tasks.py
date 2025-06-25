@@ -1,21 +1,31 @@
 import datetime
 import json
 import logging
+import mimetypes
 import os
 import shutil
-import time
-from datetime import timedelta
-import mimetypes
-from pydub import AudioSegment
-from pydub.exceptions import CouldntDecodeError
 import tempfile
-import aiofiles
+import time
+import uuid
+from datetime import timedelta
 
+import aiofiles
 import runpod
 from dotenv import load_dotenv
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, Response
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    Response,
+    UploadFile,
+)
+from google.cloud import storage
 from jose import jwt
-from app.inference_services.whatsapp_service import WhatsAppService
+from pydub import AudioSegment
+from pydub.exceptions import CouldntDecodeError
 from slowapi import Limiter
 from sqlalchemy.ext.asyncio import AsyncSession
 from tenacity import (
@@ -25,14 +35,12 @@ from tenacity import (
     wait_exponential,
 )
 from werkzeug.utils import secure_filename
-from google.cloud import storage
 
 from app.crud.audio_transcription import create_audio_transcription
 from app.crud.monitoring import log_endpoint
 from app.deps import get_current_user, get_db
-from app.inference_services.user_preference import (
-    get_user_preference
-)
+from app.inference_services.user_preference import get_user_preference
+from app.inference_services.whatsapp_service import WhatsAppService
 from app.schemas.tasks import (
     AudioDetectedLanguageResponse,
     ChatRequest,
@@ -46,6 +54,7 @@ from app.schemas.tasks import (
     STTTranscript,
     SummarisationRequest,
     SummarisationResponse,
+    TTSRequest,
     UploadRequest,
     UploadResponse,
 )
@@ -67,8 +76,7 @@ whatsapp_token = os.getenv("WHATSAPP_TOKEN")
 verify_token = os.getenv("VERIFY_TOKEN")
 
 whatsapp_service = WhatsAppService(
-    token=os.getenv("WHATSAPP_TOKEN"),
-    phone_number_id=os.getenv("PHONE_NUMBER_ID")
+    token=os.getenv("WHATSAPP_TOKEN"), phone_number_id=os.getenv("PHONE_NUMBER_ID")
 )
 
 processed_messages = set()
@@ -92,13 +100,14 @@ MAX_AUDIO_FILE_SIZE_MB = 10  # 10MB limit
 MAX_AUDIO_DURATION_MINUTES = 10  # 10 minutes limit
 CHUNK_SIZE = 1024 * 1024  # 1MB chunks for streaming
 ALLOWED_AUDIO_TYPES = {
-    'audio/mpeg': ['.mp3'],
-    'audio/wav': ['.wav'],
-    'audio/x-wav': ['.wav'],
-    'audio/ogg': ['.ogg'],
-    'audio/x-m4a': ['.m4a'],
-    'audio/aac': ['.aac']
+    "audio/mpeg": [".mp3"],
+    "audio/wav": [".wav"],
+    "audio/x-wav": [".wav"],
+    "audio/ogg": [".ogg"],
+    "audio/x-m4a": [".m4a"],
+    "audio/aac": [".aac"],
 }
+
 
 def custom_key_func(request: Request):
     header = request.headers.get("Authorization")
@@ -408,6 +417,7 @@ async def auto_detect_audio_language(
 #         "expires_in": expires_in_seconds
 #     }
 
+
 @router.post("/generate-upload-url", response_model=UploadResponse)
 async def generate_upload_url(request: UploadRequest):
     """
@@ -417,20 +427,20 @@ async def generate_upload_url(request: UploadRequest):
     try:
         # Initialize the storage client
         storage_client = storage.Client()
-        
+
         # Get the bucket - use the same bucket you mentioned in your config
         bucket = storage_client.bucket("sb-asr-audio-content-sb-gcp-project-01")
-        
+
         # Generate a unique file ID
         file_id = str(uuid.uuid4())
-        
+
         # Create a blob with the unique ID as prefix
         blob_name = f"uploads/{file_id}/{request.file_name}"
         blob = bucket.blob(blob_name)
-        
+
         # Generate a signed URL for uploading
         expires_at = datetime.utcnow() + timedelta(minutes=10)
-        
+
         # Create the signed URL with PUT method
         signed_url = blob.generate_signed_url(
             version="v4",
@@ -438,15 +448,16 @@ async def generate_upload_url(request: UploadRequest):
             method="PUT",
             content_type=request.content_type,
         )
-        
+
         return UploadResponse(
-            upload_url=signed_url,
-            file_id=file_id,
-            expires_at=expires_at
+            upload_url=signed_url, file_id=file_id, expires_at=expires_at
         )
-        
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error generating upload URL: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error generating upload URL: {str(e)}"
+        )
+
 
 @router.post("/stt_from_gcs")
 async def speech_to_text_from_gcs(
@@ -460,7 +471,7 @@ async def speech_to_text_from_gcs(
     current_user=Depends(get_current_user),
 ) -> STTTranscript:
     """
-    Accepts a GCS blob name, downloads the file from GCS, 
+    Accepts a GCS blob name, downloads the file from GCS,
     trims if >10 minutes, uploads a final version (if trimmed),
     then calls the transcription service.
     """
@@ -476,19 +487,19 @@ async def speech_to_text_from_gcs(
 
         if not blob.exists():
             raise HTTPException(
-                status_code=400,
-                detail=f"GCS blob {gcs_blob_name} does not exist."
+                status_code=400, detail=f"GCS blob {gcs_blob_name} does not exist."
             )
 
         # Create a local temp file
         file_extension = os.path.splitext(gcs_blob_name)[1].lower() or ".mp3"
-        with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
+        with tempfile.NamedTemporaryFile(
+            delete=False, suffix=file_extension
+        ) as temp_file:
             file_path = temp_file.name
             blob.download_to_filename(file_path)
 
         trimmed_file_path = os.path.join(
-            os.path.dirname(file_path), 
-            f"trimmed_{os.path.basename(file_path)}"
+            os.path.dirname(file_path), f"trimmed_{os.path.basename(file_path)}"
         )
 
         try:
@@ -499,10 +510,12 @@ async def speech_to_text_from_gcs(
             if duration_minutes > MAX_AUDIO_DURATION_MINUTES:
                 was_audio_trimmed = True
                 original_duration = duration_minutes
-                trimmed_audio = audio_segment[:(MAX_AUDIO_DURATION_MINUTES * 60 * 1000)]
+                trimmed_audio = audio_segment[
+                    : (MAX_AUDIO_DURATION_MINUTES * 60 * 1000)
+                ]
                 trimmed_audio.export(trimmed_file_path, format=file_extension[1:])
-                os.remove(file_path)  
-                file_path = trimmed_file_path  
+                os.remove(file_path)
+                file_path = trimmed_file_path
                 logging.info(
                     f"Audio file trimmed from {duration_minutes:.1f} to {MAX_AUDIO_DURATION_MINUTES} minutes."
                 )
@@ -513,7 +526,7 @@ async def speech_to_text_from_gcs(
                 os.remove(trimmed_file_path)
             raise HTTPException(
                 status_code=400,
-                detail="Could not decode audio file. Please ensure the file is not corrupted."
+                detail="Could not decode audio file. Please ensure the file is not corrupted.",
             )
 
         # 3. Upload final version (trimmed or original) back to GCS if you wish
@@ -530,7 +543,7 @@ async def speech_to_text_from_gcs(
                 "task": "transcribe",
                 "target_lang": language,
                 "adapter": adapter,
-                "audio_file": gcs_blob_name, 
+                "audio_file": gcs_blob_name,
                 "whisper": whisper,
                 "recognise_speakers": recognise_speakers,
             }
@@ -545,19 +558,19 @@ async def speech_to_text_from_gcs(
             logging.error(f"Transcription timeout: {str(e)}")
             raise HTTPException(
                 status_code=503,
-                detail="Transcription service timed out. Please try again with a shorter audio file."
+                detail="Transcription service timed out. Please try again with a shorter audio file.",
             )
         except ConnectionError as e:
             logging.error(f"Connection error: {str(e)}")
             raise HTTPException(
                 status_code=503,
-                detail="Connection error while transcribing. Please try again."
+                detail="Connection error while transcribing. Please try again.",
             )
         except Exception as e:
             logging.error(f"Transcription error: {str(e)}")
             raise HTTPException(
                 status_code=500,
-                detail="An unexpected error occurred during transcription"
+                detail="An unexpected error occurred during transcription",
             )
         end_time = time.time()
 
@@ -565,7 +578,7 @@ async def speech_to_text_from_gcs(
         if not transcription:
             raise HTTPException(
                 status_code=422,
-                detail="No transcription was generated. The audio might be silent or unclear."
+                detail="No transcription was generated. The audio might be silent or unclear.",
             )
 
         # 6. Save transcription to DB if needed
@@ -573,11 +586,17 @@ async def speech_to_text_from_gcs(
         if isinstance(transcription, str) and len(transcription) > 0:
             try:
                 db_audio_transcription = await create_audio_transcription(
-                    db, current_user, f"gs://{bucket_name}/{gcs_blob_name}", 
-                    gcs_blob_name, transcription, language
+                    db,
+                    current_user,
+                    f"gs://{bucket_name}/{gcs_blob_name}",
+                    gcs_blob_name,
+                    transcription,
+                    language,
                 )
                 audio_transcription_id = db_audio_transcription.id
-                logging.info(f"Transcription saved to DB with ID: {audio_transcription_id}")
+                logging.info(
+                    f"Transcription saved to DB with ID: {audio_transcription_id}"
+                )
             except Exception as e:
                 logging.error(f"Database error: {str(e)}")
                 # Don't raise an exception, continue to return transcription
@@ -592,12 +611,14 @@ async def speech_to_text_from_gcs(
         response = STTTranscript(
             audio_transcription=transcription,
             diarization_output=request_response.get("diarization_output", {}),
-            formatted_diarization_output=request_response.get("formatted_diarization_output", ""),
+            formatted_diarization_output=request_response.get(
+                "formatted_diarization_output", ""
+            ),
             audio_transcription_id=audio_transcription_id,
             audio_url=f"gs://{bucket_name}/{gcs_blob_name}",
             language=language,
             was_audio_trimmed=was_audio_trimmed,
-            original_duration_minutes=original_duration if was_audio_trimmed else None
+            original_duration_minutes=original_duration if was_audio_trimmed else None,
         )
 
         # Handle trimming warnings
@@ -606,12 +627,12 @@ async def speech_to_text_from_gcs(
                 "X-Audio-Trimmed": "true",
                 "X-Original-Duration": f"{original_duration:.1f}",
                 "X-Transcribed-Duration": f"{MAX_AUDIO_DURATION_MINUTES}",
-                "Warning": f"Audio trimmed from {original_duration:.1f} min to {MAX_AUDIO_DURATION_MINUTES} min."
+                "Warning": f"Audio trimmed from {original_duration:.1f} min to {MAX_AUDIO_DURATION_MINUTES} min.",
             }
             return Response(
                 content=response.model_dump_json(),
                 media_type="application/json",
-                headers=headers
+                headers=headers,
             )
 
         return response
@@ -622,7 +643,7 @@ async def speech_to_text_from_gcs(
         logging.error(f"Unexpected error in speech_to_text_from_gcs: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail="An unexpected error occurred while processing your request"
+            detail="An unexpected error occurred while processing your request",
         )
     finally:
         # Cleanup local files
@@ -630,6 +651,7 @@ async def speech_to_text_from_gcs(
             os.remove(file_path)
         if os.path.exists(trimmed_file_path):
             os.remove(trimmed_file_path)
+
 
 @router.post(
     "/stt",
@@ -647,48 +669,59 @@ async def speech_to_text(
 ) -> STTTranscript:
     """
     Upload an audio file and get the transcription text of the audio.
-    
+
     Limitations:
     - Maximum audio duration: Files longer than 10 minutes will be trimmed to first 10 minutes
     - Supported formats: MP3, WAV, OGG, M4A, AAC
     - Large files are supported but only first 10 minutes will be transcribed
-    
+
     Note: For files larger than 100MB, please use chunked upload or consider splitting the audio file.
     """
     was_audio_trimmed = False
     original_duration = None
-    
+
     try:
         # 1. Validate file type first to fail fast if unsupported
         content_type = audio.content_type
         file_extension = os.path.splitext(audio.filename)[1].lower()
-        if content_type not in ALLOWED_AUDIO_TYPES or file_extension not in ALLOWED_AUDIO_TYPES.get(content_type, []):
+        if (
+            content_type not in ALLOWED_AUDIO_TYPES
+            or file_extension not in ALLOWED_AUDIO_TYPES.get(content_type, [])
+        ):
             raise HTTPException(
                 status_code=415,
-                detail=f"Unsupported file type. Supported formats: {', '.join([ext for exts in ALLOWED_AUDIO_TYPES.values() for ext in exts])}"
+                detail=f"Unsupported file type. Supported formats: {', '.join([ext for exts in ALLOWED_AUDIO_TYPES.values() for ext in exts])}",
             )
 
         # 2. Create temporary files
-        with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
+        with tempfile.NamedTemporaryFile(
+            delete=False, suffix=file_extension
+        ) as temp_file:
             file_path = temp_file.name
             # Stream the file in chunks to avoid memory issues
-            async with aiofiles.open(file_path, 'wb') as out_file:
+            async with aiofiles.open(file_path, "wb") as out_file:
                 while content := await audio.read(CHUNK_SIZE):
                     await out_file.write(content)
 
-        trimmed_file_path = os.path.join(os.path.dirname(file_path), f"trimmed_{os.path.basename(file_path)}")
+        trimmed_file_path = os.path.join(
+            os.path.dirname(file_path), f"trimmed_{os.path.basename(file_path)}"
+        )
 
         try:
             # 3. Load and validate/trim duration
             audio_segment = AudioSegment.from_file(file_path)
             duration_minutes = len(audio_segment) / (1000 * 60)  # Convert to minutes
-            
+
             if duration_minutes > MAX_AUDIO_DURATION_MINUTES:
                 # Trim to first 10 minutes
                 was_audio_trimmed = True
                 original_duration = duration_minutes
-                trimmed_audio = audio_segment[:(MAX_AUDIO_DURATION_MINUTES * 60 * 1000)]  # Convert minutes to milliseconds
-                trimmed_audio.export(trimmed_file_path, format=file_extension[1:])  # Remove dot from extension
+                trimmed_audio = audio_segment[
+                    : (MAX_AUDIO_DURATION_MINUTES * 60 * 1000)
+                ]  # Convert minutes to milliseconds
+                trimmed_audio.export(
+                    trimmed_file_path, format=file_extension[1:]
+                )  # Remove dot from extension
                 os.remove(file_path)  # Remove original file
                 file_path = trimmed_file_path  # Use trimmed file for further processing
                 logging.info(
@@ -701,7 +734,7 @@ async def speech_to_text(
                 os.remove(trimmed_file_path)
             raise HTTPException(
                 status_code=400,
-                detail="Could not decode audio file. Please ensure the file is not corrupted."
+                detail="Could not decode audio file. Please ensure the file is not corrupted.",
             )
 
         # 4. Upload to cloud storage
@@ -710,13 +743,12 @@ async def speech_to_text(
             if not blob_name or not blob_url:
                 raise HTTPException(
                     status_code=500,
-                    detail="Failed to upload audio file to cloud storage"
+                    detail="Failed to upload audio file to cloud storage",
                 )
         except Exception as e:
             logging.error(f"Cloud storage upload error: {str(e)}")
             raise HTTPException(
-                status_code=500,
-                detail="Failed to upload audio file to cloud storage"
+                status_code=500, detail="Failed to upload audio file to cloud storage"
             )
         finally:
             # Clean up temporary files
@@ -747,19 +779,19 @@ async def speech_to_text(
             logging.error(f"Transcription timeout: {str(e)}")
             raise HTTPException(
                 status_code=503,
-                detail="Transcription service timed out. Please try again with a shorter audio file."
+                detail="Transcription service timed out. Please try again with a shorter audio file.",
             )
         except ConnectionError as e:
             logging.error(f"Connection error: {str(e)}")
             raise HTTPException(
                 status_code=503,
-                detail="Connection error while transcribing. Please try again."
+                detail="Connection error while transcribing. Please try again.",
             )
         except Exception as e:
             logging.error(f"Transcription error: {str(e)}")
             raise HTTPException(
                 status_code=500,
-                detail="An unexpected error occurred during transcription"
+                detail="An unexpected error occurred during transcription",
             )
 
         end_time = time.time()
@@ -771,7 +803,7 @@ async def speech_to_text(
         if not transcription:
             raise HTTPException(
                 status_code=422,
-                detail="No transcription was generated. The audio might be silent or unclear."
+                detail="No transcription was generated. The audio might be silent or unclear.",
             )
 
         # 8. Save transcription to database
@@ -782,7 +814,9 @@ async def speech_to_text(
                     db, current_user, blob_url, blob_name, transcription, language
                 )
                 audio_transcription_id = db_audio_transcription.id
-                logging.info(f"Transcription saved to database with ID: {audio_transcription_id}")
+                logging.info(
+                    f"Transcription saved to database with ID: {audio_transcription_id}"
+                )
             except Exception as e:
                 logging.error(f"Database error: {str(e)}")
                 # Don't raise an exception here as we still want to return the transcription
@@ -804,7 +838,7 @@ async def speech_to_text(
             audio_url=blob_url,
             language=language,
             was_audio_trimmed=was_audio_trimmed,
-            original_duration_minutes=original_duration if was_audio_trimmed else None
+            original_duration_minutes=original_duration if was_audio_trimmed else None,
         )
 
         # Add warning header if audio was trimmed
@@ -813,12 +847,12 @@ async def speech_to_text(
                 "X-Audio-Trimmed": "true",
                 "X-Original-Duration": f"{original_duration:.1f}",
                 "X-Transcribed-Duration": f"{MAX_AUDIO_DURATION_MINUTES}",
-                "Warning": f"Audio file was trimmed from {original_duration:.1f} minutes to {MAX_AUDIO_DURATION_MINUTES} minutes. Only the first {MAX_AUDIO_DURATION_MINUTES} minutes were transcribed."
+                "Warning": f"Audio file was trimmed from {original_duration:.1f} minutes to {MAX_AUDIO_DURATION_MINUTES} minutes. Only the first {MAX_AUDIO_DURATION_MINUTES} minutes were transcribed.",
             }
             return Response(
                 content=response.model_dump_json(),
                 media_type="application/json",
-                headers=headers
+                headers=headers,
             )
 
         return response
@@ -829,7 +863,7 @@ async def speech_to_text(
         logging.error(f"Unexpected error in speech_to_text: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail="An unexpected error occurred while processing your request"
+            detail="An unexpected error occurred while processing your request",
         )
 
 
@@ -971,6 +1005,71 @@ async def nllb_translate(
     return response
 
 
+# Route for the text-to-speech endpoint
+@router.post(
+    "/tts",
+    # response_model=NllbTranslationResponse,
+)
+@limiter.limit(get_account_type_limit)
+async def text_to_speech(
+    request: Request,
+    tts_request: TTSRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    Endpoint for text-to-speech conversion.
+    """
+    endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
+    user = current_user
+
+    text = tts_request.text
+    # Data to be sent in the request body
+    data = {
+        "input": {
+            "task": "tts",
+            "text": text.strip(),  # Remove leading/trailing spaces
+            "speaker_id": tts_request.speaker_id,
+            "temperature": tts_request.temperature,
+            "top_k": tts_request.top_k,
+            "top_p": tts_request.top_p,
+            "max_new_audio_tokens": tts_request.max_new_audio_tokens,
+            "normalize": tts_request.normalize,
+        }
+    }
+
+    start_time = time.time()
+    try:
+        request_response = await call_endpoint_with_retry(endpoint, data)
+    except TimeoutError as e:
+        logging.error(f"Job timed out: {str(e)}")
+        raise HTTPException(
+            status_code=503, detail="Service unavailable due to timeout."
+        )
+    except ConnectionError as e:
+        logging.error(f"Connection lost: {str(e)}")
+        raise HTTPException(
+            status_code=503, detail="Service unavailable due to connection error."
+        )
+    except Exception as e:
+        logging.error(f"Error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+    end_time = time.time()
+    # Log endpoint in database
+    await log_endpoint(db, user, request, start_time, end_time)
+    logging.info(f"Response: {request_response}")
+
+    # Calculate the elapsed time
+    elapsed_time = end_time - start_time
+    logging.info(f"Elapsed time: {elapsed_time} seconds")
+
+    response = {}
+    response["output"] = request_response
+
+    return response
+
+
 @router.post("/webhook")
 async def webhook(payload: dict):
     try:
@@ -987,7 +1086,13 @@ async def webhook(payload: dict):
             target_language = get_user_preference(from_number)
 
             message = whatsapp_service.handle_openai_message(
-                payload, target_language, from_number, sender_name, phone_number_id, processed_messages, call_endpoint_with_retry
+                payload,
+                target_language,
+                from_number,
+                sender_name,
+                phone_number_id,
+                processed_messages,
+                call_endpoint_with_retry,
             )
 
             if message:

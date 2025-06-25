@@ -16,8 +16,8 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
-from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 from tenacity import RetryError, retry, stop_after_attempt, wait_exponential
 
 from app.docs import description, tags_metadata
@@ -33,7 +33,10 @@ logger = logging.getLogger(__name__)
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 
 # Constants for file upload limits
-MAX_UPLOAD_SIZE = int(os.getenv("MAX_CONTENT_LENGTH", 100 * 1024 * 1024))  # Default 100MB
+MAX_UPLOAD_SIZE = int(
+    os.getenv("MAX_CONTENT_LENGTH", 100 * 1024 * 1024)
+)  # Default 100MB
+
 
 class LargeUploadMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
@@ -42,10 +45,12 @@ class LargeUploadMiddleware(BaseHTTPMiddleware):
             if content_length:
                 content_length = int(content_length)
                 if content_length > MAX_UPLOAD_SIZE:
-                    logger.warning(f"File upload rejected: size {content_length/1024/1024:.1f}MB exceeds limit of {MAX_UPLOAD_SIZE/1024/1024:.1f}MB")
+                    logger.warning(
+                        f"File upload rejected: size {content_length/1024/1024:.1f}MB exceeds limit of {MAX_UPLOAD_SIZE/1024/1024:.1f}MB"
+                    )
                     return Response(
                         content=f"File too large. Maximum size is {MAX_UPLOAD_SIZE/1024/1024:.1f}MB. For larger files, only the first 10 minutes will be transcribed.",
-                        status_code=413
+                        status_code=413,
                     )
         response = await call_next(request)
         return response
