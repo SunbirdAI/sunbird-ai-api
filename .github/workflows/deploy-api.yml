@@ -58,7 +58,7 @@ jobs:
       - name: Deploy to Cloud Run
         run: |
           export APP=${{ secrets.APP_NAME }}
-          export TAG=${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_PROJECT_REPO }}/${{ secrets.APP_NAME }}
+          export TAG=${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_PROJECT_REPO }}/${{ secrets.APP_NAME }}:${{ github.sha }}
           export REGION=${{ secrets.GCP_REGION }}
           
           gcloud run deploy $APP --image $TAG --platform managed --region $REGION --allow-unauthenticated
