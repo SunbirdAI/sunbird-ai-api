@@ -1,6 +1,6 @@
-from enum import Enum
-from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
+from enum import Enum
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, constr
 
@@ -84,6 +84,22 @@ class SttbLanguage(str, Enum):
     lumasaba = "myx"
 
 
+# Speaker IDs:
+# 241: Acholi (female)
+# 242: Ateso (female)
+# 243: Runyankore (female)
+# 245: Lugbara (female)
+# 246: Swahili (male)
+# 248: Luganda (female)
+class SpeakerID(int, Enum):
+    acholi_female = 241
+    ateso_female = 242
+    runyankore_female = 243
+    lugbara_female = 245
+    swahili_male = 246
+    luganda_female = 248
+
+
 class NllbTranslationRequest(BaseModel):
     source_language: NllbLanguage
     target_language: NllbLanguage
@@ -110,7 +126,12 @@ class TranslationBatchResponse(BaseModel):
 
 class TTSRequest(BaseModel):
     text: str
-    return_audio_link: bool = False
+    speaker_id: SpeakerID = SpeakerID.luganda_female
+    temperature: float = 0.8
+    top_k: int = 50
+    top_p: float = 1.0
+    max_new_audio_tokens: int = 2048
+    normalize: bool = False
 
 
 class TTSResponse(BaseModel):
@@ -133,10 +154,12 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     chat_response: str = Field(min_length=2)
 
+
 # Create a schema for the upload request
 class UploadRequest(BaseModel):
     file_name: str
     content_type: str
+
 
 # Create a schema for the upload response
 class UploadResponse(BaseModel):
