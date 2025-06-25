@@ -21,7 +21,7 @@ RUN curl -sSL https://sdk.cloud.google.com | bash
 
 ENV PATH $PATH:/root/google-cloud-sdk/bin
 
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
 
 # CMD exec uvicorn app.api:app --host 0.0.0.0 --port ${PORT} --workers 1
 

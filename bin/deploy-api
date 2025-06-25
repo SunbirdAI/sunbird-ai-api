@@ -3,10 +3,11 @@
 set -x
 
 export APP=sunbird-ai-api
-export TAG=gcr.io/sb-gcp-project-01/sunbird-ai-api
 export PROJECT_ID=sb-gcp-project-01
 export REGION=europe-west1
 export PORT=8080
+export REPO=sunbird-ai-api
+export TAG=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${APP}
 
 gcloud builds submit --tag $TAG
 
