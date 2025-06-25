@@ -40,19 +40,19 @@ jobs:
       # Build and submit Docker image to Google Container Registry (GCR)
       - name: Build and submit Docker image
         run: |
-          export TAG=${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_PROJECT_REPO }}/${{ secrets.APP_NAME }}
+          export TAG=${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_PROJECT_REPO }}/${{ secrets.APP_NAME }}:${{ github.sha }}
           gcloud builds submit --tag $TAG
         continue-on-error: true
       
-      - name: Verify IAM roles for Service Account
-        run: |
-          # Ensure the deployer SA has the required roles:
-          gcloud projects add-iam-policy-binding ${{ secrets.GCP_PROJECT_ID }} \
-            --member="serviceAccount:${{ secrets.GCP_SERVICE_ACCOUNT_DEPLOYER_EMAIL }}" \
-            --role="roles/run.admin"
-          gcloud projects add-iam-policy-binding ${{ secrets.GCP_PROJECT_ID }} \
-            --member="serviceAccount:${{ secrets.GCP_SERVICE_ACCOUNT_DEPLOYER_EMAIL }}" \
-            --role="roles/iam.serviceAccountUser"
+      # - name: Verify IAM roles for Service Account
+      #   run: |
+      #     # Ensure the deployer SA has the required roles:
+      #     gcloud projects add-iam-policy-binding ${{ secrets.GCP_PROJECT_ID }} \
+      #       --member="serviceAccount:${{ secrets.GCP_SERVICE_ACCOUNT_DEPLOYER_EMAIL }}" \
+      #       --role="roles/run.admin"
+      #     gcloud projects add-iam-policy-binding ${{ secrets.GCP_PROJECT_ID }} \
+      #       --member="serviceAccount:${{ secrets.GCP_SERVICE_ACCOUNT_DEPLOYER_EMAIL }}" \
+      #       --role="roles/iam.serviceAccountUser"
 
       # Deploy to Cloud Run
       - name: Deploy to Cloud Run
