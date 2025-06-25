@@ -39,7 +39,7 @@ jobs:
       # Build and submit Docker image to Google Container Registry (GCR)
       - name: Build and submit Docker image
         run: |
-          export TAG=gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.APP_NAME }}
+          export TAG=${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_PROJECT_REPO }}/${{ secrets.APP_NAME }}
           gcloud builds submit --tag $TAG
         continue-on-error: true
 
@@ -47,7 +47,7 @@ jobs:
       - name: Deploy to Cloud Run
         run: |
           export APP=${{ secrets.APP_NAME }}
-          export TAG=gcr.io/${{ secrets.GCP_PROJECT_ID }}/${APP}
+          export TAG=${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_PROJECT_REPO }}/${{ secrets.APP_NAME }}
           export REGION=${{ secrets.GCP_REGION }}
           
           gcloud run deploy $APP --image $TAG --platform managed --region $REGION --allow-unauthenticated
