@@ -34,7 +34,8 @@ jobs:
       # Authenticate Docker with GCP
       - name: Authenticate Docker
         run: |
-          gcloud auth configure-docker
+          # Authenticate Docker to push to Artifact Registry
+          gcloud auth configure-docker ${{ secrets.GCP_REGION }}-docker.pkg.dev --quiet
 
       # Build and submit Docker image to Google Container Registry (GCR)
       - name: Build and submit Docker image
