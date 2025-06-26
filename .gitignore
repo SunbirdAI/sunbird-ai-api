@@ -21,6 +21,8 @@ credentials.json
 firebase-credentials.json
 service-account-file.json
 firebase-credentials.json.b64
+# Ignore generated credentials from google-github-actions/auth
+gha-creds-*.json
 
 
 # Audio files

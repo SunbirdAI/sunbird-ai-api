@@ -1029,7 +1029,7 @@ async def text_to_speech(
         "input": {
             "task": "tts",
             "text": text.strip(),  # Remove leading/trailing spaces
-            "speaker_id": tts_request.speaker_id,
+            "speaker_id": tts_request.speaker_id.value,
             "temperature": tts_request.temperature,
             "top_k": tts_request.top_k,
             "top_p": tts_request.top_p,
