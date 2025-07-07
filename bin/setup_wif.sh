@@ -14,7 +14,7 @@ set -euo pipefail
 #----------------------------------------------------------------------
 export GCP_PROJECT_ID=sb-gcp-project-01
 export GITHUB_REPOSITORY=SunbirdAI/sunbird-ai-api
-export WIF_POOL_ID=github-pool
+export WIF_POOL_ID=github-actions-pool
 export WIF_PROVIDER_ID=github-provider
 export SA_NAME=gha-cloud-run-deploy
 
@@ -49,6 +49,9 @@ POOL_NAME=$(gcloud iam workload-identity-pools describe "$WIF_POOL_ID" \
 
 echo "> Pool resource: $POOL_NAME"
 
+# Wait for pool to be fully available before creating provider
+sleep 10
+
 # Create OIDC provider (safe create)
 echo "> Creating OIDC provider: $WIF_PROVIDER_ID ..."
 if ! gcloud iam workload-identity-pools providers describe "$WIF_PROVIDER_ID" \
@@ -58,6 +61,7 @@ if ! gcloud iam workload-identity-pools providers describe "$WIF_PROVIDER_ID" \
     --location="global" \
     --display-name="GitHub OIDC Provider" \
     --issuer-uri="https://token.actions.githubusercontent.com" \
+    --allowed-audiences="https://token.actions.githubusercontent.com" \
     --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository,attribute.ref=assertion.ref" \
     --attribute-condition="attribute.repository=='$GITHUB_REPOSITORY' && attribute.ref=='refs/heads/main'"
 fi
@@ -68,6 +72,7 @@ gcloud iam workload-identity-pools providers update-oidc "$WIF_PROVIDER_ID" \
   --workload-identity-pool="$WIF_POOL_ID" \
   --location="global" \
   --allowed-audiences="https://token.actions.githubusercontent.com" \
+  --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository,attribute.ref=assertion.ref" \
   --attribute-condition="attribute.repository=='$GITHUB_REPOSITORY' && attribute.ref=='refs/heads/main'"
 
 # Create Service Account (safe create)
