@@ -2,6 +2,7 @@ venv/
 .idea/
 .vscode
 .env
+.DS_Store
 .env.prod
 app/__pycache__/
 __pycache__/
@@ -21,6 +22,8 @@ credentials.json
 firebase-credentials.json
 service-account-file.json
 firebase-credentials.json.b64
+# Ignore generated credentials from google-github-actions/auth
+gha-creds-*.json
 
 
 # Audio files
@@ -35,3 +38,4 @@ backup_cloudsql_db.sh
 cloudsql_db_backups
 bin/set_aws_database_url.sh
 latest.dump
+wif_credentials.md
