@@ -28,6 +28,7 @@ jobs:
       - name: Authenticate to GCP via Workload Identity Federation
         uses: google-github-actions/auth@v2
         with:
+          token_format: 'access_token'
           workload_identity_provider: ${{ secrets.WORKLOAD_IDENTITY_PROVIDER }}
           project_id: ${{ secrets.GCP_PROJECT_ID  }}
           service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
