@@ -151,6 +151,44 @@ This step is only necessary if you're going to make changes to the frontend code
 ## Deployment
 The app is deployed on Google Cloud Run and is backed by PostgreSQL DB hosted in Google Cloud SQL.
 
+## Setting up Workload Identity Federation (WIF) for GitHub Actions
+
+To securely deploy from GitHub Actions to Google Cloud, set up Workload Identity Federation (WIF) as follows:
+
+### 1. Prerequisites
+- You must have Owner or IAM Admin permissions on your GCP project.
+- Install the [gcloud CLI](https://cloud.google.com/sdk/docs/install).
+- Enable the following APIs:
+  - IAM API
+  - IAM Credentials API
+  - Security Token Service API
+
+### 2. Run the Setup Script
+A helper script is provided to automate WIF setup:
+
+```bash
+bin/setup_wif.sh
+```
+This script will:
+- Create a Workload Identity Pool and OIDC provider for GitHub Actions
+- Restrict access to your repository (and optionally branch)
+- Create a service account and bind the WIF pool to it
+- Output the values you need for GitHub secrets
+
+### 3. Add GitHub Secrets
+After running the script, add the following secrets to your GitHub repository (Settings > Secrets and variables > Actions):
+- `WORKLOAD_IDENTITY_PROVIDER` (output by the script)
+- `GCP_SA_EMAIL` (output by the script)
+- `GCP_PROJECT_ID`, `GCP_REGION`, `GCP_PROJECT_REPO`, `APP_NAME` (as needed for your deployment)
+
+### 4. Configure GitHub Actions
+The provided workflow in `.github/workflows/deploy-api.yml` is already set up to use WIF. It authenticates using the secrets above and deploys to Cloud Run.
+
+For more details, see:
+- [Google Cloud: Workload Identity Federation with deployment pipelines](https://cloud.google.com/iam/docs/workload-identity-federation-with-deployment-pipelines)
+- [Google GitHub Actions Auth](https://github.com/google-github-actions/auth#setting-up-workload-identity-federation)
+
+---
 ## Other docs
 - Checkout the [System design document](https://github.com/SunbirdAI/sunbird-docs/blob/main/06-design-docs/language/API_Framework.md) (you need to part of the Sunbird organization to view this).
 - Checkout the [Deployment Guide](https://github.com/SunbirdAI/sunbird-ai-api/blob/main/api-deployment-docs.md).

@@ -2,6 +2,7 @@ venv/
 .idea/
 .vscode
 .env
+.DS_Store
 .env.prod
 app/__pycache__/
 __pycache__/
@@ -37,3 +38,4 @@ backup_cloudsql_db.sh
 cloudsql_db_backups
 bin/set_aws_database_url.sh
 latest.dump
+wif_credentials.md

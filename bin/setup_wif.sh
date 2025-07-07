@@ -16,7 +16,7 @@ export GCP_PROJECT_ID=sb-gcp-project-01
 export GITHUB_REPOSITORY=SunbirdAI/sunbird-ai-api
 export WIF_POOL_ID=github-pool
 export WIF_PROVIDER_ID=github-provider
-export SA_NAME=github-actions-cloud-run-deployer
+export SA_NAME=gha-cloud-run-deploy
 
 : "${GCP_PROJECT_ID:?Need to set GCP_PROJECT_ID}"  
 : "${GITHUB_REPOSITORY:?Need to set GITHUB_REPOSITORY}"  
@@ -58,7 +58,8 @@ if ! gcloud iam workload-identity-pools providers describe "$WIF_PROVIDER_ID" \
     --location="global" \
     --display-name="GitHub OIDC Provider" \
     --issuer-uri="https://token.actions.githubusercontent.com" \
-    --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository,attribute.ref=assertion.ref"
+    --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository,attribute.ref=assertion.ref" \
+    --attribute-condition="attribute.repository=='$GITHUB_REPOSITORY' && attribute.ref=='refs/heads/main'"
 fi
 
 # Restrict to specific repository and branch (main)
@@ -67,7 +68,7 @@ gcloud iam workload-identity-pools providers update-oidc "$WIF_PROVIDER_ID" \
   --workload-identity-pool="$WIF_POOL_ID" \
   --location="global" \
   --allowed-audiences="https://token.actions.githubusercontent.com" \
-  --attribute-condition="assertion.repository=='$GITHUB_REPOSITORY' && starts_with(assertion.ref, 'refs/heads/main')"
+  --attribute-condition="attribute.repository=='$GITHUB_REPOSITORY' && attribute.ref=='refs/heads/main'"
 
 # Create Service Account (safe create)
 echo "> Creating service account: $SA_NAME ..."
@@ -91,7 +92,7 @@ gcloud projects add-iam-policy-binding "$GCP_PROJECT_ID" \
 echo "> Binding WIF pool to service account"
 gcloud iam service-accounts add-iam-policy-binding "$SA_EMAIL" \
   --role="roles/iam.workloadIdentityUser" \
-  --member="principalSet://${POOL_NAME}/repository/$GITHUB_REPOSITORY"
+  --member="principalSet://iam.googleapis.com/${POOL_NAME}/attribute.repository/${GITHUB_REPOSITORY}"
 
 # Output provider resource
 PROVIDER_RESOURCE="${POOL_NAME}/providers/${WIF_PROVIDER_ID}"

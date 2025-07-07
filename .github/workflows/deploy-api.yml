@@ -1,3 +1,11 @@
+# Example-workflows: https://github.com/google-github-actions/example-workflows/blob/main/workflows/deploy-cloudrun/cloudrun-docker.yml
+# Configure Workload Identity Federation with deployment pipelines: https://cloud.google.com/iam/docs/workload-identity-federation-with-deployment-pipelines
+# Authenticate to Google Cloud from GitHub Actions: https://github.com/google-github-actions/auth
+# Authenticate to Google Cloud from GitHub Actions (WIF): https://github.com/google-github-actions/auth#setting-up-workload-identity-federation
+# deploy-cloudrun: https://github.com/marketplace/actions/deploy-to-cloud-run
+# About security hardening with OpenID Connect: https://docs.github.com/en/actions/security-for-github-actions/security-hardening-your-deployments/about-security-hardening-with-openid-connect
+# setup-gcloud: https://github.com/google-github-actions/setup-gcloud
+# 
 name: Deploy to Cloud Run
 
 on:
