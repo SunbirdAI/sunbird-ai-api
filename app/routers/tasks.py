@@ -1071,6 +1071,7 @@ async def text_to_speech(
 
 
 @router.post("/webhook")
+@router.post("/webhook/")
 async def webhook(payload: dict):
     try:
         logging.info("Received payload: %s", json.dumps(payload, indent=2))
@@ -1120,11 +1121,32 @@ async def webhook(payload: dict):
 
 
 @router.get("/webhook")
-async def verify_webhook(mode: str, token: str, challenge: str):
+@router.get("/webhook/")
+async def verify_webhook(
+    request: Request,
+    hub_mode: str = None,
+    hub_challenge: str = None, 
+    hub_verify_token: str = None
+):
+    """
+    Webhook verification endpoint for WhatsApp
+    WhatsApp sends: hub.mode, hub.challenge, hub.verify_token
+    """
+    # Extract query parameters - WhatsApp uses hub.mode, hub.challenge, hub.verify_token
+    mode = request.query_params.get("hub.mode")
+    challenge = request.query_params.get("hub.challenge") 
+    token = request.query_params.get("hub.verify_token")
+    
+    logging.info(f"Webhook verification request - Mode: {mode}, Challenge: {challenge}, Token: {token}")
+    
     if mode and token:
         if mode != "subscribe" or token != os.getenv("VERIFY_TOKEN"):
+            logging.error(f"Webhook verification failed - Expected token: {os.getenv('VERIFY_TOKEN')}, Received: {token}")
             raise HTTPException(status_code=403, detail="Forbidden")
 
         logging.info("WEBHOOK_VERIFIED")
-        return {"challenge": challenge}
+        # WhatsApp expects just the challenge string, not a JSON object
+        return challenge
+    
+    logging.error("Missing required parameters for webhook verification")
     raise HTTPException(status_code=400, detail="Bad Request")
