@@ -8,7 +8,7 @@ fastapi-mail==1.4.1
 fastapi-limiter==0.1.6
 firebase-admin==6.5.0
 newrelic
-openai==0.28
+# openai==0.28
 passlib[bcrypt]==1.7.4
 psycopg2-binary==2.9.9
 python-jose==3.3.0
@@ -25,3 +25,5 @@ tenacity==8.5.0
 Werkzeug==3.0.3
 pydub==0.25.1
 aiofiles==23.2.1
+# OpenAI for API calls (lightweight)
+openai==1.98.0
