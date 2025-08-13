@@ -1139,14 +1139,14 @@ async def verify_webhook(
     
     logging.info(f"Webhook verification request - Mode: {mode}, Challenge: {challenge}, Token: {token}")
     
-    if mode and token:
+    if mode and token and challenge:
         if mode != "subscribe" or token != os.getenv("VERIFY_TOKEN"):
             logging.error(f"Webhook verification failed - Expected token: {os.getenv('VERIFY_TOKEN')}, Received: {token}")
             raise HTTPException(status_code=403, detail="Forbidden")
 
         logging.info("WEBHOOK_VERIFIED")
-        # WhatsApp expects just the challenge string, not a JSON object
-        return challenge
+        # WhatsApp expects a plain text response with just the challenge value
+        return Response(content=challenge, media_type="text/plain")
     
     logging.error("Missing required parameters for webhook verification")
     raise HTTPException(status_code=400, detail="Bad Request")
