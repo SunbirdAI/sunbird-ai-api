@@ -1085,7 +1085,8 @@ async def webhook(payload: dict):
             sender_name = whatsapp_service.get_name(payload)
             target_language = get_user_preference(from_number)
 
-            message = whatsapp_service.handle_openai_message(
+            # Use the new UG40 model for message processing
+            message = whatsapp_service.handle_ug40_message(
                 payload,
                 target_language,
                 from_number,
@@ -1094,6 +1095,17 @@ async def webhook(payload: dict):
                 processed_messages,
                 call_endpoint_with_retry,
             )
+
+            # Comment out the OpenAI version for now but keep it available
+            # message = whatsapp_service.handle_openai_message(
+            #     payload,
+            #     target_language,
+            #     from_number,
+            #     sender_name,
+            #     phone_number_id,
+            #     processed_messages,
+            #     call_endpoint_with_retry,
+            # )
 
             if message:
                 whatsapp_service.send_message(
