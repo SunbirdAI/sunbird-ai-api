@@ -19,6 +19,7 @@ from app.inference_services.openai_script import (
     get_guide_based_on_classification,
     is_json,
 )
+from app.inference_services.ug40_inference import run_inference
 from app.inference_services.user_preference import (
     get_user_last_five_messages,
     get_user_preference,
@@ -1581,6 +1582,360 @@ class WhatsAppService:
 
             else:
                 return response
+
+    def handle_ug40_message(
+        self,
+        payload,
+        target_language,
+        from_number,
+        sender_name,
+        phone_number_id,
+        processed_messages,
+        call_endpoint_with_retry,
+    ):
+        """
+        Handle WhatsApp messages using the UG40 model for classification and processing.
+        This method replaces the OpenAI-based message handling with our custom UG40 model.
+        """
+        message_id = self.get_message_id(payload)
+
+        if message_id in processed_messages:
+            logging.info("Message ID %s already processed. Skipping.", message_id)
+            return
+
+        # Add message_id to processed messages
+        processed_messages.add(message_id)
+        logging.info("Message ID %s added to processed messages.", message_id)
+
+        # Language mapping dictionary
+        language_mapping = {
+            "lug": "Luganda",
+            "ach": "Acholi", 
+            "teo": "Ateso",
+            "lgg": "Lugbara",
+            "nyn": "Runyankole",
+            "eng": "English",
+        }
+
+        # Handle different message types
+        if interactive_response := self.get_interactive_response(payload):
+            return f"Dear {sender_name}, Thanks for that response."
+
+        if location := self.get_location(payload):
+            return f"Dear {sender_name}, We have no support for messages of type locations."
+
+        if image := self.get_image(payload):
+            return f"Dear {sender_name}, We have no support for messages of type image."
+
+        if video := self.get_video(payload):
+            return f"Dear {sender_name}, We have no support for messages of type video."
+
+        if docs := self.get_document(payload):
+            return f"Dear {sender_name}, We do not support documents."
+
+        # Handle audio messages
+        if audio_info := self.get_audio(payload):
+            return self._handle_audio_with_ug40(
+                audio_info, target_language, from_number, sender_name, 
+                phone_number_id, call_endpoint_with_retry
+            )
+
+        # Handle reactions
+        elif reaction := self.get_reaction(payload):
+            mess_id = reaction["message_id"]
+            emoji = reaction["emoji"]
+            update_feedback(mess_id, emoji)
+            return f"Dear {sender_name}, Thanks for your feedback {emoji}."
+
+        # Handle text messages with UG40 model
+        else:
+            return self._handle_text_with_ug40(
+                payload, target_language, from_number, sender_name, 
+                phone_number_id, language_mapping
+            )
+
+    def _handle_audio_with_ug40(
+        self, audio_info, target_language, from_number, sender_name, 
+        phone_number_id, call_endpoint_with_retry
+    ):
+        """Handle audio messages using UG40 model for processing"""
+        if not audio_info:
+            logging.error("No audio information provided.")
+            return "Failed to transcribe audio."
+
+        self.send_message(
+            "Audio has been received ...",
+            os.getenv("WHATSAPP_TOKEN"),
+            from_number,
+            phone_number_id,
+        )
+
+        if not target_language:
+            target_language = "lug"
+
+        try:
+            # Fetch the media URL
+            audio_url = self.fetch_media_url(
+                audio_info["id"], os.getenv("WHATSAPP_TOKEN")
+            )
+            if not audio_url:
+                logging.error("Failed to fetch media URL.")
+                return "Failed to transcribe audio."
+
+            # Download the audio file locally
+            local_audio_path = self.download_whatsapp_audio(
+                audio_url, os.getenv("WHATSAPP_TOKEN")
+            )
+            if not local_audio_path:
+                logging.error("Failed to download audio from WhatsApp.")
+                return "Failed to transcribe audio."
+
+            # Upload the audio file to GCS
+            blob_name, blob_url = upload_audio_file(local_audio_path)
+            if not (blob_name and blob_url):
+                raise Exception("Failed to upload audio to GCS")
+
+            logging.info("Audio file successfully uploaded to GCS: %s", blob_url)
+
+            self.send_message(
+                "Audio has been loaded ...",
+                os.getenv("WHATSAPP_TOKEN"),
+                from_number,
+                phone_number_id,
+            )
+
+            # Initialize the Runpod endpoint for transcription
+            endpoint = runpod.Endpoint(os.getenv("RUNPOD_ENDPOINT_ID"))
+
+            self.send_message(
+                "Your transcription is being processed ...",
+                os.getenv("WHATSAPP_TOKEN"),
+                from_number,
+                phone_number_id,
+            )
+
+            # Call the transcription service
+            request_response = endpoint.run_sync(
+                {
+                    "input": {
+                        "task": "transcribe",
+                        "target_lang": target_language,
+                        "adapter": target_language,
+                        "audio_file": blob_name,
+                        "recognise_speakers": False,
+                    }
+                },
+                timeout=150,
+            )
+
+            self.send_message(
+                "Your transcription is ready ...",
+                os.getenv("WHATSAPP_TOKEN"),
+                from_number,
+                phone_number_id,
+            )
+
+            # Use UG40 model to process the transcription
+            transcribed_text = request_response.get("audio_transcription", "")
+            if transcribed_text:
+                self.send_message(
+                    "Processing with our advanced language model...",
+                    os.getenv("WHATSAPP_TOKEN"),
+                    from_number,
+                    phone_number_id,
+                )
+
+                # Create prompt for UG40 model
+                ug40_prompt = f"""
+                I have transcribed the following audio message: "{transcribed_text}"
+                
+                Please:
+                1. Detect the language of this transcription
+                2. If the language is not {target_language}, translate it to {target_language}
+                3. Provide a natural, conversational response
+                
+                Please respond in JSON format:
+                {{
+                    "detected_language": "language_code",
+                    "translation": "translated_text_if_needed",
+                    "response": "your_response_to_user"
+                }}
+                """
+
+                # Use UG40 model (default to gemma)
+                ug40_response = run_inference(ug40_prompt, "gemma")
+                response_content = ug40_response.get("content", "")
+                
+                # Try to parse JSON response
+                try:
+                    import json
+                    response_data = json.loads(response_content)
+                    return response_data.get("response", response_content)
+                except json.JSONDecodeError:
+                    # If not valid JSON, return the content directly
+                    return response_content
+            else:
+                return "Failed to transcribe audio."
+
+        except Exception as e:
+            logging.error(f"Error in audio processing: {str(e)}")
+            return "Failed to process audio message."
+        finally:
+            # Clean up local audio file
+            if 'local_audio_path' in locals() and os.path.exists(local_audio_path):
+                os.remove(local_audio_path)
+                logging.info("Cleaned up local audio file")
+
+    def _handle_text_with_ug40(
+        self, payload, target_language, from_number, sender_name, 
+        phone_number_id, language_mapping
+    ):
+        """Handle text messages using UG40 model for classification and processing"""
+        input_text = self.get_message(payload)
+        mess_id = self.get_message_id(payload)
+        save_message(from_number, input_text)
+
+        # Get last five messages for context
+        last_five_messages = get_user_last_five_messages(from_number)
+        formatted_message_history = "\n".join([
+            f"Message {i+1}: {msg['message_text']}"
+            for i, msg in enumerate(last_five_messages)
+        ])
+
+        # Create comprehensive prompt for UG40 model
+        ug40_prompt = f"""
+        You are a WhatsApp language assistant for Ugandan languages. The user has sent you a message.
+        
+        Previous conversation context:
+        {formatted_message_history}
+        
+        Current message: "{input_text}"
+        User's preferred target language: {target_language if target_language else 'lug (Luganda)'}
+        
+        Please analyze this message and respond appropriately. Consider these scenarios:
+        
+        1. **Translation Request**: If the user wants translation, detect the source language and translate to their preferred language
+        2. **Greeting**: If it's a greeting, respond naturally and offer help
+        3. **Language Setting**: If they want to change their language preference, help them set it
+        4. **Help Request**: If they need help, provide guidance
+        5. **General Conversation**: Engage naturally while being helpful about language services
+        
+        Available languages: Luganda (lug), Acholi (ach), Ateso (teo), Lugbara (lgg), Runyankole (nyn), English (eng)
+        
+        Please respond in JSON format:
+        {{
+            "task": "translation|greeting|setLanguage|help|conversation",
+            "detected_language": "detected_language_code",
+            "target_language": "target_language_code_if_applicable",
+            "text_to_translate": "text_if_translation_needed",
+            "response": "your_response_to_user",
+            "needs_translation": true/false,
+            "translation": "translated_text_if_needed"
+        }}
+        """
+
+        try:
+            # Use UG40 model for processing (default to gemma)
+            ug40_response = run_inference(ug40_prompt, "gemma")
+            response_content = ug40_response.get("content", "")
+            
+            # Try to parse JSON response
+            try:
+                import json
+                response_data = json.loads(response_content)
+                
+                task = response_data.get("task", "conversation")
+                detected_language = response_data.get("detected_language", "eng")
+                response_text = response_data.get("response", "")
+                
+                # Handle different tasks
+                if task == "translation" and response_data.get("needs_translation", False):
+                    translation = response_data.get("translation", "")
+                    if translation:
+                        save_translation(
+                            from_number,
+                            response_data.get("text_to_translate", input_text),
+                            translation,
+                            detected_language,
+                            target_language,
+                            mess_id,
+                        )
+                        return f"Here is the translation: {translation}"
+                
+                elif task == "setLanguage":
+                    new_language = response_data.get("target_language")
+                    if new_language in language_mapping:
+                        save_user_preference(from_number, None, new_language)
+                        language_name = language_mapping.get(new_language)
+                        return f"Language set to {language_name}"
+                
+                elif task == "greeting":
+                    # Send the response message first
+                    self.send_message(
+                        response_text,
+                        os.getenv("WHATSAPP_TOKEN"),
+                        from_number,
+                        phone_number_id,
+                    )
+                    
+                    # If there's a translation, save it
+                    if response_data.get("needs_translation", False):
+                        translation = response_data.get("translation", "")
+                        save_translation(
+                            from_number,
+                            input_text,
+                            translation,
+                            detected_language,
+                            target_language,
+                            mess_id,
+                        )
+                        return f"Translation: {translation}"
+                    
+                    return response_text
+                
+                else:  # conversation, help, or other tasks
+                    # Send the response message
+                    self.send_message(
+                        response_text,
+                        os.getenv("WHATSAPP_TOKEN"),
+                        from_number,
+                        phone_number_id,
+                    )
+                    
+                    # If there's a translation component, save it
+                    if response_data.get("needs_translation", False):
+                        translation = response_data.get("translation", "")
+                        save_translation(
+                            from_number,
+                            input_text,
+                            translation,
+                            detected_language,
+                            target_language,
+                            mess_id,
+                        )
+                        return f"Translation: {translation}"
+                    
+                    return response_text
+                    
+            except json.JSONDecodeError:
+                # If not valid JSON, return the content directly
+                logging.warning("UG40 response was not valid JSON, returning content directly")
+                return response_content
+                
+        except Exception as e:
+            logging.error(f"Error in UG40 processing: {str(e)}")
+            # Fallback to basic translation if UG40 fails
+            try:
+                detected_language = self.detect_language(input_text)
+                if target_language and detected_language != target_language:
+                    translation = self.translate_text(input_text, detected_language, target_language)
+                    save_translation(from_number, input_text, translation, detected_language, target_language, mess_id)
+                    return f"Here is the translation: {translation}"
+                else:
+                    return "I understand your message. How can I help you with language services today?"
+            except Exception as fallback_error:
+                logging.error(f"Fallback also failed: {str(fallback_error)}")
+                return "I'm sorry, I'm having trouble processing your message right now. Please try again."
 
     def handle_message(
         self,
