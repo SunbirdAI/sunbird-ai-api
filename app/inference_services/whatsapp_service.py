@@ -1816,8 +1816,8 @@ class WhatsAppService:
         """
 
         try:
-            # Use UG40 model for processing (default to gemma)
-            ug40_response = run_inference(ug40_prompt, "gemma")
+            # Use UG40 model for processing (default to qwen)
+            ug40_response = run_inference(ug40_prompt, "qwen")
 
             return ug40_response.get("content", "I couldn't process your message. Please try again later.")
             # response_content = ug40_response.get("content", "")
