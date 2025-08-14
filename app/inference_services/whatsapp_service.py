@@ -1812,115 +1812,98 @@ class WhatsAppService:
         Current message: "{input_text}"
         User's preferred target language: {target_language if target_language else 'lug (Luganda)'}
         
-        Please analyze this message and respond appropriately. Consider these scenarios:
-        
-        1. **Translation Request**: If the user wants translation, detect the source language and translate to their preferred language
-        2. **Greeting**: If it's a greeting, respond naturally and offer help
-        3. **Language Setting**: If they want to change their language preference, help them set it
-        4. **Help Request**: If they need help, provide guidance
-        5. **General Conversation**: Engage naturally while being helpful about language services
-        
-        Available languages: Luganda (lug), Acholi (ach), Ateso (teo), Lugbara (lgg), Runyankole (nyn), English (eng)
-        
-        Please respond in JSON format:
-        {{
-            "task": "translation|greeting|setLanguage|help|conversation",
-            "detected_language": "detected_language_code",
-            "target_language": "target_language_code_if_applicable",
-            "text_to_translate": "text_if_translation_needed",
-            "response": "your_response_to_user",
-            "needs_translation": true/false,
-            "translation": "translated_text_if_needed"
-        }}
+        Please analyze this message and respond appropriately.
         """
 
         try:
             # Use UG40 model for processing (default to gemma)
             ug40_response = run_inference(ug40_prompt, "gemma")
-            response_content = ug40_response.get("content", "")
+
+            return ug40_response.get("content", "I couldn't process your message. Please try again later.")
+            # response_content = ug40_response.get("content", "")
             
             # Try to parse JSON response
-            try:
-                import json
-                response_data = json.loads(response_content)
+            # try:
+            #     import json
+            #     response_data = json.loads(response_content)
                 
-                task = response_data.get("task", "conversation")
-                detected_language = response_data.get("detected_language", "eng")
-                response_text = response_data.get("response", "")
+            #     task = response_data.get("task", "conversation")
+            #     detected_language = response_data.get("detected_language", "eng")
+            #     response_text = response_data.get("response", "")
                 
-                # Handle different tasks
-                if task == "translation" and response_data.get("needs_translation", False):
-                    translation = response_data.get("translation", "")
-                    if translation:
-                        save_translation(
-                            from_number,
-                            response_data.get("text_to_translate", input_text),
-                            translation,
-                            detected_language,
-                            target_language,
-                            mess_id,
-                        )
-                        return f"Here is the translation: {translation}"
+            #     # Handle different tasks
+            #     if task == "translation" and response_data.get("needs_translation", False):
+            #         translation = response_data.get("translation", "")
+            #         if translation:
+            #             save_translation(
+            #                 from_number,
+            #                 response_data.get("text_to_translate", input_text),
+            #                 translation,
+            #                 detected_language,
+            #                 target_language,
+            #                 mess_id,
+            #             )
+            #             return f"Here is the translation: {translation}"
                 
-                elif task == "setLanguage":
-                    new_language = response_data.get("target_language")
-                    if new_language in language_mapping:
-                        save_user_preference(from_number, None, new_language)
-                        language_name = language_mapping.get(new_language)
-                        return f"Language set to {language_name}"
+            #     elif task == "setLanguage":
+            #         new_language = response_data.get("target_language")
+            #         if new_language in language_mapping:
+            #             save_user_preference(from_number, None, new_language)
+            #             language_name = language_mapping.get(new_language)
+            #             return f"Language set to {language_name}"
                 
-                elif task == "greeting":
-                    # Send the response message first
-                    self.send_message(
-                        response_text,
-                        os.getenv("WHATSAPP_TOKEN"),
-                        from_number,
-                        phone_number_id,
-                    )
+            #     elif task == "greeting":
+            #         # Send the response message first
+            #         self.send_message(
+            #             response_text,
+            #             os.getenv("WHATSAPP_TOKEN"),
+            #             from_number,
+            #             phone_number_id,
+            #         )
                     
-                    # If there's a translation, save it
-                    if response_data.get("needs_translation", False):
-                        translation = response_data.get("translation", "")
-                        save_translation(
-                            from_number,
-                            input_text,
-                            translation,
-                            detected_language,
-                            target_language,
-                            mess_id,
-                        )
-                        return f"Translation: {translation}"
+            #         # If there's a translation, save it
+            #         if response_data.get("needs_translation", False):
+            #             translation = response_data.get("translation", "")
+            #             save_translation(
+            #                 from_number,
+            #                 input_text,
+            #                 translation,
+            #                 detected_language,
+            #                 target_language,
+            #                 mess_id,
+            #             )
+            #             return f"Translation: {translation}"
                     
-                    return response_text
+            #         return response_text
                 
-                else:  # conversation, help, or other tasks
-                    # Send the response message
-                    self.send_message(
-                        response_text,
-                        os.getenv("WHATSAPP_TOKEN"),
-                        from_number,
-                        phone_number_id,
-                    )
+            #     else:  # conversation, help, or other tasks
+            #         # Send the response message
+            #         self.send_message(
+            #             response_text,
+            #             os.getenv("WHATSAPP_TOKEN"),
+            #             from_number,
+            #             phone_number_id,
+            #         )
                     
-                    # If there's a translation component, save it
-                    if response_data.get("needs_translation", False):
-                        translation = response_data.get("translation", "")
-                        save_translation(
-                            from_number,
-                            input_text,
-                            translation,
-                            detected_language,
-                            target_language,
-                            mess_id,
-                        )
-                        return f"Translation: {translation}"
+            #         # If there's a translation component, save it
+            #         if response_data.get("needs_translation", False):
+            #             translation = response_data.get("translation", "")
+            #             save_translation(
+            #                 from_number,
+            #                 input_text,
+            #                 translation,
+            #                 detected_language,
+            #                 target_language,
+            #                 mess_id,
+            #             )
+            #             return f"Translation: {translation}"
                     
-                    return response_text
+            #         return response_text
                     
-            except json.JSONDecodeError:
-                # If not valid JSON, return the content directly
-                logging.warning("UG40 response was not valid JSON, returning content directly")
-                return response_content
+            # except json.JSONDecodeError:
+            #     # If not valid JSON, return the content directly
+            #     logging.warning("UG40 response was not valid JSON, returning content directly")
+            #     return response_content
                 
         except Exception as e:
             logging.error(f"Error in UG40 processing: {str(e)}")
