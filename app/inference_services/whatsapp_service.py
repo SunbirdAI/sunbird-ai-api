@@ -1783,12 +1783,12 @@ class WhatsAppService:
                 return "❌ Error validating audio file. Please try again."
 
             # Step 5: Upload to cloud storage
-            self.send_message(
-                "☁️ Uploading to cloud storage...",
-                os.getenv("WHATSAPP_TOKEN"),
-                from_number,
-                phone_number_id,
-            )
+            # self.send_message(
+            #     "☁️ Uploading to cloud storage...",
+            #     os.getenv("WHATSAPP_TOKEN"),
+            #     from_number,
+            #     phone_number_id,
+            # )
 
             try:
                 blob_name, blob_url = upload_audio_file(file_path=local_audio_path)
@@ -1816,6 +1816,7 @@ class WhatsAppService:
                     "target_lang": target_language,
                     "adapter": target_language,
                     "audio_file": blob_name,
+                    "whisper": True,  # Use Whisper for transcription
                     "recognise_speakers": False,
                 }
             }
