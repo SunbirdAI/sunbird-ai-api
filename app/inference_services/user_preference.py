@@ -151,10 +151,38 @@ def save_message(user_id, message_text):
         {
             "user_id": user_id,
             "message_text": message_text,
+            "message_type": "user_message",
             "timestamp": firestore.SERVER_TIMESTAMP,
         }
     )
     logging.info(f"Message saved with document ID: {doc_ref[1].id}")
+    return doc_ref[1].id
+
+
+def save_response(user_id, user_message, bot_response, message_id=None):
+    """
+    Save bot response details to Firestore along with the user message it responds to
+
+    Args:
+        user_id (str): ID of the user
+        user_message (str): Original user message that triggered the response
+        bot_response (str): Bot's response to the user message
+        message_id (str): Optional message ID for linking
+
+    Returns:
+        str: Document ID of the saved response
+    """
+    doc_ref = db.collection("whatsapp_messages").add(
+        {
+            "user_id": user_id,
+            "message_text": bot_response,
+            "message_type": "bot_response",
+            "user_message": user_message,
+            "message_id": message_id,
+            "timestamp": firestore.SERVER_TIMESTAMP,
+        }
+    )
+    logging.info(f"Bot response saved with document ID: {doc_ref[1].id}")
     return doc_ref[1].id
 
 
@@ -200,3 +228,49 @@ def get_user_last_five_messages(user_id):
     for doc in query:
         messages.append(doc.to_dict())
     return messages
+
+
+def get_user_last_five_conversation_pairs(user_id):
+    """
+    Retrieve the last five conversation pairs (user message + bot response) for context
+
+    Args:
+        user_id (str): ID of the user
+
+    Returns:
+        list: List of conversation pairs with user messages and bot responses
+    """
+    messages_ref = db.collection("whatsapp_messages")
+    # Get last 10 messages to ensure we capture conversation pairs
+    query = (
+        messages_ref.where("user_id", "==", user_id)
+        .order_by("timestamp", direction=firestore.Query.DESCENDING)
+        .limit(10)
+        .stream()
+    )
+    
+    all_messages = []
+    for doc in query:
+        message_data = doc.to_dict()
+        all_messages.append(message_data)
+    
+    # Sort by timestamp ascending to process chronologically
+    all_messages.sort(key=lambda x: x.get('timestamp', 0))
+    
+    # Group into conversation pairs
+    conversation_pairs = []
+    current_user_msg = None
+    
+    for msg in all_messages:
+        if msg.get('message_type') == 'user_message':
+            current_user_msg = msg
+        elif msg.get('message_type') == 'bot_response' and current_user_msg:
+            conversation_pairs.append({
+                'user_message': current_user_msg.get('message_text', ''),
+                'bot_response': msg.get('message_text', ''),
+                'timestamp': msg.get('timestamp')
+            })
+            current_user_msg = None
+    
+    # Return last 5 conversation pairs
+    return conversation_pairs[-5:] if len(conversation_pairs) > 5 else conversation_pairs

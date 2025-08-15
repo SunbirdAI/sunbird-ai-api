@@ -194,7 +194,7 @@ def _classify_error(error: Exception, response_text: str = None) -> Exception:
     jitter=True,  # Add randomness to prevent thundering herd
     retryable_exceptions=(ModelLoadingError, TimeoutError)
 )
-def run_inference(instruction: str, model_type: str, stream: bool = False) -> dict:
+def run_inference(instruction: str, model_type: str, stream: bool = False, custom_system_message: str = None) -> dict:
     """
     Run inference using the UG40 model via RunPod
     
@@ -202,6 +202,7 @@ def run_inference(instruction: str, model_type: str, stream: bool = False) -> di
         instruction (str): The input text/instruction for the model
         model_type (str): Either "gemma" or "qwen"
         stream (bool): Whether to stream the response
+        custom_system_message (str): Custom system message to override the default
         
     Returns:
         dict: Response containing content, usage stats, and processing time
@@ -210,6 +211,7 @@ def run_inference(instruction: str, model_type: str, stream: bool = False) -> di
     logger.info(f"Instruction: {instruction[:100]}..." if len(instruction) > 100 else f"Instruction: {instruction}")
     logger.info(f"Model Type: {model_type}")
     logger.info(f"Stream: {stream}")
+    logger.info(f"Custom system message: {'Yes' if custom_system_message else 'No'}")
 
     config = ENDPOINTS.get(model_type.lower())
     if not config:
@@ -227,10 +229,13 @@ def run_inference(instruction: str, model_type: str, stream: bool = False) -> di
         base_url=url,
     )
     
+    # Use custom system message if provided, otherwise use default
+    system_message = custom_system_message if custom_system_message else SYSTEM_MESSAGE
+    
     payload = {
         "model": config['model_name'],
         "messages": [
-            {"role": "system", "content": SYSTEM_MESSAGE},
+            {"role": "system", "content": system_message},
             {"role": "user", "content": instruction}
         ],
         "temperature": 0.5,
