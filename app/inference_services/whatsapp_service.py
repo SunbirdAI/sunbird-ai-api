@@ -2237,12 +2237,12 @@ Please process this transcribed audio message and provide an appropriate respons
         """Show comprehensive help including general usage and special commands"""
         return """📚 *Complete Help Guide*
 
-🌟 *Welcome to UgandaBot!*
+🌟 *Welcome to Sunbird AI!*
 I'm your specialized Ugandan language assistant. Here's everything I can help you with:
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-� *GENERAL USAGE*
+🌟 *GENERAL USAGE*
 
 *1. Text Translation:*
 • Simply send any text (3-200 characters)
