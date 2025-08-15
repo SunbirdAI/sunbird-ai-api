@@ -25,8 +25,10 @@ from app.inference_services.openai_script import (
 from app.inference_services.ug40_inference import run_inference
 from app.inference_services.user_preference import (
     get_user_last_five_messages,
+    get_user_last_five_conversation_pairs,
     get_user_preference,
     save_message,
+    save_response,
     save_translation,
     save_user_preference,
     update_feedback,
@@ -1783,12 +1785,12 @@ class WhatsAppService:
                 return "❌ Error validating audio file. Please try again."
 
             # Step 5: Upload to cloud storage
-            self.send_message(
-                "☁️ Uploading to cloud storage...",
-                os.getenv("WHATSAPP_TOKEN"),
-                from_number,
-                phone_number_id,
-            )
+            # self.send_message(
+            #     "☁️ Uploading to cloud storage...",
+            #     os.getenv("WHATSAPP_TOKEN"),
+            #     from_number,
+            #     phone_number_id,
+            # )
 
             try:
                 blob_name, blob_url = upload_audio_file(file_path=local_audio_path)
@@ -1816,6 +1818,7 @@ class WhatsAppService:
                     "target_lang": target_language,
                     "adapter": target_language,
                     "audio_file": blob_name,
+                    "whisper": True,  # Use Whisper for transcription
                     "recognise_speakers": False,
                 }
             }
@@ -1969,51 +1972,328 @@ Please process this transcribed audio message and provide an appropriate respons
         
         return f"{base_prompt}\nInstructions: {instruction}"
 
+    def _create_enhanced_system_message(self, conversation_pairs, target_lang_name, is_new_user, sender_name):
+        """
+        Create enhanced system message with conversation context integrated
+        """
+        base_system_message = """You are a specialized Ugandan language assistant with expertise in multiple domains:
+
+**Core Functions:**
+- **Translation:** Provide accurate, natural-sounding translations between Ugandan languages and other languages
+- **Education:** Explain linguistic concepts and cultural contexts with clarity and precision
+- **Lexicography:** Define words and phrases with comprehensive cultural context and practical usage examples
+- **Summarization:** Create concise, accurate summaries of provided text while preserving cultural nuances
+
+**Key Principles:**
+- Ensure all responses are culturally appropriate and sensitive to Ugandan contexts
+- Maintain high accuracy in translations and definitions
+- Provide clear, accessible explanations suitable for diverse educational backgrounds
+- Include relevant cultural context to enhance understanding
+- Use practical, real-world examples in explanations and definitions
+- Be conversational and build on previous interactions when context is available
+
+**Areas of Specialization:**
+- Ugandan indigenous languages (Luganda, Runyankole, Acholi, Luo, etc.)
+- English-Ugandan language translation
+- Cultural linguistics and sociolinguistic contexts
+- Educational content development for language learning"""
+
+        # Add user context
+        user_context = f"\n\n**Current User Context:**\n- User Name: {sender_name}\n"
+        
+        # Add conversation context if available
+        if conversation_pairs and not is_new_user:
+            conversation_context = "\n\n**Recent Conversation History:**"
+            for i, pair in enumerate(conversation_pairs, 1):
+                conversation_context += f"\n{i}. User: \"{pair['user_message']}\""
+                conversation_context += f"\n   You responded: \"{pair['bot_response'][:100]}{'...' if len(pair['bot_response']) > 100 else ''}\""
+            
+            conversation_context += "\n\n**Instructions for Context Usage:**"
+            conversation_context += "\n- Use this conversation history to provide contextually relevant responses"
+            conversation_context += "\n- Reference previous interactions when appropriate"
+            conversation_context += "\n- Build upon previously established topics or preferences"
+            conversation_context += "\n- Maintain conversation continuity and coherence"
+            
+        elif is_new_user:
+            conversation_context = "\n\n**New User Context:**"
+            conversation_context += "\n- This appears to be a new user with no previous conversation history"
+            conversation_context += "\n- Provide a warm, welcoming response"
+            conversation_context += "\n- You may introduce your capabilities if the user seems to be greeting you"
+            conversation_context += "\n- Be helpful and encourage engagement"
+        else:
+            conversation_context = "\n\n**Limited Context:**"
+            conversation_context += "\n- Limited conversation history available"
+            conversation_context += "\n- Respond helpfully while being open to building new context"
+        
+        # Combine all parts
+        enhanced_system_message = base_system_message + user_context + conversation_context
+        
+        # Add final response guidelines
+        enhanced_system_message += "\n\n**Response Guidelines:**"
+        enhanced_system_message += "\n- Focus on being helpful and culturally sensitive"
+        enhanced_system_message += "\n- Use the conversation context to provide better, more personalized responses"
+        
+        return enhanced_system_message
+
     def _handle_text_with_ug40(
         self, payload, target_language, from_number, sender_name, 
         phone_number_id, language_mapping
     ):
-        """Enhanced text message handling with improved prompting"""
+        """Enhanced text message handling with improved prompting, context, and response saving"""
         try:
             input_text = self.get_message(payload)
             mess_id = self.get_message_id(payload)
             
-            # Save current message
+            # Save current user message
             save_message(from_number, input_text)
 
-            # Get conversation context
-            last_five_messages = get_user_last_five_messages(from_number)
-            is_new_user = len(last_five_messages) <= 1
+            # Check for special commands starting with $
+            if input_text.strip().startswith('$'):
+                response = self._handle_special_commands(
+                    input_text, target_language, from_number, sender_name, 
+                    phone_number_id, language_mapping, mess_id
+                )
+                # Save the command response
+                save_response(from_number, input_text, response, mess_id)
+                return response
+
+            # Get conversation context using conversation pairs
+            conversation_pairs = get_user_last_five_conversation_pairs(from_number)
+            is_new_user = len(conversation_pairs) == 0
             
-            # Format context more intelligently
-            context = self._format_conversation_context(last_five_messages, is_new_user)
+            # Get target language name for better UX
+            target_lang_name = language_mapping.get(target_language, "English")
             
-            # Create dynamic prompt based on context and message type
-            ug40_prompt = self._create_dynamic_prompt(
-                input_text, context, is_new_user, sender_name
+            # Create enhanced system message with conversation context
+            enhanced_system_message = self._create_enhanced_system_message(
+                conversation_pairs, target_lang_name, is_new_user, sender_name
             )
             
-            # Add final instruction for response format
-            ug40_prompt += "\n\nRespond directly with your answer. Keep it WhatsApp-appropriate (concise but helpful)."
-
-            # Call the model
-            ug40_response = run_inference(ug40_prompt, "qwen")
+            # Create simple user instruction (only current message)
+            user_instruction = f'Current message: "{input_text}"'
+            
+            # Call UG40 model with enhanced system message
+            ug40_response = run_inference(
+                user_instruction, 
+                "qwen",
+                custom_system_message=enhanced_system_message
+            )
             
             response_content = ug40_response.get("content", "").strip()
             
             # Validate and clean response
             if not response_content:
-                return self._get_fallback_response(input_text, is_new_user)
+                response_content = self._get_fallback_response(input_text, is_new_user)
             
             # Ensure response isn't too long for WhatsApp
             if len(response_content) > 1600:  # WhatsApp message limit consideration
                 response_content = response_content[:1500] + "...\n\nMessage truncated. Please ask for specific parts if you need more details."
             
+            # Save the bot response with the user message it responds to
+            save_response(from_number, input_text, response_content, mess_id)
+            
             return response_content
             
         except Exception as e:
             logging.error(f"Error in enhanced UG40 processing: {str(e)}")
-            return self._get_fallback_response(input_text, is_new_user)
+            fallback_response = self._get_fallback_response(input_text, False)
+            # Save the fallback response as well
+            save_response(from_number, input_text, fallback_response, mess_id)
+            return fallback_response
+    
+    def _handle_special_commands(self, input_text, target_language, from_number, sender_name, 
+                                phone_number_id, language_mapping, mess_id):
+        """
+        Handle special commands that start with $ symbol
+        
+        Supported commands:
+        - $ set language [language_name/code] - Set target language
+        - $ translate [text] - Direct translation using translate method
+        - $ help - Show available commands
+        - $ status - Show current language settings
+        """
+        command = input_text.strip()[1:].lower()  # Remove $ and convert to lowercase
+        
+        try:
+            # Parse command and arguments
+            command_parts = command.split(maxsplit=2)
+            
+            if not command_parts:
+                return self._show_command_help()
+            
+            main_command = command_parts[0]
+            
+            # $ set language [language]
+            if main_command == "set" and len(command_parts) >= 3 and command_parts[1] == "language":
+                return self._handle_set_language_command(
+                    command_parts[2], from_number, language_mapping
+                )
+            
+            # $ translate [text]
+            elif main_command == "translate" and len(command_parts) >= 2:
+                text_to_translate = " ".join(command_parts[1:])
+                return self._handle_translate_command(
+                    text_to_translate, target_language, from_number, language_mapping, mess_id
+                )
+            
+            # $ help
+            elif main_command == "help":
+                return self._show_command_help()
+            
+            # $ status
+            elif main_command == "status":
+                return self._show_user_status(target_language, language_mapping, sender_name)
+            
+            # $ languages - Show supported languages
+            elif main_command == "languages":
+                return self._show_supported_languages(language_mapping)
+            
+            # Unknown command
+            else:
+                return f"❌ Unknown command: `${command}`\n\nType `$ help` to see available commands."
+                
+        except Exception as e:
+            logging.error(f"Error processing special command '{input_text}': {str(e)}")
+            return f"❌ Error processing command. Type `$ help` for usage instructions."
+    
+    def _handle_set_language_command(self, language_input, from_number, language_mapping):
+        """Handle $ set language [language] command"""
+        language_input = language_input.strip().lower()
+        
+        # Create reverse mapping for language names
+        name_to_code = {name.lower(): code for code, name in language_mapping.items()}
+        
+        # Direct code mapping
+        code_to_code = {code.lower(): code for code in language_mapping.keys()}
+        
+        # Try to find the language
+        new_language_code = None
+        
+        # Check if it's a language code
+        if language_input in code_to_code:
+            new_language_code = code_to_code[language_input]
+        # Check if it's a language name
+        elif language_input in name_to_code:
+            new_language_code = name_to_code[language_input]
+        # Check partial matches for language names
+        else:
+            for name, code in name_to_code.items():
+                if language_input in name or name.startswith(language_input):
+                    new_language_code = code
+                    break
+        
+        if new_language_code:
+            # Save the new language preference
+            save_user_preference(from_number, None, new_language_code)
+            language_name = language_mapping[new_language_code]
+            
+            logging.info(f"Language set to {language_name} ({new_language_code}) for user {from_number}")
+            
+            return f"✅ **Language Updated**\n\nYour target language has been set to: **{language_name}** ({new_language_code})\n\nAll translations will now be converted to {language_name}."
+        else:
+            available_languages = "\n".join([f"• {name} ({code})" for code, name in language_mapping.items()])
+            return f"❌ **Language not recognized**: '{language_input}'\n\n**Available languages:**\n{available_languages}\n\n**Usage:** `$ set language [language_name or code]`\n**Example:** `$ set language luganda` or `$ set language lug`"
+    
+    def _handle_translate_command(self, text_to_translate, target_language, from_number, language_mapping, mess_id):
+        """Handle $ translate [text] command using the direct translate method"""
+        try:
+            if not text_to_translate.strip():
+                return "❌ **No text provided**\n\nUsage: `$ translate [your text here]`\nExample: `$ translate Hello, how are you?`"
+            
+            # Get target language, default to Luganda if not set
+            if not target_language:
+                target_language = "lug"
+            
+            target_lang_name = language_mapping.get(target_language, "Luganda")
+            
+            # Detect source language
+            detected_language = self.detect_language(text_to_translate)
+            
+            # Check if translation is needed
+            if detected_language == target_language:
+                return f"ℹ️ **Same Language Detected**\n\nThe text appears to be already in {target_lang_name}.\n\n**Original text:** {text_to_translate}"
+            
+            # Perform translation
+            translation = self.translate_text(text_to_translate, detected_language, target_language)
+            
+            # Save translation to database
+            save_translation(
+                from_number, text_to_translate, translation, 
+                detected_language, target_language, mess_id
+            )
+            
+            # Get source language name for display
+            source_lang_name = language_mapping.get(detected_language, detected_language.upper())
+            
+            logging.info(f"Direct translation completed: {detected_language} -> {target_language} for user {from_number}")
+            
+            return f"🔄 **Direct Translation**\n\n**Original ({source_lang_name}):** {text_to_translate}\n\n**Translation ({target_lang_name}):** {translation}"
+            
+        except Exception as e:
+            logging.error(f"Error in direct translation command: {str(e)}")
+            return f"❌ **Translation failed**\n\nThere was an error translating your text. Please try again later.\n\n**Error:** {str(e)}"
+    
+    def _show_command_help(self):
+        """Show available special commands"""
+        return """🛠️ **Special Commands Help**
+
+**Language Management:**
+• `$ set language [language]` - Change your target language
+• `$ status` - Show current language settings
+• `$ languages` - List all supported languages
+
+**Translation:**
+• `$ translate [text]` - Direct translation to your target language
+
+**Help:**
+• `$ help` - Show this help message
+
+**Examples:**
+• `$ set language luganda`
+• `$ set language eng`
+• `$ translate Oli otya?`
+• `$ translate Good morning`
+
+**Note:** Commands are case-insensitive. You can use language names or codes."""
+    
+    def _show_user_status(self, target_language, language_mapping, sender_name):
+        """Show current user language settings and status"""
+        target_lang_name = language_mapping.get(target_language, "Not set")
+        target_code = target_language if target_language else "Not set"
+        
+        return f"""📊 **Your Language Settings**
+
+👤 **User:** {sender_name}
+🎯 **Target Language:** {target_lang_name} ({target_code})
+
+**What this means:**
+• All translations will be converted to {target_lang_name}
+• Audio transcriptions will be in {target_lang_name}
+
+**To change:** `$ set language [new_language]`
+**For help:** `$ help`"""
+    
+    def _show_supported_languages(self, language_mapping):
+        """Show all supported languages"""
+        languages_list = "\n".join([
+            f"• **{name}** (`{code}`)" 
+            for code, name in sorted(language_mapping.items(), key=lambda x: x[1])
+        ])
+        
+        return f"""🌍 **Supported Languages**
+
+{languages_list}
+
+**Usage:**
+• Use language name: `$ set language luganda`
+• Use language code: `$ set language lug`
+• Both are case-insensitive
+
+**Current features:**
+✅ Text translation
+✅ Audio transcription
+✅ Cultural context
+✅ Educational content"""
     
     def _get_fallback_response(self, input_text, is_new_user):
         """Provide contextual fallback responses"""
