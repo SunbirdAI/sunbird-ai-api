@@ -1862,10 +1862,10 @@ class WhatsAppService:
             ug40_system_message = f"""You are a specialized Ugandan language assistant processing a transcribed audio message.
 
 Your task:
-1. **Language Detection**: Identify the language of the transcribed text
-2. **Translation**: If needed, translate the text to the user's preferred language 
-3. **Cultural Response**: Provide a culturally appropriate response
-4. **Audio Context**: Remember this came from an audio message, so respond conversationally
+1. *Language Detection*: Identify the language of the transcribed text
+2. *Translation*: If needed, translate the text to the user's preferred language 
+3. *Cultural Response*: Provide a culturally appropriate response
+4. *Audio Context*: Remember this came from an audio message, so respond conversationally
 
 Guidelines:
 - Be conversational since this was spoken audio
@@ -1899,12 +1899,12 @@ Please process this transcribed audio message and provide an appropriate respons
                 except json.JSONDecodeError:
                     logging.warning("UG40 response was not valid JSON for audio processing")
                     # Fallback to simpler response
-                    return f"🎵 **Transcription:**\n\"{transcribed_text}\"\n\n💬 {response_content}"
+                    return f"🎵 *Transcription:*\n\"{transcribed_text}\"\n\n💬 {response_content}"
                     
             except Exception as ug40_error:
                 logging.error(f"UG40 processing error for audio: {str(ug40_error)}")
                 # Fallback to basic transcription response
-                return f"🎵 **Audio Transcription:**\n\"{transcribed_text}\"\n\n✅ Your message has been transcribed successfully!"
+                return f"🎵 *Audio Transcription:*\n\"{transcribed_text}\"\n\n✅ Your message has been transcribed successfully!"
 
         except Exception as e:
             logging.error(f"Unexpected error in audio processing: {str(e)}")
@@ -1978,13 +1978,13 @@ Please process this transcribed audio message and provide an appropriate respons
         """
         base_system_message = """You are a specialized Ugandan language assistant with expertise in multiple domains:
 
-**Core Functions:**
-- **Translation:** Provide accurate, natural-sounding translations between Ugandan languages and other languages
-- **Education:** Explain linguistic concepts and cultural contexts with clarity and precision
-- **Lexicography:** Define words and phrases with comprehensive cultural context and practical usage examples
-- **Summarization:** Create concise, accurate summaries of provided text while preserving cultural nuances
+*Core Functions:*
+- *Translation:* Provide accurate, natural-sounding translations between Ugandan languages and other languages
+- *Education:* Explain linguistic concepts and cultural contexts with clarity and precision
+- *Lexicography:* Define words and phrases with comprehensive cultural context and practical usage examples
+- *Summarization:* Create concise, accurate summaries of provided text while preserving cultural nuances
 
-**Key Principles:**
+*Key Principles:*
 - Ensure all responses are culturally appropriate and sensitive to Ugandan contexts
 - Maintain high accuracy in translations and definitions
 - Provide clear, accessible explanations suitable for diverse educational backgrounds
@@ -1992,36 +1992,36 @@ Please process this transcribed audio message and provide an appropriate respons
 - Use practical, real-world examples in explanations and definitions
 - Be conversational and build on previous interactions when context is available
 
-**Areas of Specialization:**
+*Areas of Specialization:*
 - Ugandan indigenous languages (Luganda, Runyankole, Acholi, Luo, etc.)
 - English-Ugandan language translation
 - Cultural linguistics and sociolinguistic contexts
 - Educational content development for language learning"""
 
         # Add user context
-        user_context = f"\n\n**Current User Context:**\n- User Name: {sender_name}\n"
+        user_context = f"\n\n*Current User Context:*\n- User Name: {sender_name}\n"
         
         # Add conversation context if available
         if conversation_pairs and not is_new_user:
-            conversation_context = "\n\n**Recent Conversation History:**"
+            conversation_context = "\n\n*Recent Conversation History:*"
             for i, pair in enumerate(conversation_pairs, 1):
                 conversation_context += f"\n{i}. User: \"{pair['user_message']}\""
                 conversation_context += f"\n   You responded: \"{pair['bot_response'][:100]}{'...' if len(pair['bot_response']) > 100 else ''}\""
             
-            conversation_context += "\n\n**Instructions for Context Usage:**"
+            conversation_context += "\n\n*Instructions for Context Usage:*"
             conversation_context += "\n- Use this conversation history to provide contextually relevant responses"
             conversation_context += "\n- Reference previous interactions when appropriate"
             conversation_context += "\n- Build upon previously established topics or preferences"
             conversation_context += "\n- Maintain conversation continuity and coherence"
             
         elif is_new_user:
-            conversation_context = "\n\n**New User Context:**"
+            conversation_context = "\n\n*New User Context:*"
             conversation_context += "\n- This appears to be a new user with no previous conversation history"
             conversation_context += "\n- Provide a warm, welcoming response"
             conversation_context += "\n- You may introduce your capabilities if the user seems to be greeting you"
             conversation_context += "\n- Be helpful and encourage engagement"
         else:
-            conversation_context = "\n\n**Limited Context:**"
+            conversation_context = "\n\n*Limited Context:*"
             conversation_context += "\n- Limited conversation history available"
             conversation_context += "\n- Respond helpfully while being open to building new context"
         
@@ -2029,7 +2029,7 @@ Please process this transcribed audio message and provide an appropriate respons
         enhanced_system_message = base_system_message + user_context + conversation_context
         
         # Add final response guidelines
-        enhanced_system_message += "\n\n**Response Guidelines:**"
+        enhanced_system_message += "\n\n*Response Guidelines:*"
         enhanced_system_message += "\n- Focus on being helpful and culturally sensitive"
         enhanced_system_message += "\n- Use the conversation context to provide better, more personalized responses"
         
@@ -2189,16 +2189,16 @@ Please process this transcribed audio message and provide an appropriate respons
             
             logging.info(f"Language set to {language_name} ({new_language_code}) for user {from_number}")
             
-            return f"✅ **Language Updated**\n\nYour target language has been set to: **{language_name}** ({new_language_code})\n\nAll translations will now be converted to {language_name}."
+            return f"✅ *Language Updated*\n\nYour target language has been set to: *{language_name}* ({new_language_code})\n\nAll translations will now be converted to {language_name}."
         else:
             available_languages = "\n".join([f"• {name} ({code})" for code, name in language_mapping.items()])
-            return f"❌ **Language not recognized**: '{language_input}'\n\n**Available languages:**\n{available_languages}\n\n**Usage:** `$ set language [language_name or code]`\n**Example:** `$ set language luganda` or `$ set language lug`"
+            return f"❌ *Language not recognized*: '{language_input}'\n\n*Available languages:*\n{available_languages}\n\n*Usage:* `$ set language [language_name or code]`\n*Example:* `$ set language luganda` or `$ set language lug`"
     
     def _handle_translate_command(self, text_to_translate, target_language, from_number, language_mapping, mess_id):
         """Handle $ translate [text] command using the direct translate method"""
         try:
             if not text_to_translate.strip():
-                return "❌ **No text provided**\n\nUsage: `$ translate [your text here]`\nExample: `$ translate Hello, how are you?`"
+                return "❌ *No text provided*\n\nUsage: `$ translate [your text here]`\nExample: `$ translate Hello, how are you?`"
             
             # Get target language, default to Luganda if not set
             if not target_language:
@@ -2211,7 +2211,7 @@ Please process this transcribed audio message and provide an appropriate respons
             
             # Check if translation is needed
             if detected_language == target_language:
-                return f"ℹ️ **Same Language Detected**\n\nThe text appears to be already in {target_lang_name}.\n\n**Original text:** {text_to_translate}"
+                return f"ℹ️ *Same Language Detected*\n\nThe text appears to be already in {target_lang_name}.\n\n*Original text:* {text_to_translate}"
             
             # Perform translation
             translation = self.translate_text(text_to_translate, detected_language, target_language)
@@ -2227,69 +2227,124 @@ Please process this transcribed audio message and provide an appropriate respons
             
             logging.info(f"Direct translation completed: {detected_language} -> {target_language} for user {from_number}")
             
-            return f"🔄 **Direct Translation**\n\n**Original ({source_lang_name}):** {text_to_translate}\n\n**Translation ({target_lang_name}):** {translation}"
+            return f"🔄 *Direct Translation*\n\n*Original ({source_lang_name}):* {text_to_translate}\n\n*Translation ({target_lang_name}):* {translation}"
             
         except Exception as e:
             logging.error(f"Error in direct translation command: {str(e)}")
-            return f"❌ **Translation failed**\n\nThere was an error translating your text. Please try again later.\n\n**Error:** {str(e)}"
+            return f"❌ *Translation failed*\n\nThere was an error translating your text. Please try again later.\n\n*Error:* {str(e)}"
     
     def _show_command_help(self):
-        """Show available special commands"""
-        return """🛠️ **Special Commands Help**
+        """Show comprehensive help including general usage and special commands"""
+        return """📚 *Complete Help Guide*
 
-**Language Management:**
+🌟 *Welcome to Sunbird AI!*
+I'm your specialized Ugandan language assistant. Here's everything I can help you with:
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🌟 *GENERAL USAGE*
+
+*1. Text Translation:*
+• Simply send any text (3-200 characters)
+• I'll automatically detect the language and translate to your preferred language
+• Example: Send "Oli otya?" → I'll translate to English or your chosen language
+
+*2. Getting Started:*
+• Send "hi", "hello", or "start" for a welcome message
+• Send "help" anytime for this guide
+
+*3. Language Selection (Legacy Method):*
+• Send a number to set your preferred language:
+  1: Luganda  |  2: Acholi   |  3: Ateso
+  4: Lugbara  |  5: Runyankole  |  6: English
+
+*4. Audio Messages:*
+• Send voice recordings for transcription
+• I'll transcribe and translate to your preferred language
+• Supports all Ugandan languages
+
+*5. Feedback:*
+• React to my messages with emojis
+• Your feedback helps me improve!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🛠️ *SPECIAL COMMANDS* (Start with $)
+
+*Language Management:*
 • `$ set language [language]` - Change your target language
-• `$ status` - Show current language settings
+• `$ status` - Show current language settings  
 • `$ languages` - List all supported languages
 
-**Translation:**
-• `$ translate [text]` - Direct translation to your target language
+*Direct Translation:*
+• `$ translate [text]` - Force translation to your target language
+• Bypasses conversation mode for quick translations
 
-**Help:**
-• `$ help` - Show this help message
+*Information:*
+• `$ help` - Show this complete help guide
 
-**Examples:**
-• `$ set language luganda`
-• `$ set language eng`
-• `$ translate Oli otya?`
-• `$ translate Good morning`
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-**Note:** Commands are case-insensitive. You can use language names or codes."""
+💡 *EXAMPLES*
+
+*Regular Translation:*
+• "Good morning" → Automatic detection & translation
+• "Webale nyo" → Detected as Luganda, translated to English
+
+*Language Setting:*
+• `$ set language luganda` → Sets Luganda as target
+• `$ set language eng` → Sets English as target
+
+*Direct Translation:*
+• `$ translate How are you?` → Direct translation to target language
+• `$ translate Ssebo ono gwe ani?` → Direct translation
+
+*Status Check:*
+• `$ status` → Shows your current settings
+• `$ languages` → Lists all supported languages
+
+❓ *Need More Help?*
+• Commands are case-insensitive
+• Language names and codes both work
+• I maintain conversation context
+• Feel free to ask cultural questions!
+
+Happy translating! 🇺🇬 """
     
     def _show_user_status(self, target_language, language_mapping, sender_name):
         """Show current user language settings and status"""
         target_lang_name = language_mapping.get(target_language, "Not set")
         target_code = target_language if target_language else "Not set"
         
-        return f"""📊 **Your Language Settings**
+        return f"""📊 *Your Language Settings*
 
-👤 **User:** {sender_name}
-🎯 **Target Language:** {target_lang_name} ({target_code})
+👤 *User:* {sender_name}
+🎯 *Target Language:* {target_lang_name} ({target_code})
 
-**What this means:**
+*What this means:*
 • All translations will be converted to {target_lang_name}
 • Audio transcriptions will be in {target_lang_name}
 
-**To change:** `$ set language [new_language]`
-**For help:** `$ help`"""
+*To change:* `$ set language [new_language]`
+*For help:* `$ help`"""
     
     def _show_supported_languages(self, language_mapping):
         """Show all supported languages"""
         languages_list = "\n".join([
-            f"• **{name}** (`{code}`)" 
+            f"• *{name}* (`{code}`)" 
             for code, name in sorted(language_mapping.items(), key=lambda x: x[1])
         ])
         
-        return f"""🌍 **Supported Languages**
+        return f"""🌍 *Supported Languages*
 
 {languages_list}
 
-**Usage:**
+*Usage:*
 • Use language name: `$ set language luganda`
 • Use language code: `$ set language lug`
 • Both are case-insensitive
 
-**Current features:**
+*Current features:*
 ✅ Text translation
 ✅ Audio transcription
 ✅ Cultural context
