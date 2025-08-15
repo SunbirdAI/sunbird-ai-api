@@ -1858,7 +1858,7 @@ class WhatsAppService:
                 phone_number_id,
             )
 
-            # Create specialized prompt for UG40
+#             # Create specialized prompt for UG40
             ug40_system_message = f"""You are a specialized Ugandan language assistant processing a transcribed audio message.
 
 Your task:
@@ -1873,33 +1873,14 @@ Guidelines:
 - If translation is needed, provide natural, contextual translation
 - Acknowledge that you received their audio message"""
 
-            ug40_prompt = f"""
-Audio transcription received: "{transcribed_text}"
-Audio duration: {duration_minutes:.1f} minutes
-
-Please process this transcribed audio message and provide an appropriate response.
-"""
-
             try:
-                # Use UG40 model with custom system message for audio processing
                 ug40_response = run_inference(
-                    ug40_prompt, 
-                    "qwen",  # Use qwen model for better JSON handling
+                    transcribed_text, 
+                    "qwen",
                     custom_system_message=ug40_system_message
                 )
-                
-                response_content = ug40_response.get("content", "")
-                
-                # Try to parse JSON response
-                try:
-                    final_response = response_content
-                    
-                    return final_response
-                    
-                except json.JSONDecodeError:
-                    logging.warning("UG40 response was not valid JSON for audio processing")
-                    # Fallback to simpler response
-                    return f"🎵 *Transcription:*\n\"{transcribed_text}\"\n\n💬 {response_content}"
+
+                return ug40_response.get("content", "")
                     
             except Exception as ug40_error:
                 logging.error(f"UG40 processing error for audio: {str(ug40_error)}")
