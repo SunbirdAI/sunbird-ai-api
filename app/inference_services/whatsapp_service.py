@@ -1953,9 +1953,9 @@ Guidelines:
         
         return f"{base_prompt}\nInstructions: {instruction}"
 
-    def _create_enhanced_system_message(self, conversation_pairs, target_lang_name, is_new_user, sender_name):
+    def _create_enhanced_system_message(self, conversation_pairs, target_lang_name, is_new_user, sender_name, input_text=""):
         """
-        Create enhanced system message with conversation context integrated
+        Create enhanced system message with conversation context integrated and message type detection
         """
         base_system_message = """You are a specialized Ugandan language assistant with expertise in multiple domains:
 
@@ -1973,6 +1973,18 @@ Guidelines:
 - Use practical, real-world examples in explanations and definitions
 - Be conversational and build on previous interactions when context is available
 
+*Special Response Guidelines:*
+- *Gratitude Messages:* When users express thanks (thank you, thanks, webale, apwoyo, ejokuna, alia, murakoze), respond with warm acknowledgment and encouragement in their preferred language
+- *Avoid Echoing:* Never simply repeat the user's message back to them - always provide meaningful, contextual responses
+- *Cultural Sensitivity:* Use appropriate greetings and responses for the user's language preference
+- *Engagement:* Always aim to be helpful and encourage continued interaction
+- *Message Types:* Intelligently detect if the user is:
+  - Expressing gratitude → Respond warmly and encouragingly
+  - Asking for translation → Provide accurate translation
+  - Greeting → Respond with appropriate cultural greeting
+  - Asking questions → Provide helpful explanations
+  - Having conversation → Maintain natural dialogue flow
+
 *Areas of Specialization:*
 - Ugandan indigenous languages (Luganda, Runyankole, Acholi, Luo, etc.)
 - English-Ugandan language translation
@@ -1980,7 +1992,20 @@ Guidelines:
 - Educational content development for language learning"""
 
         # Add user context
-        user_context = f"\n\n*Current User Context:*\n- User Name: {sender_name}\n"
+        user_context = f"\n\n*Current User Context:*\n- User Name: {sender_name}\n- Preferred Target Language: {target_lang_name}"
+        
+        # Add message type context if available
+        message_context = ""
+        if input_text:
+            # Check if this appears to be a gratitude message
+            is_gratitude = self._is_gratitude_message(input_text)
+            if is_gratitude:
+                message_context += f"\n\n*Message Type Context:*"
+                message_context += f"\n- The current message appears to express gratitude or thanks"
+                message_context += f"\n- Respond warmly and encouragingly in {target_lang_name}"
+                message_context += f"\n- Use culturally appropriate expressions"
+                message_context += f"\n- Avoid simply echoing the user's message"
+                message_context += f"\n- Optionally include helpful tips or encouragement"
         
         # Add conversation context if available
         if conversation_pairs and not is_new_user:
@@ -2007,14 +2032,75 @@ Guidelines:
             conversation_context += "\n- Respond helpfully while being open to building new context"
         
         # Combine all parts
-        enhanced_system_message = base_system_message + user_context + conversation_context
+        enhanced_system_message = base_system_message + user_context + message_context + conversation_context
         
         # Add final response guidelines
         enhanced_system_message += "\n\n*Response Guidelines:*"
+        enhanced_system_message += "\n- Keep responses concise and WhatsApp-appropriate"
         enhanced_system_message += "\n- Focus on being helpful and culturally sensitive"
         enhanced_system_message += "\n- Use the conversation context to provide better, more personalized responses"
+        enhanced_system_message += f"\n- When translating, default to {target_lang_name} unless specified otherwise"
+        enhanced_system_message += "\n- Always provide meaningful, contextual responses - never echo the user's input"
         
         return enhanced_system_message
+
+    def _is_gratitude_message(self, text):
+        """
+        Detect if the message is expressing gratitude or thanks
+        Supports multiple languages including Ugandan languages
+        """
+        text_lower = text.lower().strip()
+        
+        # Common gratitude expressions in English
+        english_gratitude = [
+            'thank', 'thanks', 'thank you', 'thankyou', 'thx', 'ty',
+            'appreciate', 'grateful', 'much appreciated', 'many thanks'
+        ]
+        
+        # Gratitude expressions in Ugandan languages
+        luganda_gratitude = [
+            'webale', 'webale nyo', 'mwebale', 'nkwebaza', 'weebale'
+        ]
+        
+        acholi_gratitude = [
+            'apwoyo', 'pwonyo', 'apwoyo matek'
+        ]
+        
+        ateso_gratitude = [
+            'ejokuna', 'ejok noi', 'eyalama noi'
+        ]
+        
+        lugbara_gratitude = [
+            'alia', 'aliya', 'alia ma'
+        ]
+        
+        runyankole_gratitude = [
+            'webale', 'murakoze', 'webale munonga'
+        ]
+        
+        # Combine all gratitude patterns
+        all_gratitude_patterns = (
+            english_gratitude + luganda_gratitude + acholi_gratitude + 
+            ateso_gratitude + lugbara_gratitude + runyankole_gratitude
+        )
+        
+        # Check if the message contains any gratitude expression
+        for pattern in all_gratitude_patterns:
+            if pattern in text_lower:
+                return True
+        
+        # Check for phrases that commonly follow gratitude
+        gratitude_phrases = [
+            'for your help', 'for the explanation', 'for your response',
+            'for the translation', 'for your assistance', 'for everything',
+            'so much', 'very much', 'a lot'
+        ]
+        
+        # If message starts with gratitude word and contains additional phrase
+        if any(text_lower.startswith(pattern) for pattern in english_gratitude[:6]):  # Basic thanks words
+            return True
+            
+        return False
 
     def _handle_text_with_ug40(
         self, payload, target_language, from_number, sender_name, 
@@ -2045,9 +2131,9 @@ Guidelines:
             # Get target language name for better UX
             target_lang_name = language_mapping.get(target_language, "English")
             
-            # Create enhanced system message with conversation context
+            # Create enhanced system message with conversation context and message analysis
             enhanced_system_message = self._create_enhanced_system_message(
-                conversation_pairs, target_lang_name, is_new_user, sender_name
+                conversation_pairs, target_lang_name, is_new_user, sender_name, input_text
             )
             
             # Create simple user instruction (only current message)
