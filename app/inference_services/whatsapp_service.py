@@ -1859,19 +1859,7 @@ class WhatsAppService:
             )
 
 #             # Create specialized prompt for UG40
-            ug40_system_message = f"""You are a specialized Ugandan language assistant processing a transcribed audio message.
-
-Your task:
-1. *Language Detection*: Identify the language of the transcribed text
-2. *Translation*: If needed, translate the text to the user's preferred language 
-3. *Cultural Response*: Provide a culturally appropriate response
-4. *Audio Context*: Remember this came from an audio message, so respond conversationally
-
-Guidelines:
-- Be conversational since this was spoken audio
-- Include cultural context for Ugandan languages
-- If translation is needed, provide natural, contextual translation
-- Acknowledge that you received their audio message"""
+            ug40_system_message = f""" You are Sunflower, a multilingual assistant for Ugandan languages made by Sunbird AI. You specialise in accurate translations, explanations, summaries and other cross-lingual tasks."""
 
             try:
                 ug40_response = run_inference(
@@ -2104,6 +2092,8 @@ Guidelines:
                 conversation_pairs, target_lang_name, is_new_user, sender_name, input_text
             )
             
+            logging.info(f"Enhanced system message for UG40:\n{enhanced_system_message}")
+
             # Create simple user instruction (only current message)
             user_instruction = f'Current message: "{input_text}"'
             
