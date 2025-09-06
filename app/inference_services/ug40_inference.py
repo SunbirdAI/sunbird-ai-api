@@ -27,7 +27,7 @@ ENDPOINTS = {
     },
     "qwen": {
         "endpoint_id": QWEN_ENDPOINT_ID,
-        "model_name": "Sunbird/qwen3-14b-sunflower-sft-translation-plus-multilingual-tasks-merged"
+        "model_name": "Sunbird/qwen3-14b-sunflower-20250905-1k-translations-merged"
     },
 }
 
