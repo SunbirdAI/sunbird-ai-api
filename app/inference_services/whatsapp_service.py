@@ -1900,163 +1900,163 @@ class WhatsAppService:
             
             return formatted_context.strip()
     
-    def _create_dynamic_prompt(self, input_text, context, is_new_user, sender_name=None):
-        """Create context-aware prompt based on message type and user history"""
+    # def _create_dynamic_prompt(self, input_text, context, is_new_user, sender_name=None):
+    #     """Create context-aware prompt based on message type and user history"""
         
-        # Detect message intent/type
-        message_lower = input_text.lower().strip()
+    #     # Detect message intent/type
+    #     message_lower = input_text.lower().strip()
         
-        # Common greetings in various languages
-        greetings = ['hello', 'hi', 'hey', 'oli otya', 'osiibire', 'kopere', 'agandi', 'muraho']
-        translation_indicators = ['translate', 'what does', 'mean', 'meaning of', 'gamba', 'kitegeeza ki']
+    #     # Common greetings in various languages
+    #     greetings = ['hello', 'hi', 'hey', 'oli otya', 'osiibire', 'kopere', 'agandi', 'muraho']
+    #     translation_indicators = ['translate', 'what does', 'mean', 'meaning of', 'gamba', 'kitegeeza ki']
         
-        is_greeting = any(greeting in message_lower for greeting in greetings)
-        is_translation_request = any(indicator in message_lower for indicator in translation_indicators)
+    #     is_greeting = any(greeting in message_lower for greeting in greetings)
+    #     is_translation_request = any(indicator in message_lower for indicator in translation_indicators)
         
-        # Base prompt structure
-        base_prompt = f"""
-            Context: {context}
+    #     # Base prompt structure
+    #     base_prompt = f"""
+    #         Context: {context}
 
-            Current message: "{input_text}"
-            """
+    #         Current message: "{input_text}"
+    #         """
         
-        # Add specific instructions based on message type and user status
-        if is_new_user and is_greeting:
-            instruction = """
-            This is a new user greeting you. Respond warmly in a culturally appropriate way. You can greet in English and include a brief Ugandan language greeting. Briefly introduce your capabilities."""
+    #     # Add specific instructions based on message type and user status
+    #     if is_new_user and is_greeting:
+    #         instruction = """
+    #         This is a new user greeting you. Respond warmly in a culturally appropriate way. You can greet in English and include a brief Ugandan language greeting. Briefly introduce your capabilities."""
             
-        elif is_translation_request:
-            instruction = """
-                    The user is requesting a translation. Provide an accurate translation and include:
-                    1. The translation
-                    2. Brief pronunciation guide if helpful
-                    3. Any important cultural context if relevant
-                    Keep it concise for WhatsApp."""
+    #     elif is_translation_request:
+    #         instruction = """
+    #                 The user is requesting a translation. Provide an accurate translation and include:
+    #                 1. The translation
+    #                 2. Brief pronunciation guide if helpful
+    #                 3. Any important cultural context if relevant
+    #                 Keep it concise for WhatsApp."""
             
-        elif not is_new_user:
-            instruction = """ This is a continuing conversation. Use the previous context to provide a relevant, helpful response. Be conversational and build on the previous interaction."""
+    #     elif not is_new_user:
+    #         instruction = """ This is a continuing conversation. Use the previous context to provide a relevant, helpful response. Be conversational and build on the previous interaction."""
             
-        else:
-            instruction = """ Analyze the message and respond appropriately based on what the user is asking. Be helpful, concise, and culturally sensitive."""
+    #     else:
+    #         instruction = """ Analyze the message and respond appropriately based on what the user is asking. Be helpful, concise, and culturally sensitive."""
         
-        return f"{base_prompt}\nInstructions: {instruction}"
+    #     return f"{base_prompt}\nInstructions: {instruction}"
 
-    def _create_enhanced_system_message(self, conversation_pairs, target_lang_name, is_new_user, sender_name, input_text=""):
-        """
-        Create enhanced system message with conversation context integrated and message type detection
-        """
-        base_system_message = """You are Sunflower, a multilingual assistant for Ugandan languages made by Sunbird AI. You specialise in accurate translations, explanations, summaries and other cross-lingual tasks."""
+    # def _create_enhanced_system_message(self, conversation_pairs, target_lang_name, is_new_user, sender_name, input_text=""):
+    #     """
+    #     Create enhanced system message with conversation context integrated and message type detection
+    #     """
+    #     base_system_message = """You are Sunflower, a multilingual assistant for Ugandan languages made by Sunbird AI. You specialise in accurate translations, explanations, summaries and other cross-lingual tasks."""
 
-        # Add user context
-        user_context = f"\n\n*Current User Context:*\n- User Name: {sender_name}\n- Preferred Target Language: {target_lang_name}"
+    #     # Add user context
+    #     user_context = f"\n\n*Current User Context:*\n- User Name: {sender_name}\n- Preferred Target Language: {target_lang_name}"
         
-        # Add message type context if available
-        message_context = ""
-        if input_text:
-            # Check if this appears to be a gratitude message
-            is_gratitude = self._is_gratitude_message(input_text)
-            if is_gratitude:
-                message_context += f"\n\n*Message Type Context:*"
-                message_context += f"\n- The current message appears to express gratitude or thanks"
-                message_context += f"\n- Respond warmly and encouragingly in {target_lang_name}"
-                message_context += f"\n- Use culturally appropriate expressions"
-                message_context += f"\n- Avoid simply echoing the user's message"
-                message_context += f"\n- Optionally include helpful tips or encouragement"
+    #     # Add message type context if available
+    #     message_context = ""
+    #     if input_text:
+    #         # Check if this appears to be a gratitude message
+    #         is_gratitude = self._is_gratitude_message(input_text)
+    #         if is_gratitude:
+    #             message_context += f"\n\n*Message Type Context:*"
+    #             message_context += f"\n- The current message appears to express gratitude or thanks"
+    #             message_context += f"\n- Respond warmly and encouragingly in {target_lang_name}"
+    #             message_context += f"\n- Use culturally appropriate expressions"
+    #             message_context += f"\n- Avoid simply echoing the user's message"
+    #             message_context += f"\n- Optionally include helpful tips or encouragement"
         
-        # Add conversation context if available
-        if conversation_pairs and not is_new_user:
-            conversation_context = "\n\n*Recent Conversation History:*"
-            for i, pair in enumerate(conversation_pairs, 1):
-                conversation_context += f"\n{i}. User: \"{pair['user_message']}\""
-                conversation_context += f"\n   You responded: \"{pair['bot_response'][:100]}{'...' if len(pair['bot_response']) > 100 else ''}\""
+    #     # Add conversation context if available
+    #     if conversation_pairs and not is_new_user:
+    #         conversation_context = "\n\n*Recent Conversation History:*"
+    #         for i, pair in enumerate(conversation_pairs, 1):
+    #             conversation_context += f"\n{i}. User: \"{pair['user_message']}\""
+    #             conversation_context += f"\n   You responded: \"{pair['bot_response'][:100]}{'...' if len(pair['bot_response']) > 100 else ''}\""
             
-            conversation_context += "\n\n*Instructions for Context Usage:*"
-            conversation_context += "\n- Use this conversation history to provide contextually relevant responses"
-            conversation_context += "\n- Reference previous interactions when appropriate"
-            conversation_context += "\n- Build upon previously established topics or preferences"
-            conversation_context += "\n- Maintain conversation continuity and coherence"
+    #         conversation_context += "\n\n*Instructions for Context Usage:*"
+    #         conversation_context += "\n- Use this conversation history to provide contextually relevant responses"
+    #         conversation_context += "\n- Reference previous interactions when appropriate"
+    #         conversation_context += "\n- Build upon previously established topics or preferences"
+    #         conversation_context += "\n- Maintain conversation continuity and coherence"
             
-        elif is_new_user:
-            conversation_context = "\n\n*New User Context:*"
-            conversation_context += "\n- This appears to be a new user with no previous conversation history"
-            conversation_context += "\n- Provide a warm, welcoming response"
-            conversation_context += "\n- You may introduce your capabilities if the user seems to be greeting you"
-            conversation_context += "\n- Be helpful and encourage engagement"
-        else:
-            conversation_context = "\n\n*Limited Context:*"
-            conversation_context += "\n- Limited conversation history available"
-            conversation_context += "\n- Respond helpfully while being open to building new context"
+    #     elif is_new_user:
+    #         conversation_context = "\n\n*New User Context:*"
+    #         conversation_context += "\n- This appears to be a new user with no previous conversation history"
+    #         conversation_context += "\n- Provide a warm, welcoming response"
+    #         conversation_context += "\n- You may introduce your capabilities if the user seems to be greeting you"
+    #         conversation_context += "\n- Be helpful and encourage engagement"
+    #     else:
+    #         conversation_context = "\n\n*Limited Context:*"
+    #         conversation_context += "\n- Limited conversation history available"
+    #         conversation_context += "\n- Respond helpfully while being open to building new context"
         
-        # Combine all parts
-        enhanced_system_message = base_system_message + user_context + message_context + conversation_context
+    #     # Combine all parts
+    #     enhanced_system_message = base_system_message + user_context + message_context + conversation_context
         
-        # Add final response guidelines
-        enhanced_system_message += "\n\n*Response Guidelines:*"
-        enhanced_system_message += "\n- Keep responses concise and WhatsApp-appropriate"
-        enhanced_system_message += "\n- Focus on being helpful and culturally sensitive"
-        enhanced_system_message += "\n- Use the conversation context to provide better, more personalized responses"
-        enhanced_system_message += f"\n- When translating, default to {target_lang_name} unless specified otherwise"
-        enhanced_system_message += "\n- Always provide meaningful, contextual responses - never echo the user's input"
+    #     # Add final response guidelines
+    #     enhanced_system_message += "\n\n*Response Guidelines:*"
+    #     enhanced_system_message += "\n- Keep responses concise and WhatsApp-appropriate"
+    #     enhanced_system_message += "\n- Focus on being helpful and culturally sensitive"
+    #     enhanced_system_message += "\n- Use the conversation context to provide better, more personalized responses"
+    #     enhanced_system_message += f"\n- When translating, default to {target_lang_name} unless specified otherwise"
+    #     enhanced_system_message += "\n- Always provide meaningful, contextual responses - never echo the user's input"
         
-        return enhanced_system_message
+    #     return enhanced_system_message
 
-    def _is_gratitude_message(self, text):
-        """
-        Detect if the message is expressing gratitude or thanks
-        Supports multiple languages including Ugandan languages
-        """
-        text_lower = text.lower().strip()
+    # def _is_gratitude_message(self, text):
+    #     """
+    #     Detect if the message is expressing gratitude or thanks
+    #     Supports multiple languages including Ugandan languages
+    #     """
+    #     text_lower = text.lower().strip()
         
-        # Common gratitude expressions in English
-        english_gratitude = [
-            'thank', 'thanks', 'thank you', 'thankyou', 'thx', 'ty',
-            'appreciate', 'grateful', 'much appreciated', 'many thanks'
-        ]
+    #     # Common gratitude expressions in English
+    #     english_gratitude = [
+    #         'thank', 'thanks', 'thank you', 'thankyou', 'thx', 'ty',
+    #         'appreciate', 'grateful', 'much appreciated', 'many thanks'
+    #     ]
         
-        # Gratitude expressions in Ugandan languages
-        luganda_gratitude = [
-            'webale', 'webale nyo', 'mwebale', 'nkwebaza', 'weebale'
-        ]
+    #     # Gratitude expressions in Ugandan languages
+    #     luganda_gratitude = [
+    #         'webale', 'webale nyo', 'mwebale', 'nkwebaza', 'weebale'
+    #     ]
         
-        acholi_gratitude = [
-            'apwoyo', 'pwonyo', 'apwoyo matek'
-        ]
+    #     acholi_gratitude = [
+    #         'apwoyo', 'pwonyo', 'apwoyo matek'
+    #     ]
         
-        ateso_gratitude = [
-            'ejokuna', 'ejok noi', 'eyalama noi'
-        ]
+    #     ateso_gratitude = [
+    #         'ejokuna', 'ejok noi', 'eyalama noi'
+    #     ]
         
-        lugbara_gratitude = [
-            'alia', 'aliya', 'alia ma'
-        ]
+    #     lugbara_gratitude = [
+    #         'alia', 'aliya', 'alia ma'
+    #     ]
         
-        runyankole_gratitude = [
-            'webale', 'murakoze', 'webale munonga'
-        ]
+    #     runyankole_gratitude = [
+    #         'webale', 'murakoze', 'webale munonga'
+    #     ]
         
-        # Combine all gratitude patterns
-        all_gratitude_patterns = (
-            english_gratitude + luganda_gratitude + acholi_gratitude + 
-            ateso_gratitude + lugbara_gratitude + runyankole_gratitude
-        )
+    #     # Combine all gratitude patterns
+    #     all_gratitude_patterns = (
+    #         english_gratitude + luganda_gratitude + acholi_gratitude + 
+    #         ateso_gratitude + lugbara_gratitude + runyankole_gratitude
+    #     )
         
-        # Check if the message contains any gratitude expression
-        for pattern in all_gratitude_patterns:
-            if pattern in text_lower:
-                return True
+    #     # Check if the message contains any gratitude expression
+    #     for pattern in all_gratitude_patterns:
+    #         if pattern in text_lower:
+    #             return True
         
-        # Check for phrases that commonly follow gratitude
-        gratitude_phrases = [
-            'for your help', 'for the explanation', 'for your response',
-            'for the translation', 'for your assistance', 'for everything',
-            'so much', 'very much', 'a lot'
-        ]
+    #     # Check for phrases that commonly follow gratitude
+    #     gratitude_phrases = [
+    #         'for your help', 'for the explanation', 'for your response',
+    #         'for the translation', 'for your assistance', 'for everything',
+    #         'so much', 'very much', 'a lot'
+    #     ]
         
-        # If message starts with gratitude word and contains additional phrase
-        if any(text_lower.startswith(pattern) for pattern in english_gratitude[:6]):  # Basic thanks words
-            return True
+    #     # If message starts with gratitude word and contains additional phrase
+    #     if any(text_lower.startswith(pattern) for pattern in english_gratitude[:6]):  # Basic thanks words
+    #         return True
             
-        return False
+    #     return False
 
     def _handle_text_with_ug40(
         self, payload, target_language, from_number, sender_name, 
@@ -2084,18 +2084,32 @@ class WhatsAppService:
             conversation_pairs = get_user_last_five_conversation_pairs(from_number)
             is_new_user = len(conversation_pairs) == 0
             
-            # Get target language name for better UX
-            target_lang_name = language_mapping.get(target_language, "English")
+            # # Get target language name for better UX
+            # target_lang_name = language_mapping.get(target_language, "English")
             
             # Create enhanced system message with conversation context and message analysis
-            enhanced_system_message = self._create_enhanced_system_message(
-                conversation_pairs, target_lang_name, is_new_user, sender_name, input_text
-            )
+            # enhanced_system_message = self._create_enhanced_system_message(
+            #     conversation_pairs, target_lang_name, is_new_user, sender_name, input_text
+            # )
+            enhanced_system_message = "You are Sunflower, a multilingual assistant for Ugandan languages made by Sunbird AI. You specialise in accurate translations, explanations, summaries and other cross-lingual tasks. Given the users last five previous converstaions, use that context to inform your response. Always respond in a concise manner suitable for WhatsApp. Never echo the user's input. Focus on being helpful and culturally sensitive."
             
             logging.info(f"Enhanced system message for UG40:\n{enhanced_system_message}")
 
             # Create simple user instruction (only current message)
-            user_instruction = f'Current message: "{input_text}"'
+            if is_new_user:
+                user_instruction = (
+                    'No previous messages. Start by welcoming the user to the platform powered by Sunbird AI of Uganda.\n'
+                    f'Current message: "{input_text}"'
+                )
+            else:
+                # Format previous conversation pairs for context
+                formatted_pairs = ""
+                for i, pair in enumerate(conversation_pairs, 1):
+                    formatted_pairs += f"\n{i}. User: \"{pair['user_message']}\"\n   Bot: \"{pair['bot_response'][:100]}{'...' if len(pair['bot_response']) > 100 else ''}\""
+                user_instruction = (
+                    f"Previous conversation:{formatted_pairs}\n"
+                    f'Current message: "{input_text}"'
+                )
             
             # Call UG40 model with enhanced system message
             ug40_response = run_inference(
