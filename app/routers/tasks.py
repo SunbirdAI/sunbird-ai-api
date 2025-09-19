@@ -1087,7 +1087,7 @@ async def webhook(payload: dict):
             target_language = get_user_preference(from_number)
 
             # Use the new UG40 model for message processing
-            message = whatsapp_service.handle_ug40_message(
+            message, is_template, template = whatsapp_service.handle_ug40_message(
                 payload,
                 target_language,
                 from_number,
@@ -1097,18 +1097,32 @@ async def webhook(payload: dict):
                 call_endpoint_with_retry,
             )
 
-            # Comment out the OpenAI version for now but keep it available
-            # message = whatsapp_service.handle_openai_message(
-            #     payload,
-            #     target_language,
-            #     from_number,
-            #     sender_name,
-            #     phone_number_id,
-            #     processed_messages,
-            #     call_endpoint_with_retry,
-            # )
-
-            if message:
+            if is_template:
+                if template == "custom_feedback":
+                    whatsapp_service.send_templatev2(
+                        token=os.getenv("WHATSAPP_TOKEN"),
+                        template=template,
+                        phone_number_id=phone_number_id,
+                        recipient_id=from_number
+                        )
+                elif template == "welcome_message":
+                    whatsapp_service.send_templatev2(
+                        token=os.getenv("WHATSAPP_TOKEN"),
+                        template="welcome_message",
+                        phone_number_id=phone_number_id,
+                        recipient_id=from_number,
+                        components=[
+                            {"type": "body", "parameters": [{"type": "text", "text": sender_name}]}
+                        ]
+                    )
+                elif template == "choose_language":
+                    whatsapp_service.send_templatev2(
+                        token=os.getenv("WHATSAPP_TOKEN"),
+                        template="choose_language",
+                        phone_number_id=phone_number_id,
+                        recipient_id=from_number
+                        )
+            else:
                 whatsapp_service.send_message(
                     message, os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id
                 )

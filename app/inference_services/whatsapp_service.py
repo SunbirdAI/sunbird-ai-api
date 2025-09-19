@@ -878,21 +878,6 @@ class WhatsAppService:
             if "document" in data["messages"][0]:
                 return data["messages"][0]["document"]
 
-    # def get_audio(self, data) -> Union[Dict, None]:
-    #     """
-    #     Extracts the audio of the sender from the data received from the webhook.
-
-    #     Args:
-    #         data[dict]: The data received from the webhook
-
-    #     Returns:
-    #         dict: The audio of the sender
-
-    #     """
-    #     data = self.preprocess(data)
-    #     if "messages" in data:
-    #         if "audio" in data["messages"][0]:
-    #             return data["messages"][0]["audio"]
 
     def get_video(self, data) -> Union[Dict, None]:
         """
@@ -1219,40 +1204,39 @@ class WhatsAppService:
 
         # Handle different message types
         if interactive_response := self.get_interactive_response(payload):
-            return f"Dear {sender_name}, Thanks for that response."
+            return f"Dear {sender_name}, Thanks for that response.", False, ""
 
         if location := self.get_location(payload):
-            return f"Dear {sender_name}, We have no support for messages of type locations."
+            return f"Dear {sender_name}, We have no support for messages of type locations.", False, ""
 
         if image := self.get_image(payload):
-            return f"Dear {sender_name}, We have no support for messages of type image."
+            return f"Dear {sender_name}, We have no support for messages of type image.", False, ""
 
         if video := self.get_video(payload):
-            return f"Dear {sender_name}, We have no support for messages of type video."
+            return f"Dear {sender_name}, We have no support for messages of type video.", False, ""
 
         if docs := self.get_document(payload):
-            return f"Dear {sender_name}, We do not support documents."
+            return f"Dear {sender_name}, We do not support documents.", False, ""
 
         # Handle audio messages
         if audio_info := self.get_audio(payload):
             return self._handle_audio_with_ug40(
                 audio_info, target_language, from_number, sender_name, 
                 phone_number_id, call_endpoint_with_retry
-            )
+            ), False, ""
 
         # Handle reactions
         elif reaction := self.get_reaction(payload):
             mess_id = reaction["message_id"]
             emoji = reaction["emoji"]
             update_feedback(mess_id, emoji)
-            self.send_template(
-                token=os.getenv("WHATSAPP_TOKEN"),
-                template="custom_feedback",
-                phone_number_id=phone_number_id,
-                recipient_id=from_number,
-                recipient_type="individual"
-            )
-            return
+            # self.send_templatev2(
+            #     token=os.getenv("WHATSAPP_TOKEN"),
+            #     template="custom_feedback",
+            #     phone_number_id=phone_number_id,
+            #     recipient_id=from_number
+            #     )
+            return " ", True, "custom_feedback"
 
         # Handle text messages with UG40 model
         else:
@@ -1260,16 +1244,6 @@ class WhatsAppService:
                 payload, target_language, from_number, sender_name, 
                 phone_number_id, language_mapping
             )
-        
-    def prompt_language_selection(self, from_number, phone_number_id):
-        self.send_template(
-            token=os.getenv("WHATSAPP_TOKEN"),
-            template="choose_language",
-            phone_number_id=phone_number_id,
-            recipient_id=from_number,
-            recipient_type="individual"
-        )
-        return "Please select your preferred language from the options above."
 
     def _handle_audio_with_ug40(
         self, audio_info, target_language, from_number, sender_name, 
@@ -1470,7 +1444,7 @@ class WhatsAppService:
             if command_response:
                 # Save the command response
                 save_response(from_number, input_text, command_response, mess_id)
-                return command_response
+                return command_response, False, ""
 
             # Get conversation context using conversation pairs
             conversation_pairs = get_user_last_five_conversation_pairs(from_number)
@@ -1486,16 +1460,16 @@ class WhatsAppService:
                     'No previous messages. Start by welcoming the user to the platform powered by Sunbird AI of Uganda.\n'
                     f'Current message: "{input_text}"'
                 )
-                self.send_template(
-                    token=os.getenv("WHATSAPP_TOKEN"),
-                    template="welcome_message",
-                    phone_number_id=phone_number_id,
-                    recipient_id=from_number,
-                    recipient_type="individual",
-                    components=[
-                        {"type": "body", "parameters": [{"type": "text", "text": sender_name}]}
-                    ]
-                )
+                # self.send_templatev2(
+                #     token=os.getenv("WHATSAPP_TOKEN"),
+                #     template="welcome_message",
+                #     phone_number_id=phone_number_id,
+                #     recipient_id=from_number,
+                #     components=[
+                #         {"type": "body", "parameters": [{"type": "text", "text": sender_name}]}
+                #     ]
+                # )
+                return " ", True, "welcome_message"
             else:
                 # Format previous conversation pairs for context
                 formatted_pairs = ""
@@ -1526,14 +1500,14 @@ class WhatsAppService:
             # Save the bot response with the user message it responds to
             save_response(from_number, input_text, response_content, mess_id)
             
-            return response_content
+            return response_content, False, ""
             
         except Exception as e:
             logging.error(f"Error in enhanced UG40 processing: {str(e)}")
             fallback_response = self._get_fallback_response(input_text, False)
             # Save the fallback response as well
             save_response(from_number, input_text, fallback_response, mess_id)
-            return fallback_response
+            return fallback_response, False, ""
     
     def _handle_natural_commands(self, input_text, target_language, from_number, sender_name, 
                                phone_number_id, language_mapping, mess_id):
@@ -1574,23 +1548,12 @@ class WhatsAppService:
                 if first_word == "set" and words[1] in ["language", "lang"]:
                     if len(words) >= 3:
                         language_arg = " ".join(words[2:])
-                        self.prompt_language_selection(from_number, phone_number_id)
                         # return self._handle_set_language_command(
                         #     language_arg, from_number, language_mapping
                         # )
-                        return "Please select your preferred language from the options above."
+                        return "Please select your preferred language from the options above.", True, "choose_language"
                     else:
-                        return "❌ Please specify a language. Example: `set language english` or `set language luganda`"
-                
-                # "translate [text]"
-                elif first_word == "translate":
-                    if len(words) >= 2:
-                        text_to_translate = " ".join(words[1:])
-                        return self._handle_direct_translation(
-                            text_to_translate, target_language, from_number
-                        )
-                    else:
-                        return "❌ Please provide text to translate. Example: `translate hello world`"
+                        return "❌ Please specify a language. Example: `set language english` or `set language luganda`", False, ""
                 
                 # "change language [language]" or "switch language [language]"
                 elif first_word in ["change", "switch"] and len(words) >= 3 and words[1] in ["language", "lang"]:
@@ -1657,53 +1620,40 @@ class WhatsAppService:
             if language_code:
                 # Update user's language preference (implement your storage logic here)
                 # update_user_language_preference(from_number, language_code)
-                
-                return f"✅ Language set to {language_name} ({language_code}). I'll now respond in {language_name}."
+
+                return f"✅ Language set to {language_name} ({language_code}). All audios should be sent in {language_name}.", False, ""
             else:
                 available_languages = "\n".join([f"• {name} ({code})" for code, name in language_mapping.items()])
-                return f"❌ Language '{language_arg}' not found.\n\nSupported languages:\n{available_languages}"
-                
+                return f"❌ Language '{language_arg}' not found.\n\nSupported languages:\n{available_languages}", False, ""
+
         except Exception as e:
             logging.error(f"Error setting language: {str(e)}")
-            return "❌ Error updating language settings. Please try again."
-    
-    def _handle_direct_translation(self, text_to_translate, target_language, from_number):
-        """Handle direct translation requests"""
-        try:
-            # Use your existing translation logic here
-            # This is a placeholder - replace with your actual translation method
-            translated_text = self.translate_text(text_to_translate, target_language)
-            
-            return f"Translation: {translated_text}"
-            
-        except Exception as e:
-            logging.error(f"Error in direct translation: {str(e)}")
-            return "❌ Translation failed. Please try again."
+            return "❌ Error updating language settings. Please try again.", False, ""
     
     def _show_command_help(self):
         """Show available commands and usage"""
         help_text = """🌻 **Sunflower Assistant Commands**
 
-**Basic Commands:**
-• `help` - Show this help message
-• `status` - Show your current settings
-• `languages` - Show supported languages
+        **Basic Commands:**
+        • `help` - Show this help message
+        • `status` - Show your current settings
+        • `languages` - Show supported languages
 
-**Language Commands:**
-• `set language [name]` - Set your preferred language
-  Example: `set language luganda`
-• `translate [text]` - Translate text directly
-  Example: `translate hello world`
+        **Language Commands:**
+        • `set language [name]` - Set your preferred language
+        Example: `set language luganda`
+        • `translate [text]` - Translate text directly
+        Example: `translate hello world`
 
-**Natural Questions:**
-You can also ask naturally:
-• "What can you do?"
-• "What languages do you support?"
-• "Change my language to English"
+        **Natural Questions:**
+        You can also ask naturally:
+        • "What can you do?"
+        • "What languages do you support?"
+        • "Change my language to English"
 
-Just type your message normally - I'm here to help! 🌻"""
+        Just type your message normally - I'm here to help! 🌻"""
         
-        return help_text
+        return help_text, False, ""
     
     def _show_user_status(self, target_language, language_mapping, sender_name):
         """Show current user status and settings"""
@@ -1712,18 +1662,18 @@ Just type your message normally - I'm here to help! 🌻"""
             
             status_text = f"""👤 **Status for {sender_name}**
 
-🌐 **Current Language:** {language_name} ({target_language})
-🤖 **Assistant:** Sunflower by Sunbird AI
-📱 **Platform:** WhatsApp
+            🌐 **Current Language:** {language_name} ({target_language})
+            🤖 **Assistant:** Sunflower by Sunbird AI
+            📱 **Platform:** WhatsApp
 
-Type `help` for available commands or just chat naturally!"""
-            
-            return status_text
-            
+            Type `help` for available commands or just chat naturally!"""
+
+            return status_text, False, ""
+
         except Exception as e:
             logging.error(f"Error showing user status: {str(e)}")
-            return "❌ Error retrieving status information."
-    
+            return "❌ Error retrieving status information.", False, ""
+
     def _show_supported_languages(self, language_mapping):
         """Show all supported languages"""
         try:
@@ -1733,20 +1683,32 @@ Type `help` for available commands or just chat naturally!"""
             
             languages_text = f"""🌐 **Supported Languages**
 
-{chr(10).join(languages_list)}
+                            {chr(10).join(languages_list)}
 
-To set your language, type:
-`set language [name]` or `set language [code]`
+                            To set your language, type:
+                            `set language [name]` or `set language [code]`
 
-Example: `set language english` or `set language en`"""
-            
-            return languages_text
-            
+                            Example: `set language english` or `set language en`"""
+
+            return languages_text, False, ""
+
         except Exception as e:
             logging.error(f"Error showing supported languages: {str(e)}")
-            return "❌ Error retrieving language information."
+            return "❌ Error retrieving language information.", False, ""
 
-    
+    def _get_fallback_response(self, input_text, is_new_user):
+        """Provide contextual fallback responses"""
+        if is_new_user:
+            return """Hello! I'm UgandaBot, your Ugandan language assistant. I can help with:
+                    • Translations between Ugandan languages and English
+                    • Language learning and cultural context
+                    • General questions about Uganda
+
+                    I'm experiencing technical difficulties right now. Please try again in a moment."""
+        else:
+            return "I'm experiencing technical difficulties processing your message. Please try rephrasing or try again later.", False, ""
+        
+
     def detect_language(self, text):
         endpoint = runpod.Endpoint(os.getenv("RUNPOD_ENDPOINT_ID"))
         request_response = {}
