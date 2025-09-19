@@ -1183,458 +1183,6 @@ class WhatsAppService:
             logging.error("KeyError: Missing expected key in payload.")
             return None
 
-    def handle_openai_message(
-        self,
-        payload,
-        target_language,
-        from_number,
-        sender_name,
-        phone_number_id,
-        processed_messages,
-        call_endpoint_with_retry,
-    ):
-        message_id = self.get_message_id(
-            payload
-        )  # Extract unique message ID from the payload
-
-        if message_id in processed_messages:
-            logging.info("Message ID %s already processed. Skipping.", {message_id})
-            return
-
-        # Add message_id to processed messages
-        processed_messages.add(message_id)
-
-        logging.info("Message ID %s added to processed messages.", message_id)
-
-        # Language mapping dictionary
-        language_mapping = {
-            "lug": "Luganda",
-            "ach": "Acholi",
-            "teo": "Ateso",
-            "lgg": "Lugbara",
-            "nyn": "Runyankole",
-            "eng": "English",
-        }
-
-        if interactive_response := self.get_interactive_response(payload):
-            response = interactive_response
-            return f"Dear {sender_name}, Thanks for that response."
-
-        if location := self.get_location(payload):
-            response = location
-            return f"Dear {sender_name}, We have no support for messages of type locations."
-
-        if image := self.get_image(payload):
-            response = image
-            return f"Dear {sender_name}, We have no support for messages of type image."
-
-        if video := self.get_video(payload):
-            response = video
-            return f"Dear {sender_name}, We have no support for messages of type video."
-
-        if docs := self.get_document(payload):
-            response = docs
-            return f"Dear {sender_name}, We do not support documents."
-
-        # Step 1: Retrieve audio information from the payload
-        if audio_info := self.get_audio(payload):
-            if not audio_info:
-                logging.error("No audio information provided.")
-                return "Failed to transcribe audio."
-
-            self.send_message(
-                "Audio has been received ...",
-                os.getenv("WHATSAPP_TOKEN"),
-                from_number,
-                phone_number_id,
-            )
-
-            if not target_language:
-                target_language = "lug"
-
-            # Step 2: Fetch the media URL using the WhatsApp token
-            audio_url = self.fetch_media_url(
-                audio_info["id"], os.getenv("WHATSAPP_TOKEN")
-            )
-            if not audio_url:
-                logging.error("Failed to fetch media URL.")
-                return "Failed to transcribe audio."
-
-            # Step 3: Download the audio file locally
-            local_audio_path = self.download_whatsapp_audio(
-                audio_url, os.getenv("WHATSAPP_TOKEN")
-            )
-            if not local_audio_path:
-                logging.error("Failed to download audio from WhatsApp.")
-                return "Failed to transcribe audio."
-
-            # Upload the audio file to GCS and return the blob and URL
-            blob_name, blob_url = upload_audio_file(local_audio_path)
-
-            if blob_name and blob_url:
-                logging.info("Audio file successfully uploaded to GCS: %s", blob_url)
-            else:
-                raise Exception("Failed to upload audio to GCS")
-
-            # Step 4: Notify the user that the audio has been received
-            self.send_message(
-                "Audio has been loaded ...",
-                os.getenv("WHATSAPP_TOKEN"),
-                from_number,
-                phone_number_id,
-            )
-
-            # Step 5: Initialize the Runpod endpoint for transcription
-            endpoint = runpod.Endpoint(os.getenv("RUNPOD_ENDPOINT_ID"))
-
-            # logging.info("Audio data found for langauge detection")
-            # data = {
-            #     "input": {
-            #         "task": "auto_detect_audio_language",
-            #         "audio_file": blob_name,
-            #     }
-            # }
-
-            # start_time = time.time()
-
-            # try:
-            #     logging.info("Audio file ready for langauge detection")
-            #     audio_lang_response = call_endpoint_with_retry(endpoint, data)
-            # except TimeoutError as e:
-
-            #     logging.error("Job timed out %s", str(e))
-            #     raise HTTPException(
-            #         status_code=503, detail="Service unavailable due to timeout."
-            #     ) from e
-
-            # except ConnectionError as e:
-
-            #     logging.error("Connection lost: %s", str(e))
-            #     raise HTTPException(
-            #         status_code=503, detail="Service unavailable due to connection error."
-            #     ) from e
-
-            # end_time = time.time()
-            # logging.info(
-            #     "Audio language auto detection response: %s ",
-            #     audio_lang_response.get("detected_language"),
-            # )
-
-            # # Calculate the elapsed time
-            # elapsed_time = end_time - start_time
-            # logging.info(
-            #     "Audio language auto detection elapsed time: %s seconds", elapsed_time
-            # )
-
-            # audio_language = audio_lang_response.get("detected_language")
-            request_response = {}
-
-            if target_language in language_mapping:
-                # Language is in the mapping
-                logging.info("Language detected in audio is %s", target_language)
-            else:
-                # Language is not in our scope
-                return "Audio Language not detected"
-
-            try:
-
-                start_time = time.time()
-
-                # Step 6: Notify the user that transcription is in progress
-                self.send_message(
-                    "Your transcription is being processed ...",
-                    os.getenv("WHATSAPP_TOKEN"),
-                    from_number,
-                    phone_number_id,
-                )
-
-                try:
-                    # Step 7: Call the transcription service with the correct parameters
-                    request_response = endpoint.run_sync(
-                        {
-                            "input": {
-                                "task": "transcribe",
-                                "target_lang": target_language,
-                                "adapter": target_language,
-                                "audio_file": blob_name,  # Corrected to pass local file path
-                                "recognise_speakers": False,
-                            }
-                        },
-                        timeout=150,  # Set a timeout for the transcription job.
-                    )
-
-                    # Step 8: Notify the user that transcription is in progress
-                    self.send_message(
-                        "Your transcription is ready ...",
-                        os.getenv("WHATSAPP_TOKEN"),
-                        from_number,
-                        phone_number_id,
-                    )
-
-                except TimeoutError as e:
-                    logging.error("Transcription job timed out: %s", str(e))
-                    return "Failed to transcribe audio."
-                except Exception as e:
-                    logging.error("Unexpected error during transcription: %s", str(e))
-                    return "Failed to transcribe audio."
-
-                # Step 9: Log the time taken for the transcription
-                end_time = time.time()
-                elapsed_time = end_time - start_time
-                logging.info("Here is the response: %s", request_response)
-                logging.info(
-                    "Elapsed time: %s seconds for transcription.", elapsed_time
-                )
-
-                self.send_message(
-                    "Translating to your target language if you haven't set a target language the default is Lugande.....",
-                    os.getenv("WHATSAPP_TOKEN"),
-                    from_number,
-                    phone_number_id,
-                )
-
-                detected_language = self.detect_language(
-                    request_response.get("audio_transcription")
-                )
-                translation = self.translate_text(
-                    request_response.get("audio_transcription"),
-                    detected_language,
-                    target_language,
-                )
-
-                # Step 10: Return the translation result
-                return translation
-
-            finally:
-                # Step 11: Clean up the local audio file
-                if os.path.exists(local_audio_path):
-                    os.remove(local_audio_path)
-                    logging.info("Cleaned up local audio file: %s", request_response)
-
-        elif reaction := self.get_reaction(payload):
-            mess_id = reaction["message_id"]
-            emoji = reaction["emoji"]
-            update_feedback(mess_id, emoji)
-            return f"Dear {sender_name}, Thanks for your feedback {emoji}."
-
-        else:
-            # Extract relevant information
-            input_text = self.get_message(payload)
-            mess_id = self.get_message_id(payload)
-            save_message(from_number, input_text)
-
-            # Get last five messages for context
-            last_five_messages = get_user_last_five_messages(from_number)
-
-            # Format the previous messages for context clarity
-            formatted_message_history = "\n".join(
-                [
-                    f"Message {i+1}: {msg['message_text']}"
-                    for i, msg in enumerate(last_five_messages)
-                ]
-            )
-
-            # Combine the message context to inform the model
-            messages_context = f"Previous messages (starting from the most recent):\n{formatted_message_history}\nCurrent message:\n{input_text}"
-
-            # Classify the user input and get the appropriate guide
-            classification = classify_input(input_text)
-            guide = get_guide_based_on_classification(classification)
-
-            # Generate response from OpenAI
-            messages = [
-                {"role": "system", "content": guide},
-                {"role": "user", "content": messages_context},
-            ]
-            response = get_completion_from_messages(messages)
-
-            if is_json(response):
-                json_object = json.loads(response)
-                # print ("Is valid json? true")
-                logging.info("Open AI response: %s", json_object)
-                task = json_object["task"]
-                # print(task)
-
-                if task == "translation":
-                    detected_language = self.detect_language(json_object["text"])
-                    # save_user_preference(
-                    #     from_number, detected_language, json_object["target_language"]
-                    # )
-                    if json_object["target_language"]:
-                        translation = self.translate_text(
-                            json_object["text"],
-                            detected_language,
-                            json_object["target_language"],
-                        )
-                    elif target_language:
-                        translation = self.translate_text(
-                            json_object["text"],
-                            detected_language,
-                            target_language,
-                        )
-                    else:
-                        translation = self.translate_text(
-                            json_object["text"],
-                            detected_language,
-                            "lug",
-                        )
-
-                    save_translation(
-                        from_number,
-                        json_object["text"],
-                        translation,
-                        detected_language,
-                        target_language,
-                        mess_id,
-                    )
-                    return f""" Here is the translation: {translation} """
-
-                elif task == "greeting":
-                    detected_language = self.detect_language(input_text)
-                    translation = " "
-                    if target_language:
-                        translation = self.translate_text(
-                            input_text,
-                            detected_language,
-                            target_language,
-                        )
-                    else:
-                        translation = self.translate_text(
-                            input_text,
-                            detected_language,
-                            "lug",
-                        )
-
-                    target_language = self.detect_language(translation)
-                    message = json_object["text"]
-
-                    save_translation(
-                        from_number,
-                        input_text,
-                        translation,
-                        detected_language,
-                        target_language,
-                        mess_id,
-                    )
-
-                    self.send_message(
-                        message,
-                        os.getenv("WHATSAPP_TOKEN"),
-                        from_number,
-                        phone_number_id,
-                    )
-
-                    # reply_to_message(
-                    # os.getenv("WHATSAPP_TOKEN"), mess_id,  from_number, phone_number_id, message,
-                    # )
-
-                    return f""" Here is the translation: {translation} """
-
-                elif task == "currentLanguage":
-                    # Get the full language name using the code
-                    target_language = get_user_preference(from_number)
-
-                    language_name = language_mapping.get(target_language)
-                    if language_name:
-                        return f"Your current target language is {language_name}"
-                    else:
-                        return "You currently don't have a set language."
-
-                elif task == "setLanguage":
-                    settargetlanguage = json_object["language"]
-
-                    logging.info("This language set: %s", settargetlanguage)
-
-                    save_user_preference(from_number, None, settargetlanguage)
-
-                    language_name = language_mapping.get(settargetlanguage)
-
-                    return f"Language set to {language_name}"
-
-                elif task == "conversation":
-
-                    detected_language = self.detect_language(input_text)
-                    translation = ""
-                    if target_language:
-                        translation = self.translate_text(
-                            input_text,
-                            detected_language,
-                            target_language,
-                        )
-                    else:
-                        translation = self.translate_text(
-                            input_text,
-                            detected_language,
-                            "lug",
-                        )
-                    target_language = self.detect_language(translation)
-                    message = json_object["text"]
-
-                    save_translation(
-                        from_number,
-                        input_text,
-                        translation,
-                        detected_language,
-                        target_language,
-                        mess_id,
-                    )
-
-                    self.send_message(
-                        message,
-                        os.getenv("WHATSAPP_TOKEN"),
-                        from_number,
-                        phone_number_id,
-                    )
-
-                    # reply_to_message(
-                    # os.getenv("WHATSAPP_TOKEN"), mess_id,  from_number, phone_number_id, message,
-                    # )
-
-                    return f""" Here is the translation: {translation} """
-
-                elif task == "help":
-                    detected_language = self.detect_language(input_text)
-                    translation = ""
-                    if target_language:
-                        translation = self.translate_text(
-                            input_text,
-                            detected_language,
-                            target_language,
-                        )
-                    else:
-                        translation = self.translate_text(
-                            input_text,
-                            detected_language,
-                            "lug",
-                        )
-                    target_language = self.detect_language(translation)
-                    message = json_object["text"]
-
-                    save_translation(
-                        from_number,
-                        input_text,
-                        translation,
-                        detected_language,
-                        target_language,
-                        mess_id,
-                    )
-
-                    self.send_message(
-                        message,
-                        os.getenv("WHATSAPP_TOKEN"),
-                        from_number,
-                        phone_number_id,
-                    )
-
-                    # reply_to_message(
-                    # os.getenv("WHATSAPP_TOKEN"), mess_id,  from_number, phone_number_id, message,
-                    # )
-
-                    return f""" Here is the translation: {translation} """
-
-            else:
-                return response
-
     def handle_ug40_message(
         self,
         payload,
@@ -1697,7 +1245,14 @@ class WhatsAppService:
             mess_id = reaction["message_id"]
             emoji = reaction["emoji"]
             update_feedback(mess_id, emoji)
-            return f"Dear {sender_name}, Thanks for your feedback {emoji}."
+            self.send_template(
+                token=os.getenv("WHATSAPP_TOKEN"),
+                template="custom_feedback",
+                phone_number_id=phone_number_id,
+                recipient_id=from_number,
+                recipient_type="individual"
+            )
+            return
 
         # Handle text messages with UG40 model
         else:
@@ -1705,6 +1260,16 @@ class WhatsAppService:
                 payload, target_language, from_number, sender_name, 
                 phone_number_id, language_mapping
             )
+        
+    def prompt_language_selection(self, from_number, phone_number_id):
+        self.send_template(
+            token=os.getenv("WHATSAPP_TOKEN"),
+            template="choose_language",
+            phone_number_id=phone_number_id,
+            recipient_id=from_number,
+            recipient_type="individual"
+        )
+        return "Please select your preferred language from the options above."
 
     def _handle_audio_with_ug40(
         self, audio_info, target_language, from_number, sender_name, 
@@ -1720,8 +1285,12 @@ class WhatsAppService:
 
         # Language mapping for better UX
         language_mapping = {
-            "lug": "Luganda", "ach": "Acholi", "teo": "Ateso",
-            "lgg": "Lugbara", "nyn": "Runyankole", "eng": "English"
+            "lug": "Luganda", 
+            "ach": "Acholi", 
+            "teo": "Ateso",
+            "lgg": "Lugbara", 
+            "nyn": "Runyankole", 
+            "eng": "English"
         }
         
         target_lang_name = language_mapping.get(target_language, "English")
@@ -1784,14 +1353,6 @@ class WhatsAppService:
                 logging.error(f"Audio validation error: {str(e)}")
                 return "❌ Error validating audio file. Please try again."
 
-            # Step 5: Upload to cloud storage
-            # self.send_message(
-            #     "☁️ Uploading to cloud storage...",
-            #     os.getenv("WHATSAPP_TOKEN"),
-            #     from_number,
-            #     phone_number_id,
-            # )
-
             try:
                 blob_name, blob_url = upload_audio_file(file_path=local_audio_path)
                 if not blob_name or not blob_url:
@@ -1803,7 +1364,7 @@ class WhatsAppService:
                 logging.error(f"Cloud storage upload error: {str(e)}")
                 return "❌ Failed to upload audio to cloud storage. Please try again."
 
-            # Step 6: Initialize transcription service
+            # Step 5: Initialize transcription service
             self.send_message(
                 f"🎯 Starting transcription to {target_lang_name}...",
                 os.getenv("WHATSAPP_TOKEN"),
@@ -1823,7 +1384,7 @@ class WhatsAppService:
                 }
             }
 
-            # Step 7: Process transcription with retry logic
+            # Step 6: Process transcription with retry logic
             start_time = time.time()
             try:
                 request_response = endpoint.run_sync(transcription_data, timeout=150)
@@ -1844,13 +1405,13 @@ class WhatsAppService:
             processing_time = end_time - start_time
             logging.info(f"Transcription completed in {processing_time:.2f} seconds")
 
-            # Step 8: Validate transcription result
+            # Step 7: Validate transcription result
             transcribed_text = request_response.get("audio_transcription", "").strip()
             if not transcribed_text:
                 logging.warning("Empty transcription result received")
                 return "🔇 No speech detected in the audio. Please ensure you're speaking clearly and try again."
 
-            # Step 9: Process with UG40 model for enhanced response
+            # Step 8: Process with UG40 model for enhanced response
             self.send_message(
                 "🧠 Processing with advanced language model...",
                 os.getenv("WHATSAPP_TOKEN"),
@@ -1888,176 +1449,6 @@ class WhatsAppService:
                 except Exception as cleanup_error:
                     logging.warning(f"Could not clean up local audio file: {cleanup_error}")
 
-    def _format_conversation_context(self, messages, is_new_user):
-            """Format conversation history with better structure"""
-            if is_new_user or not messages:
-                return "This is a new conversation."
-            
-            # Reverse to show chronological order (oldest first)
-            formatted_context = "Previous conversation:\n"
-            for i, msg in enumerate(reversed(messages[:-1])):  # Exclude current message
-                formatted_context += f"User: {msg['message_text']}\n"
-            
-            return formatted_context.strip()
-    
-    # def _create_dynamic_prompt(self, input_text, context, is_new_user, sender_name=None):
-    #     """Create context-aware prompt based on message type and user history"""
-        
-    #     # Detect message intent/type
-    #     message_lower = input_text.lower().strip()
-        
-    #     # Common greetings in various languages
-    #     greetings = ['hello', 'hi', 'hey', 'oli otya', 'osiibire', 'kopere', 'agandi', 'muraho']
-    #     translation_indicators = ['translate', 'what does', 'mean', 'meaning of', 'gamba', 'kitegeeza ki']
-        
-    #     is_greeting = any(greeting in message_lower for greeting in greetings)
-    #     is_translation_request = any(indicator in message_lower for indicator in translation_indicators)
-        
-    #     # Base prompt structure
-    #     base_prompt = f"""
-    #         Context: {context}
-
-    #         Current message: "{input_text}"
-    #         """
-        
-    #     # Add specific instructions based on message type and user status
-    #     if is_new_user and is_greeting:
-    #         instruction = """
-    #         This is a new user greeting you. Respond warmly in a culturally appropriate way. You can greet in English and include a brief Ugandan language greeting. Briefly introduce your capabilities."""
-            
-    #     elif is_translation_request:
-    #         instruction = """
-    #                 The user is requesting a translation. Provide an accurate translation and include:
-    #                 1. The translation
-    #                 2. Brief pronunciation guide if helpful
-    #                 3. Any important cultural context if relevant
-    #                 Keep it concise for WhatsApp."""
-            
-    #     elif not is_new_user:
-    #         instruction = """ This is a continuing conversation. Use the previous context to provide a relevant, helpful response. Be conversational and build on the previous interaction."""
-            
-    #     else:
-    #         instruction = """ Analyze the message and respond appropriately based on what the user is asking. Be helpful, concise, and culturally sensitive."""
-        
-    #     return f"{base_prompt}\nInstructions: {instruction}"
-
-    # def _create_enhanced_system_message(self, conversation_pairs, target_lang_name, is_new_user, sender_name, input_text=""):
-    #     """
-    #     Create enhanced system message with conversation context integrated and message type detection
-    #     """
-    #     base_system_message = """You are Sunflower, a multilingual assistant for Ugandan languages made by Sunbird AI. You specialise in accurate translations, explanations, summaries and other cross-lingual tasks."""
-
-    #     # Add user context
-    #     user_context = f"\n\n*Current User Context:*\n- User Name: {sender_name}\n- Preferred Target Language: {target_lang_name}"
-        
-    #     # Add message type context if available
-    #     message_context = ""
-    #     if input_text:
-    #         # Check if this appears to be a gratitude message
-    #         is_gratitude = self._is_gratitude_message(input_text)
-    #         if is_gratitude:
-    #             message_context += f"\n\n*Message Type Context:*"
-    #             message_context += f"\n- The current message appears to express gratitude or thanks"
-    #             message_context += f"\n- Respond warmly and encouragingly in {target_lang_name}"
-    #             message_context += f"\n- Use culturally appropriate expressions"
-    #             message_context += f"\n- Avoid simply echoing the user's message"
-    #             message_context += f"\n- Optionally include helpful tips or encouragement"
-        
-    #     # Add conversation context if available
-    #     if conversation_pairs and not is_new_user:
-    #         conversation_context = "\n\n*Recent Conversation History:*"
-    #         for i, pair in enumerate(conversation_pairs, 1):
-    #             conversation_context += f"\n{i}. User: \"{pair['user_message']}\""
-    #             conversation_context += f"\n   You responded: \"{pair['bot_response'][:100]}{'...' if len(pair['bot_response']) > 100 else ''}\""
-            
-    #         conversation_context += "\n\n*Instructions for Context Usage:*"
-    #         conversation_context += "\n- Use this conversation history to provide contextually relevant responses"
-    #         conversation_context += "\n- Reference previous interactions when appropriate"
-    #         conversation_context += "\n- Build upon previously established topics or preferences"
-    #         conversation_context += "\n- Maintain conversation continuity and coherence"
-            
-    #     elif is_new_user:
-    #         conversation_context = "\n\n*New User Context:*"
-    #         conversation_context += "\n- This appears to be a new user with no previous conversation history"
-    #         conversation_context += "\n- Provide a warm, welcoming response"
-    #         conversation_context += "\n- You may introduce your capabilities if the user seems to be greeting you"
-    #         conversation_context += "\n- Be helpful and encourage engagement"
-    #     else:
-    #         conversation_context = "\n\n*Limited Context:*"
-    #         conversation_context += "\n- Limited conversation history available"
-    #         conversation_context += "\n- Respond helpfully while being open to building new context"
-        
-    #     # Combine all parts
-    #     enhanced_system_message = base_system_message + user_context + message_context + conversation_context
-        
-    #     # Add final response guidelines
-    #     enhanced_system_message += "\n\n*Response Guidelines:*"
-    #     enhanced_system_message += "\n- Keep responses concise and WhatsApp-appropriate"
-    #     enhanced_system_message += "\n- Focus on being helpful and culturally sensitive"
-    #     enhanced_system_message += "\n- Use the conversation context to provide better, more personalized responses"
-    #     enhanced_system_message += f"\n- When translating, default to {target_lang_name} unless specified otherwise"
-    #     enhanced_system_message += "\n- Always provide meaningful, contextual responses - never echo the user's input"
-        
-    #     return enhanced_system_message
-
-    # def _is_gratitude_message(self, text):
-    #     """
-    #     Detect if the message is expressing gratitude or thanks
-    #     Supports multiple languages including Ugandan languages
-    #     """
-    #     text_lower = text.lower().strip()
-        
-    #     # Common gratitude expressions in English
-    #     english_gratitude = [
-    #         'thank', 'thanks', 'thank you', 'thankyou', 'thx', 'ty',
-    #         'appreciate', 'grateful', 'much appreciated', 'many thanks'
-    #     ]
-        
-    #     # Gratitude expressions in Ugandan languages
-    #     luganda_gratitude = [
-    #         'webale', 'webale nyo', 'mwebale', 'nkwebaza', 'weebale'
-    #     ]
-        
-    #     acholi_gratitude = [
-    #         'apwoyo', 'pwonyo', 'apwoyo matek'
-    #     ]
-        
-    #     ateso_gratitude = [
-    #         'ejokuna', 'ejok noi', 'eyalama noi'
-    #     ]
-        
-    #     lugbara_gratitude = [
-    #         'alia', 'aliya', 'alia ma'
-    #     ]
-        
-    #     runyankole_gratitude = [
-    #         'webale', 'murakoze', 'webale munonga'
-    #     ]
-        
-    #     # Combine all gratitude patterns
-    #     all_gratitude_patterns = (
-    #         english_gratitude + luganda_gratitude + acholi_gratitude + 
-    #         ateso_gratitude + lugbara_gratitude + runyankole_gratitude
-    #     )
-        
-    #     # Check if the message contains any gratitude expression
-    #     for pattern in all_gratitude_patterns:
-    #         if pattern in text_lower:
-    #             return True
-        
-    #     # Check for phrases that commonly follow gratitude
-    #     gratitude_phrases = [
-    #         'for your help', 'for the explanation', 'for your response',
-    #         'for the translation', 'for your assistance', 'for everything',
-    #         'so much', 'very much', 'a lot'
-    #     ]
-        
-    #     # If message starts with gratitude word and contains additional phrase
-    #     if any(text_lower.startswith(pattern) for pattern in english_gratitude[:6]):  # Basic thanks words
-    #         return True
-            
-    #     return False
-
     def _handle_text_with_ug40(
         self, payload, target_language, from_number, sender_name, 
         phone_number_id, language_mapping
@@ -2070,28 +1461,22 @@ class WhatsAppService:
             # Save current user message
             save_message(from_number, input_text)
 
-            # Check for special commands starting with $
-            if input_text.strip().startswith('$'):
-                response = self._handle_special_commands(
-                    input_text, target_language, from_number, sender_name, 
-                    phone_number_id, language_mapping, mess_id
-                )
+            # Check for natural language commands
+            command_response = self._handle_natural_commands(
+                input_text, target_language, from_number, sender_name, 
+                phone_number_id, language_mapping, mess_id
+            )
+            
+            if command_response:
                 # Save the command response
-                save_response(from_number, input_text, response, mess_id)
-                return response
+                save_response(from_number, input_text, command_response, mess_id)
+                return command_response
 
             # Get conversation context using conversation pairs
             conversation_pairs = get_user_last_five_conversation_pairs(from_number)
             is_new_user = len(conversation_pairs) == 0
             
-            # # Get target language name for better UX
-            # target_lang_name = language_mapping.get(target_language, "English")
-            
-            # Create enhanced system message with conversation context and message analysis
-            # enhanced_system_message = self._create_enhanced_system_message(
-            #     conversation_pairs, target_lang_name, is_new_user, sender_name, input_text
-            # )
-            enhanced_system_message = "You are Sunflower, a multilingual assistant for Ugandan languages made by Sunbird AI. You specialise in accurate translations, explanations, summaries and other cross-lingual tasks. Given the users last five previous converstaions, use that context to inform your response. Always respond in a concise manner suitable for WhatsApp. Never echo the user's input. Focus on being helpful and culturally sensitive."
+            enhanced_system_message = "You are Sunflower, a multilingual assistant for Ugandan languages made by Sunbird AI. You specialise in accurate translations, explanations, summaries and other cross-lingual tasks. Given the users last five previous conversations, use that context to inform your response. Always respond in a concise manner suitable for WhatsApp. Never echo the user's input. Focus on being helpful and culturally sensitive."
             
             logging.info(f"Enhanced system message for UG40:\n{enhanced_system_message}")
 
@@ -2100,6 +1485,16 @@ class WhatsAppService:
                 user_instruction = (
                     'No previous messages. Start by welcoming the user to the platform powered by Sunbird AI of Uganda.\n'
                     f'Current message: "{input_text}"'
+                )
+                self.send_template(
+                    token=os.getenv("WHATSAPP_TOKEN"),
+                    template="welcome_message",
+                    phone_number_id=phone_number_id,
+                    recipient_id=from_number,
+                    recipient_type="individual",
+                    components=[
+                        {"type": "body", "parameters": [{"type": "text", "text": sender_name}]}
+                    ]
                 )
             else:
                 # Format previous conversation pairs for context
@@ -2140,418 +1535,218 @@ class WhatsAppService:
             save_response(from_number, input_text, fallback_response, mess_id)
             return fallback_response
     
-    def _handle_special_commands(self, input_text, target_language, from_number, sender_name, 
-                                phone_number_id, language_mapping, mess_id):
+    def _handle_natural_commands(self, input_text, target_language, from_number, sender_name, 
+                               phone_number_id, language_mapping, mess_id):
         """
-        Handle special commands that start with $ symbol
+        Handle natural language commands without requiring special symbols
         
         Supported commands:
-        - $ set language [language_name/code] - Set target language
-        - $ translate [text] - Direct translation using translate method
-        - $ help - Show available commands
-        - $ status - Show current language settings
+        - help - Show available commands
+        - status - Show current language settings
+        - languages - Show supported languages
+        - set language [language_name/code] - Set target language
+        - translate [text] - Direct translation (if starts with "translate")
         """
-        command = input_text.strip()[1:].lower()  # Remove $ and convert to lowercase
+        # Normalize input for command detection
+        normalized_input = input_text.strip().lower()
         
         try:
-            # Parse command and arguments
-            command_parts = command.split(maxsplit=2)
+            # Split input into words for analysis
+            words = normalized_input.split()
             
-            if not command_parts:
+            if not words:
+                return None
+            
+            first_word = words[0]
+            
+            # Handle single word commands
+            if len(words) == 1:
+                if first_word in ['help', 'commands']:
+                    return self._show_command_help()
+                elif first_word == 'status':
+                    return self._show_user_status(target_language, language_mapping, sender_name)
+                elif first_word in ['languages', 'language']:
+                    return self._show_supported_languages(language_mapping)
+            
+            # Handle multi-word commands
+            elif len(words) >= 2:
+                # "set language [language]"
+                if first_word == "set" and words[1] in ["language", "lang"]:
+                    if len(words) >= 3:
+                        language_arg = " ".join(words[2:])
+                        self.prompt_language_selection(from_number, phone_number_id)
+                        # return self._handle_set_language_command(
+                        #     language_arg, from_number, language_mapping
+                        # )
+                        return "Please select your preferred language from the options above."
+                    else:
+                        return "❌ Please specify a language. Example: `set language english` or `set language luganda`"
+                
+                # "translate [text]"
+                elif first_word == "translate":
+                    if len(words) >= 2:
+                        text_to_translate = " ".join(words[1:])
+                        return self._handle_direct_translation(
+                            text_to_translate, target_language, from_number
+                        )
+                    else:
+                        return "❌ Please provide text to translate. Example: `translate hello world`"
+                
+                # "change language [language]" or "switch language [language]"
+                elif first_word in ["change", "switch"] and len(words) >= 3 and words[1] in ["language", "lang"]:
+                    language_arg = " ".join(words[2:])
+                    return self._handle_set_language_command(
+                        language_arg, from_number, language_mapping
+                    )
+            
+            # Check if the entire message is asking for help (various phrasings)
+            help_phrases = [
+                'what can you do', 'how to use', 'how do i use', 'what commands',
+                'show commands', 'list commands', 'available commands'
+            ]
+            
+            if any(phrase in normalized_input for phrase in help_phrases):
                 return self._show_command_help()
             
-            main_command = command_parts[0]
+            # Check if asking about languages
+            language_phrases = [
+                'what languages', 'supported languages', 'available languages',
+                'which languages', 'list languages'
+            ]
             
-            # $ set language [language]
-            if main_command == "set" and len(command_parts) >= 3 and command_parts[1] == "language":
-                return self._handle_set_language_command(
-                    command_parts[2], from_number, language_mapping
-                )
-            
-            # $ translate [text]
-            elif main_command == "translate" and len(command_parts) >= 2:
-                text_to_translate = " ".join(command_parts[1:])
-                return self._handle_translate_command(
-                    text_to_translate, target_language, from_number, language_mapping, mess_id
-                )
-            
-            # $ help
-            elif main_command == "help":
-                return self._show_command_help()
-            
-            # $ status
-            elif main_command == "status":
-                return self._show_user_status(target_language, language_mapping, sender_name)
-            
-            # $ languages - Show supported languages
-            elif main_command == "languages":
+            if any(phrase in normalized_input for phrase in language_phrases):
                 return self._show_supported_languages(language_mapping)
             
-            # Unknown command
-            else:
-                return f"❌ Unknown command: `${command}`\n\nType `$ help` to see available commands."
+            # Check if asking about status
+            status_phrases = [
+                'my settings', 'current settings', 'my language', 'current language'
+            ]
+            
+            if any(phrase in normalized_input for phrase in status_phrases):
+                return self._show_user_status(target_language, language_mapping, sender_name)
+            
+            # No command detected
+            return None
                 
         except Exception as e:
-            logging.error(f"Error processing special command '{input_text}': {str(e)}")
-            return f"❌ Error processing command. Type `$ help` for usage instructions."
+            logging.error(f"Error processing natural command '{input_text}': {str(e)}")
+            return None
     
-    def _handle_set_language_command(self, language_input, from_number, language_mapping):
-        """Handle $ set language [language] command"""
-        language_input = language_input.strip().lower()
-        
-        # Create reverse mapping for language names
-        name_to_code = {name.lower(): code for code, name in language_mapping.items()}
-        
-        # Direct code mapping
-        code_to_code = {code.lower(): code for code in language_mapping.keys()}
-        
-        # Try to find the language
-        new_language_code = None
-        
-        # Check if it's a language code
-        if language_input in code_to_code:
-            new_language_code = code_to_code[language_input]
-        # Check if it's a language name
-        elif language_input in name_to_code:
-            new_language_code = name_to_code[language_input]
-        # Check partial matches for language names
-        else:
-            for name, code in name_to_code.items():
-                if language_input in name or name.startswith(language_input):
-                    new_language_code = code
-                    break
-        
-        if new_language_code:
-            # Save the new language preference
-            save_user_preference(from_number, None, new_language_code)
-            language_name = language_mapping[new_language_code]
-            
-            logging.info(f"Language set to {language_name} ({new_language_code}) for user {from_number}")
-            
-            return f"✅ *Language Updated*\n\nYour target language has been set to: *{language_name}* ({new_language_code})\n\nAll translations will now be converted to {language_name}."
-        else:
-            available_languages = "\n".join([f"• {name} ({code})" for code, name in language_mapping.items()])
-            return f"❌ *Language not recognized*: '{language_input}'\n\n*Available languages:*\n{available_languages}\n\n*Usage:* `$ set language [language_name or code]`\n*Example:* `$ set language luganda` or `$ set language lug`"
-    
-    def _handle_translate_command(self, text_to_translate, target_language, from_number, language_mapping, mess_id):
-        """Handle $ translate [text] command using the direct translate method"""
+    def _handle_set_language_command(self, language_arg, from_number, language_mapping):
+        """Handle language setting command"""
         try:
-            if not text_to_translate.strip():
-                return "❌ *No text provided*\n\nUsage: `$ translate [your text here]`\nExample: `$ translate Hello, how are you?`"
+            # Normalize the language argument
+            language_arg = language_arg.strip().lower()
             
-            # Get target language, default to Luganda if not set
-            if not target_language:
-                target_language = "lug"
+            # Check if it's a valid language code or name
+            language_code = None
+            language_name = None
             
-            target_lang_name = language_mapping.get(target_language, "Luganda")
+            # Direct code match
+            if language_arg in language_mapping:
+                language_code = language_arg
+                language_name = language_mapping[language_arg]
+            else:
+                # Search by language name
+                for code, name in language_mapping.items():
+                    if name.lower() == language_arg or name.lower().startswith(language_arg):
+                        language_code = code
+                        language_name = name
+                        break
             
-            # Detect source language
-            detected_language = self.detect_language(text_to_translate)
+            if language_code:
+                # Update user's language preference (implement your storage logic here)
+                # update_user_language_preference(from_number, language_code)
+                
+                return f"✅ Language set to {language_name} ({language_code}). I'll now respond in {language_name}."
+            else:
+                available_languages = "\n".join([f"• {name} ({code})" for code, name in language_mapping.items()])
+                return f"❌ Language '{language_arg}' not found.\n\nSupported languages:\n{available_languages}"
+                
+        except Exception as e:
+            logging.error(f"Error setting language: {str(e)}")
+            return "❌ Error updating language settings. Please try again."
+    
+    def _handle_direct_translation(self, text_to_translate, target_language, from_number):
+        """Handle direct translation requests"""
+        try:
+            # Use your existing translation logic here
+            # This is a placeholder - replace with your actual translation method
+            translated_text = self.translate_text(text_to_translate, target_language)
             
-            # Check if translation is needed
-            if detected_language == target_language:
-                return f"ℹ️ *Same Language Detected*\n\nThe text appears to be already in {target_lang_name}.\n\n*Original text:* {text_to_translate}"
-            
-            # Perform translation
-            translation = self.translate_text(text_to_translate, detected_language, target_language)
-            
-            # Save translation to database
-            save_translation(
-                from_number, text_to_translate, translation, 
-                detected_language, target_language, mess_id
-            )
-            
-            # Get source language name for display
-            source_lang_name = language_mapping.get(detected_language, detected_language.upper())
-            
-            logging.info(f"Direct translation completed: {detected_language} -> {target_language} for user {from_number}")
-            
-            return f"🔄 *Direct Translation*\n\n*Original ({source_lang_name}):* {text_to_translate}\n\n*Translation ({target_lang_name}):* {translation}"
+            return f"Translation: {translated_text}"
             
         except Exception as e:
-            logging.error(f"Error in direct translation command: {str(e)}")
-            return f"❌ *Translation failed*\n\nThere was an error translating your text. Please try again later.\n\n*Error:* {str(e)}"
+            logging.error(f"Error in direct translation: {str(e)}")
+            return "❌ Translation failed. Please try again."
     
     def _show_command_help(self):
-        """Show comprehensive help including general usage and special commands"""
-        return """📚 *Complete Help Guide*
+        """Show available commands and usage"""
+        help_text = """🌻 **Sunflower Assistant Commands**
 
-🌟 *Welcome to Sunbird AI!*
-I'm your specialized Ugandan language assistant. Here's everything I can help you with:
+**Basic Commands:**
+• `help` - Show this help message
+• `status` - Show your current settings
+• `languages` - Show supported languages
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+**Language Commands:**
+• `set language [name]` - Set your preferred language
+  Example: `set language luganda`
+• `translate [text]` - Translate text directly
+  Example: `translate hello world`
 
-🌟 *GENERAL USAGE*
+**Natural Questions:**
+You can also ask naturally:
+• "What can you do?"
+• "What languages do you support?"
+• "Change my language to English"
 
-*1. Text Translation:*
-• Simply send any text (3-200 characters)
-• I'll automatically detect the language and translate to your preferred language
-• Example: Send "Oli otya?" → I'll translate to English or your chosen language
-
-*2. Getting Started:*
-• Send "hi", "hello", or "start" for a welcome message
-• Send "help" anytime for this guide
-
-*3. Language Selection (Legacy Method):*
-• Send a number to set your preferred language:
-  1: Luganda  |  2: Acholi   |  3: Ateso
-  4: Lugbara  |  5: Runyankole  |  6: English
-
-*4. Audio Messages:*
-• Send voice recordings for transcription
-• I'll transcribe and translate to your preferred language
-• Supports all Ugandan languages
-
-*5. Feedback:*
-• React to my messages with emojis
-• Your feedback helps me improve!
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-🛠️ *SPECIAL COMMANDS* (Start with $)
-
-*Language Management:*
-• `$ set language [language]` - Change your target language
-• `$ status` - Show current language settings  
-• `$ languages` - List all supported languages
-
-*Direct Translation:*
-• `$ translate [text]` - Force translation to your target language
-• Bypasses conversation mode for quick translations
-
-*Information:*
-• `$ help` - Show this complete help guide
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-💡 *EXAMPLES*
-
-*Regular Translation:*
-• "Good morning" → Automatic detection & translation
-• "Webale nyo" → Detected as Luganda, translated to English
-
-*Language Setting:*
-• `$ set language luganda` → Sets Luganda as target
-• `$ set language eng` → Sets English as target
-
-*Direct Translation:*
-• `$ translate How are you?` → Direct translation to target language
-• `$ translate Ssebo ono gwe ani?` → Direct translation
-
-*Status Check:*
-• `$ status` → Shows your current settings
-• `$ languages` → Lists all supported languages
-
-❓ *Need More Help?*
-• Commands are case-insensitive
-• Language names and codes both work
-• I maintain conversation context
-• Feel free to ask cultural questions!
-
-Happy translating! 🇺🇬 """
+Just type your message normally - I'm here to help! 🌻"""
+        
+        return help_text
     
     def _show_user_status(self, target_language, language_mapping, sender_name):
-        """Show current user language settings and status"""
-        target_lang_name = language_mapping.get(target_language, "Not set")
-        target_code = target_language if target_language else "Not set"
-        
-        return f"""📊 *Your Language Settings*
+        """Show current user status and settings"""
+        try:
+            language_name = language_mapping.get(target_language, target_language)
+            
+            status_text = f"""👤 **Status for {sender_name}**
 
-👤 *User:* {sender_name}
-🎯 *Target Language:* {target_lang_name} ({target_code})
+🌐 **Current Language:** {language_name} ({target_language})
+🤖 **Assistant:** Sunflower by Sunbird AI
+📱 **Platform:** WhatsApp
 
-*What this means:*
-• All translations will be converted to {target_lang_name}
-• Audio transcriptions will be in {target_lang_name}
-
-*To change:* `$ set language [new_language]`
-*For help:* `$ help`"""
+Type `help` for available commands or just chat naturally!"""
+            
+            return status_text
+            
+        except Exception as e:
+            logging.error(f"Error showing user status: {str(e)}")
+            return "❌ Error retrieving status information."
     
     def _show_supported_languages(self, language_mapping):
         """Show all supported languages"""
-        languages_list = "\n".join([
-            f"• *{name}* (`{code}`)" 
-            for code, name in sorted(language_mapping.items(), key=lambda x: x[1])
-        ])
-        
-        return f"""🌍 *Supported Languages*
+        try:
+            languages_list = []
+            for code, name in sorted(language_mapping.items()):
+                languages_list.append(f"• {name} ({code})")
+            
+            languages_text = f"""🌐 **Supported Languages**
 
-{languages_list}
+{chr(10).join(languages_list)}
 
-*Usage:*
-• Use language name: `$ set language luganda`
-• Use language code: `$ set language lug`
-• Both are case-insensitive
+To set your language, type:
+`set language [name]` or `set language [code]`
 
-*Current features:*
-✅ Text translation
-✅ Audio transcription
-✅ Cultural context
-✅ Educational content"""
+Example: `set language english` or `set language en`"""
+            
+            return languages_text
+            
+        except Exception as e:
+            logging.error(f"Error showing supported languages: {str(e)}")
+            return "❌ Error retrieving language information."
+
     
-    def _get_fallback_response(self, input_text, is_new_user):
-        """Provide contextual fallback responses"""
-        if is_new_user:
-            return """Hello! I'm UgandaBot, your Ugandan language assistant. I can help with:
-• Translations between Ugandan languages and English
-• Language learning and cultural context
-• General questions about Uganda
-
-I'm experiencing technical difficulties right now. Please try again in a moment."""
-        else:
-            return "I'm experiencing technical difficulties processing your message. Please try rephrasing or try again later."
-
-    def handle_message(
-        self,
-        payload,
-        from_number,
-        sender_name,
-        source_language,
-        target_language,
-        phone_number_id,
-        languages_obj,
-    ):
-        if interactive_response := self.get_interactive_response(payload):
-            response = interactive_response
-            return f"Dear {sender_name}, Thanks for that response."
-
-        if location := self.get_location(payload):
-            response = location
-            return f"Dear {sender_name}, We have no support for messages of type locations."
-
-        if image := self.get_image(payload):
-            response = image
-            return f"Dear {sender_name}, We have no support for messages of type image."
-
-        if video := self.get_video(payload):
-            response = video
-            return f"Dear {sender_name}, We have no support for messages of type video."
-
-        if docs := self.get_document(payload):
-            response = docs
-            return f"Dear {sender_name}, We do not support documents."
-
-        # if audio := get_audio(payload):
-        #     return handle_audio_message(audio, target_language, sender_name)
-
-        if reaction := self.get_reaction(payload):
-            mess_id = reaction["message_id"]
-            emoji = reaction["emoji"]
-            update_feedback(mess_id, emoji)
-            return f"Dear {sender_name}, Thanks for your feedback {emoji}."
-
-        return self.handle_text_message(
-            payload,
-            from_number,
-            sender_name,
-            source_language,
-            target_language,
-            languages_obj,
-        )
-
-    def handle_text_message(
-        self,
-        payload,
-        from_number,
-        sender_name,
-        source_language,
-        target_language,
-        languages_obj,
-    ):
-        msg_body = self.get_message(payload)
-
-        if not target_language or not source_language:
-            self.set_default_target_language(from_number, save_user_preference)
-            return self.welcome_message(sender_name)
-
-        if msg_body.lower() in ["hi", "start"]:
-            return self.welcome_message(sender_name)
-
-        if msg_body.isdigit() and msg_body in languages_obj:
-            return self.handle_language_selection(
-                from_number,
-                msg_body,
-                source_language,
-                save_user_preference,
-                languages_obj,
-            )
-
-        if msg_body.lower() == "help":
-            return self.help_message()
-
-        if 3 <= len(msg_body) <= 200:
-            detected_language = self.detect_language(msg_body)
-            translation = self.translate_text(
-                msg_body, detected_language, target_language
-            )
-            mess_id = self.send_message(
-                translation, self.token, from_number, self.get_phone_number_id(payload)
-            )
-
-            save_translation(
-                from_number,
-                msg_body,
-                translation,
-                detected_language,
-                target_language,
-                mess_id,
-            )
-            save_user_preference(from_number, detected_language, target_language)
-
-            return None
-
-        return "_Please send text that contains between 3 and 200 characters (about 30 to 50 words)._"
-
-    def translate_text(self, text, source_language, target_language):
-        """
-        Translates the given text from source_language to target_language.
-
-        :param text: The text to be translated.
-        :param source_language: The source language code.
-        :param target_language: The target language code.
-        :return: The translated text.
-        """
-        logging.info("Starting translation process")
-
-        # URL for the endpoint
-        RUNPOD_ENDPOINT_ID = os.getenv("RUNPOD_ENDPOINT_ID")
-        url = f"https://api.runpod.ai/v2/{RUNPOD_ENDPOINT_ID}/runsync"
-        # logging.info(f"Endpoint URL: {url}")
-
-        # Authorization token
-        token = os.getenv("RUNPOD_API_KEY")
-        logging.info("Authorization token retrieved")
-
-        # Data to be sent in the request body
-        data = {
-            "input": {
-                "task": "translate",
-                "source_language": source_language,
-                "target_language": target_language,
-                "text": text.strip(),
-            }
-        }
-        # logging.info(f"Request data prepared: {data}")
-
-        # Headers with authorization token
-        headers = {"Authorization": token, "Content-Type": "application/json"}
-        # logging.info(f"Request headers prepared: {headers}")
-
-        # Sending the request to the API
-        logging.info("Sending request to the translation API")
-        response = requests.post(url, headers=headers, json=data)
-        # logging.info(f"Response received: {response.json()}")
-
-        # Handling the response
-        if response.status_code == 200:
-            translated_text = response.json()["output"]["translated_text"]
-            # logging.info(f"Translation successful: {translated_text}")
-        else:
-            # logging.error(f"Error {response.status_code}: {response.text}")
-            raise Exception(f"Error {response.status_code}: {response.text}")
-
-        return translated_text
-
     def detect_language(self, text):
         endpoint = runpod.Endpoint(os.getenv("RUNPOD_ENDPOINT_ID"))
         request_response = {}
