@@ -1230,12 +1230,6 @@ class WhatsAppService:
             mess_id = reaction["message_id"]
             emoji = reaction["emoji"]
             update_feedback(mess_id, emoji)
-            # self.send_templatev2(
-            #     token=os.getenv("WHATSAPP_TOKEN"),
-            #     template="custom_feedback",
-            #     phone_number_id=phone_number_id,
-            #     recipient_id=from_number
-            #     )
             return " ", True, "custom_feedback"
 
         # Handle text messages with UG40 model
