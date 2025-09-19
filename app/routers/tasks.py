@@ -1099,14 +1099,14 @@ async def webhook(payload: dict):
 
             if is_template:
                 if template == "custom_feedback":
-                    whatsapp_service.send_templatev2(
+                    whatsapp_service.send_template(
                         token=os.getenv("WHATSAPP_TOKEN"),
                         template=template,
                         phone_number_id=phone_number_id,
                         recipient_id=from_number
                         )
                 elif template == "welcome_message":
-                    whatsapp_service.send_templatev2(
+                    whatsapp_service.send_template(
                         token=os.getenv("WHATSAPP_TOKEN"),
                         template="welcome_message",
                         phone_number_id=phone_number_id,
@@ -1116,7 +1116,7 @@ async def webhook(payload: dict):
                         ]
                     )
                 elif template == "choose_language":
-                    whatsapp_service.send_templatev2(
+                    whatsapp_service.send_template(
                         token=os.getenv("WHATSAPP_TOKEN"),
                         template="choose_language",
                         phone_number_id=phone_number_id,
