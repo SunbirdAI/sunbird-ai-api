@@ -248,29 +248,33 @@ def get_user_last_five_conversation_pairs(user_id):
         .limit(10)
         .stream()
     )
-    
+
     all_messages = []
     for doc in query:
         message_data = doc.to_dict()
         all_messages.append(message_data)
-    
+
     # Sort by timestamp ascending to process chronologically
-    all_messages.sort(key=lambda x: x.get('timestamp', 0))
-    
+    all_messages.sort(key=lambda x: x.get("timestamp", 0))
+
     # Group into conversation pairs
     conversation_pairs = []
     current_user_msg = None
-    
+
     for msg in all_messages:
-        if msg.get('message_type') == 'user_message':
+        if msg.get("message_type") == "user_message":
             current_user_msg = msg
-        elif msg.get('message_type') == 'bot_response' and current_user_msg:
-            conversation_pairs.append({
-                'user_message': current_user_msg.get('message_text', ''),
-                'bot_response': msg.get('message_text', ''),
-                'timestamp': msg.get('timestamp')
-            })
+        elif msg.get("message_type") == "bot_response" and current_user_msg:
+            conversation_pairs.append(
+                {
+                    "user_message": current_user_msg.get("message_text", ""),
+                    "bot_response": msg.get("message_text", ""),
+                    "timestamp": msg.get("timestamp"),
+                }
+            )
             current_user_msg = None
-    
+
     # Return last 5 conversation pairs
-    return conversation_pairs[-5:] if len(conversation_pairs) > 5 else conversation_pairs
+    return (
+        conversation_pairs[-5:] if len(conversation_pairs) > 5 else conversation_pairs
+    )

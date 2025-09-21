@@ -24,8 +24,8 @@ from app.inference_services.openai_script import (
 )
 from app.inference_services.ug40_inference import run_inference
 from app.inference_services.user_preference import (
-    get_user_last_five_messages,
     get_user_last_five_conversation_pairs,
+    get_user_last_five_messages,
     get_user_preference,
     save_message,
     save_response,
@@ -61,25 +61,30 @@ class WhatsAppService:
             # Generate a secure random filename with timestamp
             random_string = secrets.token_hex(8)
             current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-            
+
             # Create temporary file with proper extension
             with tempfile.NamedTemporaryFile(
-                delete=False, 
-                suffix=".mp3", 
-                prefix=f"whatsapp_audio_{random_string}_{current_time}_"
+                delete=False,
+                suffix=".mp3",
+                prefix=f"whatsapp_audio_{random_string}_{current_time}_",
             ) as temp_file:
                 temp_file_path = temp_file.name
 
             # Download the audio file with streaming
             headers = {"Authorization": f"Bearer {access_token}"}
             response = requests.get(url, headers=headers, stream=True, timeout=60)
-            
+
             if response.status_code == 200:
                 # Check content type if available
-                content_type = response.headers.get('content-type', '')
-                if content_type and not any(audio_type in content_type.lower() for audio_type in ['audio', 'application/octet-stream']):
-                    logging.warning(f"Unexpected content type for audio: {content_type}")
-                
+                content_type = response.headers.get("content-type", "")
+                if content_type and not any(
+                    audio_type in content_type.lower()
+                    for audio_type in ["audio", "application/octet-stream"]
+                ):
+                    logging.warning(
+                        f"Unexpected content type for audio: {content_type}"
+                    )
+
                 # Write file in chunks to handle large files efficiently
                 with open(temp_file_path, "wb") as f:
                     for chunk in response.iter_content(chunk_size=8192):
@@ -89,38 +94,57 @@ class WhatsAppService:
                 # Validate the downloaded file
                 file_size = os.path.getsize(temp_file_path)
                 if file_size == 0:
-                    raise HTTPException(status_code=422, detail="Downloaded audio file is empty")
-                
+                    raise HTTPException(
+                        status_code=422, detail="Downloaded audio file is empty"
+                    )
+
                 # Try to validate it's a proper audio file using pydub
                 try:
                     audio_segment = AudioSegment.from_file(temp_file_path)
                     duration_seconds = len(audio_segment) / 1000.0
-                    logging.info(f"WhatsApp audio downloaded successfully: {temp_file_path}, Size: {file_size} bytes, Duration: {duration_seconds:.1f}s")
+                    logging.info(
+                        f"WhatsApp audio downloaded successfully: {temp_file_path}, Size: {file_size} bytes, Duration: {duration_seconds:.1f}s"
+                    )
                 except CouldntDecodeError as e:
                     raise HTTPException(
-                        status_code=422, 
-                        detail="Downloaded file is not a valid audio format or is corrupted"
+                        status_code=422,
+                        detail="Downloaded file is not a valid audio format or is corrupted",
                     ) from e
 
                 return temp_file_path
             else:
-                error_msg = f"Failed to download WhatsApp audio. Status: {response.status_code}"
+                error_msg = (
+                    f"Failed to download WhatsApp audio. Status: {response.status_code}"
+                )
                 if response.text:
                     error_msg += f", Response: {response.text[:200]}"
                 logging.error(error_msg)
-                raise HTTPException(status_code=500, detail="Failed to download audio file from WhatsApp")
+                raise HTTPException(
+                    status_code=500,
+                    detail="Failed to download audio file from WhatsApp",
+                )
 
         except requests.exceptions.Timeout:
             logging.error("Timeout while downloading WhatsApp audio")
-            raise HTTPException(status_code=408, detail="Timeout while downloading audio file")
+            raise HTTPException(
+                status_code=408, detail="Timeout while downloading audio file"
+            )
         except requests.exceptions.ConnectionError as e:
-            logging.error(f"Connection error while downloading WhatsApp audio: {str(e)}")
-            raise HTTPException(status_code=503, detail="Connection error while downloading audio file")
+            logging.error(
+                f"Connection error while downloading WhatsApp audio: {str(e)}"
+            )
+            raise HTTPException(
+                status_code=503, detail="Connection error while downloading audio file"
+            )
         except requests.exceptions.RequestException as e:
             logging.error(f"Request error while downloading WhatsApp audio: {str(e)}")
-            raise HTTPException(status_code=500, detail="Error occurred while downloading audio file")
+            raise HTTPException(
+                status_code=500, detail="Error occurred while downloading audio file"
+            )
         except Exception as e:
-            logging.error(f"Unexpected error while downloading WhatsApp audio: {str(e)}")
+            logging.error(
+                f"Unexpected error while downloading WhatsApp audio: {str(e)}"
+            )
             # Clean up temp file if created but download failed
             if temp_file_path and os.path.exists(temp_file_path):
                 try:
@@ -878,7 +902,6 @@ class WhatsAppService:
             if "document" in data["messages"][0]:
                 return data["messages"][0]["document"]
 
-
     def get_video(self, data) -> Union[Dict, None]:
         """
         Extracts the video of the sender from the data received from the webhook.
@@ -1195,7 +1218,7 @@ class WhatsAppService:
         # Language mapping dictionary
         language_mapping = {
             "lug": "Luganda",
-            "ach": "Acholi", 
+            "ach": "Acholi",
             "teo": "Ateso",
             "lgg": "Lugbara",
             "nyn": "Runyankole",
@@ -1207,23 +1230,43 @@ class WhatsAppService:
             return f"Dear {sender_name}, Thanks for that response.", False, ""
 
         if location := self.get_location(payload):
-            return f"Dear {sender_name}, We have no support for messages of type locations.", False, ""
+            return (
+                f"Dear {sender_name}, We have no support for messages of type locations.",
+                False,
+                "",
+            )
 
         if image := self.get_image(payload):
-            return f"Dear {sender_name}, We have no support for messages of type image.", False, ""
+            return (
+                f"Dear {sender_name}, We have no support for messages of type image.",
+                False,
+                "",
+            )
 
         if video := self.get_video(payload):
-            return f"Dear {sender_name}, We have no support for messages of type video.", False, ""
+            return (
+                f"Dear {sender_name}, We have no support for messages of type video.",
+                False,
+                "",
+            )
 
         if docs := self.get_document(payload):
             return f"Dear {sender_name}, We do not support documents.", False, ""
 
         # Handle audio messages
         if audio_info := self.get_audio(payload):
-            return self._handle_audio_with_ug40(
-                audio_info, target_language, from_number, sender_name, 
-                phone_number_id, call_endpoint_with_retry
-            ), False, ""
+            return (
+                self._handle_audio_with_ug40(
+                    audio_info,
+                    target_language,
+                    from_number,
+                    sender_name,
+                    phone_number_id,
+                    call_endpoint_with_retry,
+                ),
+                False,
+                "",
+            )
 
         # Handle reactions
         elif reaction := self.get_reaction(payload):
@@ -1235,13 +1278,22 @@ class WhatsAppService:
         # Handle text messages with UG40 model
         else:
             return self._handle_text_with_ug40(
-                payload, target_language, from_number, sender_name, 
-                phone_number_id, language_mapping
+                payload,
+                target_language,
+                from_number,
+                sender_name,
+                phone_number_id,
+                language_mapping,
             )
 
     def _handle_audio_with_ug40(
-        self, audio_info, target_language, from_number, sender_name, 
-        phone_number_id, call_endpoint_with_retry
+        self,
+        audio_info,
+        target_language,
+        from_number,
+        sender_name,
+        phone_number_id,
+        call_endpoint_with_retry,
     ):
         """
         Enhanced audio message handling using improved transcription logic
@@ -1253,14 +1305,14 @@ class WhatsAppService:
 
         # Language mapping for better UX
         language_mapping = {
-            "lug": "Luganda", 
-            "ach": "Acholi", 
+            "lug": "Luganda",
+            "ach": "Acholi",
             "teo": "Ateso",
-            "lgg": "Lugbara", 
-            "nyn": "Runyankole", 
-            "eng": "English"
+            "lgg": "Lugbara",
+            "nyn": "Runyankole",
+            "eng": "English",
         }
-        
+
         target_lang_name = language_mapping.get(target_language, "English")
         if not target_language:
             target_language = "eng"
@@ -1294,7 +1346,7 @@ class WhatsAppService:
                 from_number,
                 phone_number_id,
             )
-            
+
             local_audio_path = self.download_whatsapp_audio(
                 audio_url, os.getenv("WHATSAPP_TOKEN")
             )
@@ -1305,17 +1357,25 @@ class WhatsAppService:
             # Step 4: Validate audio file (without trimming)
             try:
                 audio_segment = AudioSegment.from_file(local_audio_path)
-                duration_minutes = len(audio_segment) / (1000 * 60)  # Convert to minutes
+                duration_minutes = len(audio_segment) / (
+                    1000 * 60
+                )  # Convert to minutes
                 file_size_mb = os.path.getsize(local_audio_path) / (1024 * 1024)
-                
-                logging.info(f"Audio file validated - Duration: {duration_minutes:.1f} minutes, Size: {file_size_mb:.1f} MB")
-                
+
+                logging.info(
+                    f"Audio file validated - Duration: {duration_minutes:.1f} minutes, Size: {file_size_mb:.1f} MB"
+                )
+
                 # Log if audio is very long (but don't trim)
                 if duration_minutes > 10:
-                    logging.info(f"Long audio file detected: {duration_minutes:.1f} minutes")
-                    
+                    logging.info(
+                        f"Long audio file detected: {duration_minutes:.1f} minutes"
+                    )
+
             except CouldntDecodeError:
-                logging.error("Downloaded audio file is corrupted or in unsupported format")
+                logging.error(
+                    "Downloaded audio file is corrupted or in unsupported format"
+                )
                 return "❌ Audio file appears to be corrupted or in an unsupported format. Please try sending again."
             except Exception as e:
                 logging.error(f"Audio validation error: {str(e)}")
@@ -1325,9 +1385,11 @@ class WhatsAppService:
                 blob_name, blob_url = upload_audio_file(file_path=local_audio_path)
                 if not blob_name or not blob_url:
                     raise Exception("Upload returned empty blob name or URL")
-                
-                logging.info(f"Audio file successfully uploaded to cloud storage: {blob_url}")
-                
+
+                logging.info(
+                    f"Audio file successfully uploaded to cloud storage: {blob_url}"
+                )
+
             except Exception as e:
                 logging.error(f"Cloud storage upload error: {str(e)}")
                 return "❌ Failed to upload audio to cloud storage. Please try again."
@@ -1356,18 +1418,20 @@ class WhatsAppService:
             start_time = time.time()
             try:
                 request_response = endpoint.run_sync(transcription_data, timeout=150)
-                
+
             except TimeoutError as e:
                 logging.error(f"Transcription timeout: {str(e)}")
                 return "⏱️ Transcription service timed out. Your audio might be too long. Please try with a shorter recording."
-                
+
             except ConnectionError as e:
                 logging.error(f"Connection error during transcription: {str(e)}")
                 return "🌐 Connection error during transcription. Please check your internet connection and try again."
-                
+
             except Exception as e:
                 logging.error(f"Transcription error: {str(e)}")
-                return "❌ An error occurred during transcription. Please try again later."
+                return (
+                    "❌ An error occurred during transcription. Please try again later."
+                )
 
             end_time = time.time()
             processing_time = end_time - start_time
@@ -1387,27 +1451,25 @@ class WhatsAppService:
                 phone_number_id,
             )
 
-#             # Create specialized prompt for UG40
+            #             # Create specialized prompt for UG40
             ug40_system_message = f""" You are Sunflower, a multilingual assistant for Ugandan languages made by Sunbird AI. You specialise in accurate translations, explanations, summaries and other cross-lingual tasks."""
 
             try:
                 ug40_response = run_inference(
-                    transcribed_text, 
-                    "qwen",
-                    custom_system_message=ug40_system_message
+                    transcribed_text, "qwen", custom_system_message=ug40_system_message
                 )
 
                 return ug40_response.get("content", "")
-                    
+
             except Exception as ug40_error:
                 logging.error(f"UG40 processing error for audio: {str(ug40_error)}")
                 # Fallback to basic transcription response
-                return f"🎵 *Audio Transcription:*\n\"{transcribed_text}\"\n\n✅ Your message has been transcribed successfully!"
+                return f'🎵 *Audio Transcription:*\n"{transcribed_text}"\n\n✅ Your message has been transcribed successfully!'
 
         except Exception as e:
             logging.error(f"Unexpected error in audio processing: {str(e)}")
             return "❌ An unexpected error occurred while processing your audio. Please try again."
-            
+
         finally:
             # Step 10: Cleanup temporary files
             if local_audio_path and os.path.exists(local_audio_path):
@@ -1415,26 +1477,38 @@ class WhatsAppService:
                     os.remove(local_audio_path)
                     logging.info("Cleaned up local audio file")
                 except Exception as cleanup_error:
-                    logging.warning(f"Could not clean up local audio file: {cleanup_error}")
+                    logging.warning(
+                        f"Could not clean up local audio file: {cleanup_error}"
+                    )
 
     def _handle_text_with_ug40(
-        self, payload, target_language, from_number, sender_name, 
-        phone_number_id, language_mapping
+        self,
+        payload,
+        target_language,
+        from_number,
+        sender_name,
+        phone_number_id,
+        language_mapping,
     ):
         """Enhanced text message handling with improved prompting, context, and response saving"""
         try:
             input_text = self.get_message(payload)
             mess_id = self.get_message_id(payload)
-            
+
             # Save current user message
             save_message(from_number, input_text)
 
             # Check for natural language commands
             command_response = self._handle_natural_commands(
-                input_text, target_language, from_number, sender_name, 
-                phone_number_id, language_mapping, mess_id
+                input_text,
+                target_language,
+                from_number,
+                sender_name,
+                phone_number_id,
+                language_mapping,
+                mess_id,
             )
-            
+
             if command_response:
                 # Save the command response
                 save_response(from_number, input_text, command_response, mess_id)
@@ -1443,15 +1517,17 @@ class WhatsAppService:
             # Get conversation context using conversation pairs
             conversation_pairs = get_user_last_five_conversation_pairs(from_number)
             is_new_user = len(conversation_pairs) == 0
-            
+
             enhanced_system_message = "You are Sunflower, a multilingual assistant for Ugandan languages made by Sunbird AI. You specialise in accurate translations, explanations, summaries and other cross-lingual tasks. Given the users last five previous conversations, use that context to inform your response. Always respond in a concise manner suitable for WhatsApp. Never echo the user's input. Focus on being helpful and culturally sensitive."
-            
-            logging.info(f"Enhanced system message for UG40:\n{enhanced_system_message}")
+
+            logging.info(
+                f"Enhanced system message for UG40:\n{enhanced_system_message}"
+            )
 
             # Create simple user instruction (only current message)
             if is_new_user:
                 user_instruction = (
-                    'No previous messages. Start by welcoming the user to the platform powered by Sunbird AI of Uganda.\n'
+                    "No previous messages. Start by welcoming the user to the platform powered by Sunbird AI of Uganda.\n"
                     f'Current message: "{input_text}"'
                 )
                 # self.send_templatev2(
@@ -1473,41 +1549,50 @@ class WhatsAppService:
                     f"Previous conversation:{formatted_pairs}\n"
                     f'Current message: "{input_text}"'
                 )
-            
+
             # Call UG40 model with enhanced system message
             ug40_response = run_inference(
-                user_instruction, 
-                "qwen",
-                custom_system_message=enhanced_system_message
+                user_instruction, "qwen", custom_system_message=enhanced_system_message
             )
-            
+
             response_content = ug40_response.get("content", "").strip()
-            
+
             # Validate and clean response
             if not response_content:
                 response_content = self._get_fallback_response(input_text, is_new_user)
-            
+
             # Ensure response isn't too long for WhatsApp
             if len(response_content) > 1600:  # WhatsApp message limit consideration
-                response_content = response_content[:1500] + "...\n\nMessage truncated. Please ask for specific parts if you need more details."
-            
+                response_content = (
+                    response_content[:1500]
+                    + "...\n\nMessage truncated. Please ask for specific parts if you need more details."
+                )
+
             # Save the bot response with the user message it responds to
             save_response(from_number, input_text, response_content, mess_id)
-            
+
             return response_content, False, ""
-            
+
         except Exception as e:
             logging.error(f"Error in enhanced UG40 processing: {str(e)}")
             fallback_response = self._get_fallback_response(input_text, False)
             # Save the fallback response as well
             save_response(from_number, input_text, fallback_response, mess_id)
             return fallback_response, False, ""
-    
-    def _handle_natural_commands(self, input_text, target_language, from_number, sender_name, 
-                               phone_number_id, language_mapping, mess_id):
+
+    def _handle_natural_commands(
+        self,
+        input_text,
+        target_language,
+        from_number,
+        sender_name,
+        phone_number_id,
+        language_mapping,
+        mess_id,
+    ):
         """
         Handle natural language commands without requiring special symbols
-        
+
         Supported commands:
         - help - Show available commands
         - status - Show current language settings
@@ -1517,25 +1602,27 @@ class WhatsAppService:
         """
         # Normalize input for command detection
         normalized_input = input_text.strip().lower()
-        
+
         try:
             # Split input into words for analysis
             words = normalized_input.split()
-            
+
             if not words:
                 return None
-            
+
             first_word = words[0]
-            
+
             # Handle single word commands
             if len(words) == 1:
-                if first_word in ['help', 'commands']:
+                if first_word in ["help", "commands"]:
                     return self._show_command_help()
-                elif first_word == 'status':
-                    return self._show_user_status(target_language, language_mapping, sender_name)
-                elif first_word in ['languages', 'language']:
+                elif first_word == "status":
+                    return self._show_user_status(
+                        target_language, language_mapping, sender_name
+                    )
+                elif first_word in ["languages", "language"]:
                     return self._show_supported_languages(language_mapping)
-            
+
             # Handle multi-word commands
             elif len(words) >= 2:
                 # "set language [language]"
@@ -1545,60 +1632,85 @@ class WhatsAppService:
                         # return self._handle_set_language_command(
                         #     language_arg, from_number, language_mapping
                         # )
-                        return "Please select your preferred language from the options above.", True, "choose_language"
+                        return (
+                            "Please select your preferred language from the options above.",
+                            True,
+                            "choose_language",
+                        )
                     else:
-                        return "❌ Please specify a language. Example: `set language english` or `set language luganda`", False, ""
-                
+                        return (
+                            "❌ Please specify a language. Example: `set language english` or `set language luganda`",
+                            False,
+                            "",
+                        )
+
                 # "change language [language]" or "switch language [language]"
-                elif first_word in ["change", "switch"] and len(words) >= 3 and words[1] in ["language", "lang"]:
+                elif (
+                    first_word in ["change", "switch"]
+                    and len(words) >= 3
+                    and words[1] in ["language", "lang"]
+                ):
                     language_arg = " ".join(words[2:])
                     return self._handle_set_language_command(
                         language_arg, from_number, language_mapping
                     )
-            
+
             # Check if the entire message is asking for help (various phrasings)
             help_phrases = [
-                'what can you do', 'how to use', 'how do i use', 'what commands',
-                'show commands', 'list commands', 'available commands'
+                "what can you do",
+                "how to use",
+                "how do i use",
+                "what commands",
+                "show commands",
+                "list commands",
+                "available commands",
             ]
-            
+
             if any(phrase in normalized_input for phrase in help_phrases):
                 return self._show_command_help()
-            
+
             # Check if asking about languages
             language_phrases = [
-                'what languages', 'supported languages', 'available languages',
-                'which languages', 'list languages'
+                "what languages",
+                "supported languages",
+                "available languages",
+                "which languages",
+                "list languages",
             ]
-            
+
             if any(phrase in normalized_input for phrase in language_phrases):
                 return self._show_supported_languages(language_mapping)
-            
+
             # Check if asking about status
             status_phrases = [
-                'my settings', 'current settings', 'my language', 'current language'
+                "my settings",
+                "current settings",
+                "my language",
+                "current language",
             ]
-            
+
             if any(phrase in normalized_input for phrase in status_phrases):
-                return self._show_user_status(target_language, language_mapping, sender_name)
-            
+                return self._show_user_status(
+                    target_language, language_mapping, sender_name
+                )
+
             # No command detected
             return None
-                
+
         except Exception as e:
             logging.error(f"Error processing natural command '{input_text}': {str(e)}")
             return None
-    
+
     def _handle_set_language_command(self, language_arg, from_number, language_mapping):
         """Handle language setting command"""
         try:
             # Normalize the language argument
             language_arg = language_arg.strip().lower()
-            
+
             # Check if it's a valid language code or name
             language_code = None
             language_name = None
-            
+
             # Direct code match
             if language_arg in language_mapping:
                 language_code = language_arg
@@ -1606,24 +1718,36 @@ class WhatsAppService:
             else:
                 # Search by language name
                 for code, name in language_mapping.items():
-                    if name.lower() == language_arg or name.lower().startswith(language_arg):
+                    if name.lower() == language_arg or name.lower().startswith(
+                        language_arg
+                    ):
                         language_code = code
                         language_name = name
                         break
-            
+
             if language_code:
                 # Update user's language preference (implement your storage logic here)
                 # update_user_language_preference(from_number, language_code)
 
-                return f"✅ Language set to {language_name} ({language_code}). All audios should be sent in {language_name}.", False, ""
+                return (
+                    f"✅ Language set to {language_name} ({language_code}). All audios should be sent in {language_name}.",
+                    False,
+                    "",
+                )
             else:
-                available_languages = "\n".join([f"• {name} ({code})" for code, name in language_mapping.items()])
-                return f"❌ Language '{language_arg}' not found.\n\nSupported languages:\n{available_languages}", False, ""
+                available_languages = "\n".join(
+                    [f"• {name} ({code})" for code, name in language_mapping.items()]
+                )
+                return (
+                    f"❌ Language '{language_arg}' not found.\n\nSupported languages:\n{available_languages}",
+                    False,
+                    "",
+                )
 
         except Exception as e:
             logging.error(f"Error setting language: {str(e)}")
             return "❌ Error updating language settings. Please try again.", False, ""
-    
+
     def _show_command_help(self):
         """Show available commands and usage"""
         help_text = """🌻 **Sunflower Assistant Commands**
@@ -1646,14 +1770,14 @@ class WhatsAppService:
         • "Change my language to English"
 
         Just type your message normally - I'm here to help! 🌻"""
-        
+
         return help_text, False, ""
-    
+
     def _show_user_status(self, target_language, language_mapping, sender_name):
         """Show current user status and settings"""
         try:
             language_name = language_mapping.get(target_language, target_language)
-            
+
             status_text = f"""👤 **Status for {sender_name}**
 
             🌐 **Current Language:** {language_name} ({target_language})
@@ -1674,7 +1798,7 @@ class WhatsAppService:
             languages_list = []
             for code, name in sorted(language_mapping.items()):
                 languages_list.append(f"• {name} ({code})")
-            
+
             languages_text = f"""🌐 **Supported Languages**
 
                             {chr(10).join(languages_list)}
@@ -1700,8 +1824,11 @@ class WhatsAppService:
 
                     I'm experiencing technical difficulties right now. Please try again in a moment."""
         else:
-            return "I'm experiencing technical difficulties processing your message. Please try rephrasing or try again later.", False, ""
-        
+            return (
+                "I'm experiencing technical difficulties processing your message. Please try rephrasing or try again later.",
+                False,
+                "",
+            )
 
     def detect_language(self, text):
         endpoint = runpod.Endpoint(os.getenv("RUNPOD_ENDPOINT_ID"))
