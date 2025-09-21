@@ -5,28 +5,6 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field, constr
 
 
-class STTTranscript(BaseModel):
-    """changes"""
-
-    audio_transcription: Optional[str] = None
-    diarization_output: Optional[Dict[str, Any]] = {}
-    formatted_diarization_output: Optional[str] = None
-    audio_transcription_id: Optional[int] = None
-    audio_url: Optional[str] = None
-    language: Optional[str] = None
-    was_audio_trimmed: Optional[bool] = False
-    original_duration_minutes: Optional[float] = None
-
-
-class NllbResponseOutputData(BaseModel):
-    text: str
-    translated_text: str
-
-
-class NllbTranslationResponse(BaseModel):
-    output: NllbResponseOutputData
-
-
 class LanguageIdRequest(BaseModel):
     text: str = Field(min_length=3, max_length=200)
 
@@ -106,6 +84,35 @@ class NllbTranslationRequest(BaseModel):
     text: constr(min_length=1, strip_whitespace=True)  # type: ignore
 
 
+# Generic worker output that can either contain translation/text fields or an Error message.
+class WorkerTranslationOutput(BaseModel):
+    text: Optional[str] = None
+    translated_text: Optional[str] = None
+    # When available include language codes
+    source_language: Optional[str] = None
+    target_language: Optional[str] = None
+    # Some workers return an "Error" key (capital E) — expose it via alias while using a pythonic name.
+    error: Optional[str] = Field(None, alias="Error")
+
+    class Config:
+        allow_population_by_field_name = True
+        extra = "allow"
+
+
+# Top-level response wrapper matching the requested JSON shape. All fields optional.
+class WorkerTranslationResponse(BaseModel):
+    delayTime: Optional[int] = None
+    executionTime: Optional[int] = None
+    id: Optional[str] = None
+    output: Optional[WorkerTranslationOutput] = None
+    status: Optional[str] = None
+    workerId: Optional[str] = None
+
+    class Config:
+        allow_population_by_field_name = True
+        extra = "allow"
+
+
 class TranslationRequest(BaseModel):
     # source_language: Language | None = None
     source_language: Optional[Language] = None
@@ -124,20 +131,27 @@ class TranslationBatchResponse(BaseModel):
     responses: List[TranslationResponse]
 
 
+class STTTranscript(BaseModel):
+    """changes"""
+
+    audio_transcription: Optional[str] = None
+    diarization_output: Optional[Dict[str, Any]] = {}
+    formatted_diarization_output: Optional[str] = None
+    audio_transcription_id: Optional[int] = None
+    audio_url: Optional[str] = None
+    language: Optional[str] = None
+    was_audio_trimmed: Optional[bool] = False
+    original_duration_minutes: Optional[float] = None
+
+
 class TTSRequest(BaseModel):
     text: str
     speaker_id: SpeakerID = SpeakerID.luganda_female
-    temperature: float = 0.8
-    top_k: int = 50
-    top_p: float = 1.0
-    max_new_audio_tokens: int = 2048
-    normalize: bool = False
+    temperature: float = 0.7
+    max_new_audio_tokens: int = 2000
 
 
 class TTSResponse(BaseModel):
-    # base64_string: str | None = None
-    # audio_link: str | None = None
-    base64_string: Optional[str] = None
     audio_link: Optional[str] = None
 
 
