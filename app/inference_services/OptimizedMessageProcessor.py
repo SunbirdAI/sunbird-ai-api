@@ -1,14 +1,10 @@
 import asyncio
-import json
 import logging
 import os
-import tempfile
 import time
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, Optional, Set, Tuple, Any
-from fastapi import HTTPException, BackgroundTasks
-from fastapi.responses import Response
+from typing import Dict, Optional, Set
 import runpod
 from dotenv import load_dotenv
 from pydub import AudioSegment
@@ -46,7 +42,8 @@ class MessageType(Enum):
 
 class ResponseType(Enum):
     TEXT = "text"
-    TEMPLATE = "template"
+    TEMPLATE = "template" 
+    BUTTON = "button"
     SKIP = "skip"
 
 @dataclass
@@ -104,7 +101,7 @@ class OptimizedMessageProcessor:
             if message_type == MessageType.REACTION:
                 result = self._handle_reaction(payload)
             elif message_type == MessageType.INTERACTIVE:
-                result = self._handle_interactive(sender_name)
+                result = self._handle_interactive(payload, sender_name)
             elif message_type == MessageType.UNSUPPORTED:
                 result = self._handle_unsupported(sender_name)
             elif message_type == MessageType.AUDIO:
@@ -159,8 +156,19 @@ class OptimizedMessageProcessor:
             logging.error(f"Error handling reaction: {e}")
         return ProcessingResult("", ResponseType.SKIP)
 
-    def _handle_interactive(self, sender_name: str) -> ProcessingResult:
-        """Handle interactive responses"""
+    def _handle_interactive(self, payload: Dict, sender_name: str) -> ProcessingResult:
+        """Handle interactive button responses"""
+        try:
+            interactive_response = self._get_interactive_response(payload)
+            if interactive_response:
+                # Handle different types of button responses
+                if "list_reply" in interactive_response:
+                    return self._handle_list_reply(interactive_response["list_reply"], sender_name)
+                elif "button_reply" in interactive_response:
+                    return self._handle_button_reply(interactive_response["button_reply"], sender_name)
+        except Exception as e:
+            logging.error(f"Error handling interactive response: {e}")
+        
         return ProcessingResult(
             f"Dear {sender_name}, Thanks for that response.",
             ResponseType.TEXT,
@@ -547,6 +555,14 @@ class OptimizedMessageProcessor:
             return message.get("reaction")
         except (KeyError, IndexError):
             return None
+        
+    def _get_interactive_response(self, payload: Dict) -> Optional[Dict]:
+        """Extract interactive response from payload"""
+        try:
+            message = payload["entry"][0]["changes"][0]["value"]["messages"][0]
+            return message.get("interactive")
+        except (KeyError, IndexError):
+            return None
 
     def _get_audio_info(self, payload: Dict) -> Optional[Dict]:
         try:
@@ -558,6 +574,153 @@ class OptimizedMessageProcessor:
         return None
 
     # Response generators
+    def _handle_list_reply(self, list_reply: Dict, sender_name: str) -> ProcessingResult:
+        """Handle list selection responses"""
+        selected_id = list_reply.get("id", "")
+        selected_title = list_reply.get("title", "")
+        
+        # Handle language selection
+        if selected_id.startswith("lang_"):
+            language_code = selected_id.replace("lang_", "")
+            if language_code in self.language_mapping:
+                language_name = self.language_mapping[language_code]
+                # Here you would typically save the user's language preference
+                # save_user_language_preference(from_number, language_code)
+                return ProcessingResult(
+                    f"✅ Language set to {language_name}! You can now send messages in {language_name} or ask me to translate to {language_name}.",
+                    ResponseType.TEXT
+                )
+        
+        # Handle feedback selection
+        elif selected_id.startswith("feedback_"):
+            feedback_type = selected_id.replace("feedback_", "")
+            return ProcessingResult(
+                f"Thank you for your {feedback_type} feedback! It helps us improve Sunflower.",
+                ResponseType.TEXT,
+                should_save=False
+            )
+        
+        return ProcessingResult(
+            f"Thanks {sender_name}, I received your selection: {selected_title}",
+            ResponseType.TEXT
+        )
+
+    def _handle_button_reply(self, button_reply: Dict, sender_name: str) -> ProcessingResult:
+        """Handle button click responses"""
+        button_id = button_reply.get("id", "")
+        button_title = button_reply.get("title", "")
+        
+        if button_id == "get_help":
+            return ProcessingResult(self._get_help_text(), ResponseType.TEXT)
+        elif button_id == "show_languages":
+            return ProcessingResult(
+                "",
+                ResponseType.BUTTON,
+                button_data=self._create_language_selection_button()
+            )
+        
+        return ProcessingResult(
+            f"Thanks {sender_name}!",
+            ResponseType.TEXT,
+            should_save=False
+        )
+
+    def _create_language_selection_button(self) -> Dict:
+        """Create interactive button for language selection"""
+        language_rows = []
+        for code, name in self.language_mapping.items():
+            language_rows.append({
+                "id": f"lang_{code}",
+                "title": name,
+                "description": f"Set language to {name}"
+            })
+        
+        return {
+            "header": "Language Selection",
+            "body": "Please select your preferred language for translations and responses:",
+            "footer": "Powered by Sunbird AI",
+            "action": {
+                "button": "Select Language",
+                "sections": [
+                    {
+                        "title": "Available Languages", 
+                        "rows": language_rows
+                    }
+                ]
+            }
+        }
+
+    def _create_feedback_button(self) -> Dict:
+        """Create feedback button"""
+        return {
+            "header": "Feedback",
+            "body": "Please help us improve Sunflower with your feedback:",
+            "footer": "Your feedback helps us serve you better",
+            "action": {
+                "button": "Rate Response",
+                "sections": [
+                    {
+                        "title": "Response Quality",
+                        "rows": [
+                            {
+                                "id": "feedback_excellent",
+                                "title": "Excellent",
+                                "description": "Very helpful response"
+                            },
+                            {
+                                "id": "feedback_good", 
+                                "title": "Good",
+                                "description": "Helpful response"
+                            },
+                            {
+                                "id": "feedback_fair",
+                                "title": "Fair", 
+                                "description": "Somewhat helpful"
+                            },
+                            {
+                                "id": "feedback_poor",
+                                "title": "Poor",
+                                "description": "Not helpful"
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+
+    def _create_welcome_button(self) -> Dict:
+        """Create welcome button for new users"""
+        return {
+            "header": "Welcome to Sunflower!",
+            "body": "I'm your Ugandan language assistant. What would you like to do?",
+            "footer": "Made by Sunbird AI",
+            "action": {
+                "button": "Get Started",
+                "sections": [
+                    {
+                        "title": "Quick Actions",
+                        "rows": [
+                            {
+                                "id": "get_help",
+                                "title": "Get Help",
+                                "description": "Learn what I can do"
+                            },
+                            {
+                                "id": "show_languages",
+                                "title": "Languages",
+                                "description": "See supported languages"
+                            },
+                            {
+                                "id": "start_chat",
+                                "title": "Start Chatting",
+                                "description": "Begin conversation"
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+    
     def _get_help_text(self) -> str:
         return """Sunflower Assistant Commands
 

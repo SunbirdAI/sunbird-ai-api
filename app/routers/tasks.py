@@ -85,7 +85,7 @@ whatsapp_token = os.getenv("WHATSAPP_TOKEN")
 verify_token = os.getenv("VERIFY_TOKEN")
 
 whatsapp_service = WhatsAppService(
-    token=os.getenv("WHATSAPP_TOKEN"), phone_number_id=os.getenv("PHONE_NUMBER_ID")
+    token=whatsapp_token, phone_number_id=os.getenv("PHONE_NUMBER_ID")
 )
 
 # Initialize processor
@@ -1109,6 +1109,22 @@ async def webhook(payload: dict, background_tasks: BackgroundTasks):
                 from_number, 
                 sender_name
             )
+        elif result.response_type == ResponseType.BUTTON and result.button_data:
+            try:
+                whatsapp_service.send_button(
+                    button=result.button_data,
+                    phone_number_id=phone_number_id,
+                    recipient_id=from_number
+                )
+            except Exception as e:
+                logging.error(f"Error sending button: {e}")
+                # Fallback to text message
+                whatsapp_service.send_message(
+                    result.message or "I'm having trouble with interactive buttons. Please try typing your request.",
+                    whatsapp_token,
+                    from_number,
+                    phone_number_id
+                )
         elif result.response_type == ResponseType.TEXT and result.message:
             try:
                 whatsapp_service.send_message(
@@ -1148,52 +1164,12 @@ async def send_template_response(template_name: str, phone_number_id: str, from_
     """Send template responses"""
     try:
         if template_name == "custom_feedback":
-            whatsapp_service.send_button(
-                button={
-                    "header": "Header Testing",
-                    "body": "Body Testing",
-                    "footer": "Footer Testing",
-                    "action": {
-                        "button": "Button Testing",
-                        "sections": [
-                            {
-                                "title": "iBank",
-                                "rows": [
-                                    {"id": "row 1", "title": "Send Money", "description": ""},
-                                    {
-                                        "id": "row 2",
-                                        "title": "Withdraw money",
-                                        "description": "",
-                                    },
-                                ],
-                            }
-                        ],
-                    },
-                },
+            whatsapp_service.send_templatev2(
+                token=whatsapp_token,
+                template="custom_feedback",
                 phone_number_id=phone_number_id,
-                recipient_id=from_number,
+                recipient_id=from_number
             )
-            # whatsapp_service.send_templatev2(
-            #     token=whatsapp_token,
-            #     template="custom_feedback",
-            #     phone_number_id=phone_number_id,
-            #     recipient_id=from_number,
-            #     components=[
-            #         {
-            #             "type": "button",
-            #             "sub_type": "flow",
-            #             "index": "0",
-            #             "parameters": [
-            #                 {
-            #                     "type": "action",
-            #                     "action": {
-            #                         "flow_token": f"feedback_flow_{from_number}_{int(time.time())}"
-            #                     }
-            #                 }
-            #             ]
-            #         }
-            #     ]
-            # )
         elif template_name == "welcome_message":
             whatsapp_service.send_templatev2(
                 token=whatsapp_token,
@@ -1209,88 +1185,11 @@ async def send_template_response(template_name: str, phone_number_id: str, from_
                 token=whatsapp_token,
                 template="choose_language",
                 phone_number_id=phone_number_id,
-                recipient_id=from_number,
-                components=[
-                    {
-                        "type": "body",
-                        "parameters": [
-                            {
-                                "type": "text", 
-                                "text": sender_name
-                            }
-                        ]
-                    },
-                    {
-                        "type": "button",
-                        "sub_type": "quick_reply",
-                        "index": "0",
-                        "parameters": [
-                            {
-                                "type": "payload",
-                                "payload": "luganda"
-                            }
-                        ]
-                    },
-                    {
-                        "type": "button",
-                        "sub_type": "quick_reply", 
-                        "index": "1",
-                        "parameters": [
-                            {
-                                "type": "payload",
-                                "payload": "acholi"
-                            }
-                        ]
-                    },
-                    {
-                        "type": "button",
-                        "sub_type": "quick_reply",
-                        "index": "2", 
-                        "parameters": [
-                            {
-                                "type": "payload",
-                                "payload": "ateso"
-                            }
-                        ]
-                    },
-                    {
-                        "type": "button",
-                        "sub_type": "quick_reply",
-                        "index": "3", 
-                        "parameters": [
-                            {
-                                "type": "payload",
-                                "payload": "lugbara"
-                            }
-                        ]
-                    },
-                    {
-                        "type": "button",
-                        "sub_type": "quick_reply",
-                        "index": "4", 
-                        "parameters": [
-                            {
-                                "type": "payload",
-                                "payload": "english"
-                            }
-                        ]
-                    },
-                    {
-                        "type": "button",
-                        "sub_type": "quick_reply",
-                        "index": "5", 
-                        "parameters": [
-                            {
-                                "type": "payload",
-                                "payload": "runyankole"
-                            }
-                        ]
-                    }
-                ]
+                recipient_id=from_number
+                # components=[]
             )
     except Exception as e:
         logging.error(f"Error sending template {template_name}: {e}")
-
 
 @router.get("/webhook")
 @router.get("/webhook/")
