@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import json
 import logging
@@ -8,8 +9,10 @@ import tempfile
 import time
 import uuid
 from datetime import timedelta
+from typing import Any, Dict
 
 import aiofiles
+import requests
 import runpod
 from dotenv import load_dotenv
 from fastapi import (
@@ -41,6 +44,10 @@ from app.crud.audio_transcription import create_audio_transcription
 from app.crud.monitoring import log_endpoint
 from app.deps import get_current_user, get_db
 from app.inference_services.OptimizedMessageProcessor import OptimizedMessageProcessor, ResponseType
+from app.inference_services.runpod_helpers import (
+    normalize_runpod_response,
+    run_job_and_get_output,
+)
 from app.inference_services.user_preference import get_user_preference
 from app.inference_services.whatsapp_service import WhatsAppService
 from app.schemas.tasks import (
@@ -51,7 +58,6 @@ from app.schemas.tasks import (
     LanguageIdResponse,
     NllbLanguage,
     NllbTranslationRequest,
-    NllbTranslationResponse,
     SttbLanguage,
     STTTranscript,
     SummarisationRequest,
@@ -59,6 +65,7 @@ from app.schemas.tasks import (
     TTSRequest,
     UploadRequest,
     UploadResponse,
+    WorkerTranslationResponse,
 )
 from app.utils.auth_utils import ALGORITHM, SECRET_KEY
 from app.utils.upload_audio_file_gcp import upload_audio_file, upload_file_to_bucket
@@ -133,6 +140,19 @@ def get_account_type_limit(key: str) -> str:
 
 # Initialize the Limiter
 limiter = Limiter(key_func=custom_key_func)
+
+
+def get_endpoint_details(endpoint_id: str):
+    url = f"https://rest.runpod.io/v1/endpoints/{endpoint_id}"
+    headers = {"Authorization": f"Bearer {os.getenv('RUNPOD_API_KEY')}"}
+    response = requests.get(url, headers=headers)
+    details = response.json()
+
+    return details
+
+
+endpoint_details = get_endpoint_details(RUNPOD_ENDPOINT_ID)
+logging.info(f"Endpoint details: {endpoint_details}")
 
 
 @retry(
@@ -383,46 +403,6 @@ async def auto_detect_audio_language(
     return request_response
 
 
-# @router.post("/generate_upload_url")
-# async def generate_upload_url(
-#     content_type: str,
-#     filename: str,
-#     expires_in_seconds: int = 3600,
-# ):
-#     """
-#     Generates a signed upload URL that the client can PUT or POST a file to.
-#     - content_type: e.g. "audio/mpeg", "audio/wav", etc.
-#     - filename: the name of the file in GCS (or you can auto-generate one).
-#     - expires_in_seconds: how long the URL should remain valid (default 1 hour).
-#     """
-
-#     # 1. Initialize the GCS client
-#     storage_client = storage.Client()
-
-#     # 2. Reference your GCS bucket
-#     bucket_name = os.getenv("AUDIO_CONTENT_BUCKET_NAME")
-#     bucket = storage_client.bucket(bucket_name)
-
-#     # 3. Create the blob object
-#     #    Optionally, you can prefix it with a folder name, e.g. "uploads/audio/{filename}"
-#     blob = bucket.blob(filename)
-
-#     # 4. Generate the signed URL for upload
-#     url = blob.generate_signed_url(
-#         version="v4",
-#         expiration=timedelta(seconds=expires_in_seconds),
-#         method="PUT",              # or "POST", if you prefer
-#         content_type=content_type, # helps enforce the type on upload
-#     )
-
-#     return {
-#         "upload_url": url,
-#         "gcs_blob_name": filename,
-#         "bucket": bucket_name,
-#         "expires_in": expires_in_seconds
-#     }
-
-
 @router.post("/generate-upload-url", response_model=UploadResponse)
 async def generate_upload_url(request: UploadRequest):
     """
@@ -637,7 +617,7 @@ async def speech_to_text_from_gcs(
             return Response(
                 content=response.model_dump_json(),
                 media_type="application/json",
-                headers=headers,
+                # headers
             )
 
         return response
@@ -763,23 +743,24 @@ async def speech_to_text(
                 os.remove(trimmed_file_path)
 
         # 5. Prepare transcription request
-        endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
-        request_response = {}
-        data = {
-            "input": {
-                "task": "transcribe",
-                "target_lang": language,
-                "adapter": adapter,
-                "audio_file": blob_name,
-                "whisper": whisper,
-                "recognise_speakers": recognise_speakers,
-            }
+        # endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
+        # request_response = {}
+        payload = {
+            "task": "transcribe",
+            "target_lang": language,
+            "adapter": adapter,
+            "audio_file": blob_name,
+            "whisper": whisper,
+            "recognise_speakers": recognise_speakers,
         }
 
         # 6. Process transcription
         start_time = time.time()
         try:
-            request_response = await call_endpoint_with_retry(endpoint, data)
+            # request_response = await call_endpoint_with_retry(endpoint, data)
+            raw_resp, job_details = await run_job_and_get_output(payload)
+            logging.info(f"Raw response: {raw_resp}")
+            logging.info(f"Job details: {job_details}")
         except TimeoutError as e:
             logging.error(f"Transcription timeout: {str(e)}")
             raise HTTPException(
@@ -804,7 +785,7 @@ async def speech_to_text(
         logging.info(f"Transcription completed in {elapsed_time:.2f} seconds")
 
         # 7. Process and validate transcription result
-        transcription = request_response.get("audio_transcription")
+        transcription = raw_resp.get("audio_transcription")
         if not transcription:
             raise HTTPException(
                 status_code=422,
@@ -835,8 +816,8 @@ async def speech_to_text(
         # 10. Return response
         response = STTTranscript(
             audio_transcription=transcription,
-            diarization_output=request_response.get("diarization_output", {}),
-            formatted_diarization_output=request_response.get(
+            diarization_output=raw_resp.get("diarization_output", {}),
+            formatted_diarization_output=raw_resp.get(
                 "formatted_diarization_output", ""
             ),
             audio_transcription_id=audio_transcription_id,
@@ -949,7 +930,7 @@ async def speech_to_text(
 # Route for the nllb translation endpoint
 @router.post(
     "/nllb_translate",
-    response_model=NllbTranslationResponse,
+    response_model=WorkerTranslationResponse,
 )
 @limiter.limit(get_account_type_limit)
 async def nllb_translate(
@@ -969,18 +950,19 @@ async def nllb_translate(
 
     text = translation_request.text
     # Data to be sent in the request body
-    data = {
-        "input": {
-            "task": "translate",
-            "source_language": translation_request.source_language,
-            "target_language": translation_request.target_language,
-            "text": text.strip(),  # Remove leading/trailing spaces
-        }
+    # Build payload compatible with `sb_api._run_job_and_get_output`
+    payload = {
+        "task": "translate",
+        "source_language": translation_request.source_language,
+        "target_language": translation_request.target_language,
+        "text": text.strip(),
     }
 
     start_time = time.time()
     try:
-        request_response = await call_endpoint_with_retry(endpoint, data)
+        raw_resp, job_details = await run_job_and_get_output(payload)
+        logging.info(f"Raw response: {raw_resp}")
+        logging.info(f"Job details: {job_details}")
     except TimeoutError as e:
         logging.error(f"Job timed out: {str(e)}")
         raise HTTPException(
@@ -992,28 +974,34 @@ async def nllb_translate(
             status_code=503, detail="Service unavailable due to connection error."
         )
     except Exception as e:
-        logging.error(f"Error: {str(e)}")
+        logging.error(f"Error calling worker: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
     end_time = time.time()
     # Log endpoint in database
     await log_endpoint(db, user, request, start_time, end_time)
-    logging.info(f"Response: {request_response}")
 
     # Calculate the elapsed time
     elapsed_time = end_time - start_time
     logging.info(f"Elapsed time: {elapsed_time} seconds")
 
-    response = {}
-    response["output"] = request_response
+    # Normalize and validate the response to the `WorkerTranslationResponse` shape
+    normalized = normalize_runpod_response(
+        job_details if job_details is not None else raw_resp
+    )
+    try:
+        # Use the pydantic model imported at module top
+        worker_resp = WorkerTranslationResponse.model_validate(normalized)
+    except Exception as e:
+        logging.error(f"Failed to validate worker response: {e}")
+        raise HTTPException(status_code=500, detail="Invalid response from worker")
 
-    return response
+    return worker_resp.model_dump()
 
 
 # Route for the text-to-speech endpoint
 @router.post(
     "/tts",
-    # response_model=NllbTranslationResponse,
 )
 @limiter.limit(get_account_type_limit)
 async def text_to_speech(
@@ -1036,10 +1024,7 @@ async def text_to_speech(
             "text": text.strip(),  # Remove leading/trailing spaces
             "speaker_id": tts_request.speaker_id.value,
             "temperature": tts_request.temperature,
-            "top_k": tts_request.top_k,
-            "top_p": tts_request.top_p,
             "max_new_audio_tokens": tts_request.max_new_audio_tokens,
-            "normalize": tts_request.normalize,
         }
     }
 
@@ -1108,88 +1093,52 @@ async def webhook(payload: dict, background_tasks: BackgroundTasks):
         # Get user preference
         target_language = get_user_preference(from_number)
 
-        # Process message
-        result = await processor.process_message(
-            payload, from_number, sender_name, target_language, phone_number_id
-        )
-
-        # Handle response
-        if result.response_type == ResponseType.SKIP:
-            pass
-        elif result.response_type == ResponseType.TEMPLATE:
-            background_tasks.add_task(
-                send_template_response,
-                result.template_name, 
-                phone_number_id, 
-                from_number, 
-                sender_name
+            # Use the new UG40 model for message processing
+            message, is_template, template = whatsapp_service.handle_ug40_message(
+                payload,
+                target_language,
+                from_number,
+                sender_name,
+                phone_number_id,
+                processed_messages,
+                call_endpoint_with_retry,
             )
-        elif result.response_type == ResponseType.TEXT and result.message:
-            try:
+
+            if is_template:
+                if template == "custom_feedback":
+                    whatsapp_service.send_template(
+                        token=os.getenv("WHATSAPP_TOKEN"),
+                        template=template,
+                        phone_number_id=phone_number_id,
+                        recipient_id=from_number
+                        )
+                elif template == "welcome_message":
+                    whatsapp_service.send_template(
+                        token=os.getenv("WHATSAPP_TOKEN"),
+                        template="welcome_message",
+                        phone_number_id=phone_number_id,
+                        recipient_id=from_number,
+                        components=[
+                            {"type": "body", "parameters": [{"type": "text", "text": sender_name}]}
+                        ]
+                    )
+                elif template == "choose_language":
+                    whatsapp_service.send_template(
+                        token=os.getenv("WHATSAPP_TOKEN"),
+                        template="choose_language",
+                        phone_number_id=phone_number_id,
+                        recipient_id=from_number
+                        )
+            else:
                 whatsapp_service.send_message(
-                    result.message,
-                    whatsapp_token,
-                    from_number,
-                    phone_number_id
+                    message, os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id
                 )
-            except Exception as e:
-                logging.error(f"Error sending message: {e}")
 
-        # Log performance
-        total_time = time.time() - start_time
-        logging.info(f"Webhook processed in {total_time:.3f}s (processing: {result.processing_time:.3f}s)")
-
-        return {"status": "success", "processing_time": total_time}
+        return {"status": "success"}
 
     except Exception as error:
-        total_time = time.time() - start_time
-        logging.error(f"Webhook error after {total_time:.3f}s: {str(error)}")
-        
-        # Try to send error message
-        try:
-            if 'from_number' in locals() and 'phone_number_id' in locals():
-                whatsapp_service.send_message(
-                    "I'm experiencing technical difficulties. Please try again.",
-                    whatsapp_token,
-                    from_number,
-                    phone_number_id
-                )
-        except:
-            pass
-        
-        return {"status": "error", "processing_time": total_time}
-
-async def send_template_response(template_name: str, phone_number_id: str, from_number: str, sender_name: str):
-    """Send template responses"""
-    try:
-        if template_name == "custom_feedback":
-            whatsapp_service.send_templatev2(
-                token=whatsapp_token,
-                template="custom_feedback",
-                phone_number_id=phone_number_id,
-                recipient_id=from_number,
-                components=[]
-            )
-        elif template_name == "welcome_message":
-            whatsapp_service.send_templatev2(
-                token=whatsapp_token,
-                template="welcome_message", 
-                phone_number_id=phone_number_id,
-                recipient_id=from_number,
-                components=[
-                    {"type": "body", "parameters": [{"type": "text", "text": sender_name}]}
-                ]
-            )
-        elif template_name == "choose_language":
-            whatsapp_service.send_templatev2(
-                token=whatsapp_token,
-                template="choose_language",
-                phone_number_id=phone_number_id,
-                recipient_id=from_number,
-                components=[]
-            )
-    except Exception as e:
-        logging.error(f"Error sending template {template_name}: {e}")
+        logging.error("Error in webhook processing: %s", str(error))
+        raise HTTPException(status_code=500, detail="Internal Server Error") from error
 
 
 @router.get("/webhook")
@@ -1197,8 +1146,8 @@ async def send_template_response(template_name: str, phone_number_id: str, from_
 async def verify_webhook(
     request: Request,
     hub_mode: str = None,
-    hub_challenge: str = None, 
-    hub_verify_token: str = None
+    hub_challenge: str = None,
+    hub_verify_token: str = None,
 ):
     """
     Webhook verification endpoint for WhatsApp
@@ -1206,19 +1155,23 @@ async def verify_webhook(
     """
     # Extract query parameters - WhatsApp uses hub.mode, hub.challenge, hub.verify_token
     mode = request.query_params.get("hub.mode")
-    challenge = request.query_params.get("hub.challenge") 
+    challenge = request.query_params.get("hub.challenge")
     token = request.query_params.get("hub.verify_token")
-    
-    logging.info(f"Webhook verification request - Mode: {mode}, Challenge: {challenge}, Token: {token}")
-    
+
+    logging.info(
+        f"Webhook verification request - Mode: {mode}, Challenge: {challenge}, Token: {token}"
+    )
+
     if mode and token and challenge:
         if mode != "subscribe" or token != os.getenv("VERIFY_TOKEN"):
-            logging.error(f"Webhook verification failed - Expected token: {os.getenv('VERIFY_TOKEN')}, Received: {token}")
+            logging.error(
+                f"Webhook verification failed - Expected token: {os.getenv('VERIFY_TOKEN')}, Received: {token}"
+            )
             raise HTTPException(status_code=403, detail="Forbidden")
 
         logging.info("WEBHOOK_VERIFIED")
         # WhatsApp expects a plain text response with just the challenge value
         return Response(content=challenge, media_type="text/plain")
-    
+
     logging.error("Missing required parameters for webhook verification")
     raise HTTPException(status_code=400, detail="Bad Request")
