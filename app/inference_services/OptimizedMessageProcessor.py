@@ -454,11 +454,11 @@ class OptimizedMessageProcessor:
         text_lower = input_text.lower().strip()
         
         # Most common commands - return immediately without UG40 calls
-        if text_lower in ['help', 'commands', 'Help', 'HELP']:
+        if text_lower in ['help', 'commands']:
             return ProcessingResult(self._get_help_text(), ResponseType.TEXT)
         elif text_lower == 'status':
             return ProcessingResult(self._get_status_text(target_language, sender_name), ResponseType.TEXT)
-        elif text_lower in ['languages', 'language', 'Languages', 'LANGUAGES', 'Language', 'LANGUAGE']:
+        elif text_lower in ['languages', 'language']:
             return ProcessingResult(self._get_languages_text(), ResponseType.TEXT)
         elif text_lower.startswith('set language'):
             return ProcessingResult("", ResponseType.TEMPLATE, template_name="choose_language")
@@ -474,15 +474,14 @@ class OptimizedMessageProcessor:
         context_str = ""
         for i, conv in enumerate(context, 1):
             user_msg = conv['user_message']
-            bot_msg = conv['bot_response']
-            context_str += f"\n{i}. User said: \"{user_msg}\"\n   You replied: \"{bot_msg}\""
+            context_str += f"\n{i}. \"{user_msg}\"\n"
         
         return (
             f"=== CONVERSATION HISTORY (for context only) ===\n"
             f"{context_str}\n\n"
             f"=== CURRENT MESSAGE (respond to this) ===\n"
             f'User: "{input_text}"\n\n'
-            f"Your response:"
+            f"Please provide a concise and relevant response to the current message only."
         )
 
     async def _call_ug40_optimized(self, user_instruction: str) -> Dict:
@@ -849,18 +848,19 @@ class OptimizedMessageProcessor:
     def create_language_selection_button(self) -> Dict:
         """Create interactive button for language selection with proper IDs"""
         language_rows = []
+        i = 1
         for code, name in self.language_mapping.items():
             language_rows.append({
-                "id": f"lang_{code}",
+                "id": f"row {i}",
                 "title": name,
                 "description": f"Set language to {name}"
             })
+            i += 1
         
         return {
-            "type": "list",
-            "header": {"type": "text", "text": "Language Selection"},
-            "body": {"text": "Please select your preferred language for translations and responses:"},
-            "footer": {"text": "Powered by Sunbird AI"},
+            "header": "Language Selection",
+            "body": "Please select your preferred language for translations and responses:",
+            "footer": "Powered by Sunbird AI",
             "action": {
                 "button": "Select Language",
                 "sections": [
@@ -875,10 +875,9 @@ class OptimizedMessageProcessor:
     def create_feedback_button(self) -> Dict:
         """Create feedback button with proper IDs"""
         return {
-            "type": "list",
-            "header": {"type": "text", "text": "Feedback"},
-            "body": {"text": "Please help us improve Sunflower with your feedback:"},
-            "footer": {"text": "Your feedback helps us serve you better"},
+            "header": "Feedback",
+            "body": "Please help us improve Sunflower with your feedback:",
+            "footer": "Your feedback helps us serve you better",
             "action": {
                 "button": "Rate Response",
                 "sections": [
@@ -886,22 +885,22 @@ class OptimizedMessageProcessor:
                         "title": "Response Quality",
                         "rows": [
                             {
-                                "id": "feedback_excellent",
+                                "id": "row 1",
                                 "title": "Excellent",
                                 "description": "Very helpful response"
                             },
                             {
-                                "id": "feedback_good", 
+                                "id": "row 2",
                                 "title": "Good",
                                 "description": "Helpful response"
                             },
                             {
-                                "id": "feedback_fair",
+                                "id": "row 3",
                                 "title": "Fair", 
                                 "description": "Somewhat helpful"
                             },
                             {
-                                "id": "feedback_poor",
+                                "id": "row 4",
                                 "title": "Poor",
                                 "description": "Not helpful"
                             }
@@ -914,10 +913,9 @@ class OptimizedMessageProcessor:
     def create_welcome_button(self) -> Dict:
         """Create welcome button for new users with proper IDs"""
         return {
-            "type": "list",
-            "header": {"type": "text", "text": "Welcome to Sunflower!"},
-            "body": {"text": "I'm your Ugandan language assistant. What would you like to do?"},
-            "footer": {"text": "Made by Sunbird AI"},
+            "header": "Welcome to Sunflower!",
+            "body": "I'm your Ugandan language assistant. What would you like to do?",
+            "footer": "Made by Sunbird AI",
             "action": {
                 "button": "Get Started",
                 "sections": [
@@ -925,17 +923,17 @@ class OptimizedMessageProcessor:
                         "title": "Quick Actions",
                         "rows": [
                             {
-                                "id": "welcome_get_help",
+                                "id": "row 1",
                                 "title": "Get Help",
                                 "description": "Learn what I can do"
                             },
                             {
-                                "id": "welcome_show_languages",
+                                "id": "row 2",
                                 "title": "Set Language",
                                 "description": "Choose your preferred language"
                             },
                             {
-                                "id": "welcome_start_chat",
+                                "id": "row 3",
                                 "title": "Start Chatting",
                                 "description": "Begin conversation"
                             }
