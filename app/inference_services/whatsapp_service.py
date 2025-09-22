@@ -29,7 +29,6 @@ from app.inference_services.user_preference import (
     get_user_preference,
     save_message,
     save_response,
-    save_translation,
     save_user_preference,
     update_feedback,
 )
