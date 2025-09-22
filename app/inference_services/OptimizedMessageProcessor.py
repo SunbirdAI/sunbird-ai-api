@@ -480,7 +480,7 @@ class OptimizedMessageProcessor:
                         custom_system_message=self.system_message
                     )
                 ),
-                timeout=8.0  # Shorter timeout for faster response
+                timeout=30.0
             )
             return response
         except asyncio.TimeoutError:
@@ -597,7 +597,4 @@ To set your language, type:
 `set language [name]` or `set language [code]`
 
 Example: `set language english`"""
-
-# Initialize processor
-processor = OptimizedMessageProcessor()
 

@@ -238,7 +238,7 @@ class WhatsAppService:
         phone_number_id: str,
         recipient_id: str,
         recipient_type="individual",
-        lang: str = "en_US",
+        lang: str = "en",
         components: List = None,
     ):
         """
@@ -282,7 +282,7 @@ class WhatsAppService:
         return r.json()
 
     def send_templatev2(
-        self, token, template, recipient_id, components, phone_number_id, lang="en_US"
+        self, token, template, recipient_id, components, phone_number_id, lang="en"
     ):
         url = f"{self.base_url}/{phone_number_id}/messages?access_token={token}"
         data = {
