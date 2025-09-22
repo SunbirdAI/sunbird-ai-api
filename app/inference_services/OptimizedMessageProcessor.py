@@ -68,7 +68,9 @@ class OptimizedMessageProcessor:
         self.system_message = (
             "You are Sunflower, a multilingual assistant for Ugandan languages "
             "made by Sunbird AI. You specialise in accurate translations, explanations, "
-            "summaries and other cross-lingual tasks. Keep responses concise and helpful."
+            "summaries and other cross-lingual tasks. Keep responses concise and helpful. "
+            "We also provide a few recent chats of the user and the model just for context. "
+            "Use the context only if relevant to the current query."
         )
 
     async def process_message(
@@ -461,8 +463,8 @@ class OptimizedMessageProcessor:
         # Use only essential context to keep prompt short
         context_str = ""
         for i, conv in enumerate(context, 1):
-            user_msg = conv['user_message'][:60]  # Limit length
-            bot_msg = conv['bot_response'][:60]
+            user_msg = conv['user_message']
+            bot_msg = conv['bot_response']
             context_str += f"\n{i}. User: \"{user_msg}\" Bot: \"{bot_msg}\""
         
         return f"Recent context:{context_str}\nCurrent: \"{input_text}\""
