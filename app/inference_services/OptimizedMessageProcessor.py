@@ -7,6 +7,8 @@ import time
 from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, Optional, Set, Tuple, Any
+from fastapi import HTTPException, BackgroundTasks
+from fastapi.responses import Response
 import runpod
 from dotenv import load_dotenv
 from pydub import AudioSegment
@@ -595,3 +597,7 @@ To set your language, type:
 `set language [name]` or `set language [code]`
 
 Example: `set language english`"""
+
+# Initialize processor
+processor = OptimizedMessageProcessor()
+

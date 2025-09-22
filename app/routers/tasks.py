@@ -1093,52 +1093,88 @@ async def webhook(payload: dict, background_tasks: BackgroundTasks):
         # Get user preference
         target_language = get_user_preference(from_number)
 
-            # Use the new UG40 model for message processing
-            message, is_template, template = whatsapp_service.handle_ug40_message(
-                payload,
-                target_language,
-                from_number,
-                sender_name,
-                phone_number_id,
-                processed_messages,
-                call_endpoint_with_retry,
+        # Process message
+        result = await processor.process_message(
+            payload, from_number, sender_name, target_language, phone_number_id
+        )
+
+        # Handle response
+        if result.response_type == ResponseType.SKIP:
+            pass
+        elif result.response_type == ResponseType.TEMPLATE:
+            background_tasks.add_task(
+                send_template_response,
+                result.template_name, 
+                phone_number_id, 
+                from_number, 
+                sender_name
             )
-
-            if is_template:
-                if template == "custom_feedback":
-                    whatsapp_service.send_template(
-                        token=os.getenv("WHATSAPP_TOKEN"),
-                        template=template,
-                        phone_number_id=phone_number_id,
-                        recipient_id=from_number
-                        )
-                elif template == "welcome_message":
-                    whatsapp_service.send_template(
-                        token=os.getenv("WHATSAPP_TOKEN"),
-                        template="welcome_message",
-                        phone_number_id=phone_number_id,
-                        recipient_id=from_number,
-                        components=[
-                            {"type": "body", "parameters": [{"type": "text", "text": sender_name}]}
-                        ]
-                    )
-                elif template == "choose_language":
-                    whatsapp_service.send_template(
-                        token=os.getenv("WHATSAPP_TOKEN"),
-                        template="choose_language",
-                        phone_number_id=phone_number_id,
-                        recipient_id=from_number
-                        )
-            else:
+        elif result.response_type == ResponseType.TEXT and result.message:
+            try:
                 whatsapp_service.send_message(
-                    message, os.getenv("WHATSAPP_TOKEN"), from_number, phone_number_id
+                    result.message,
+                    whatsapp_token,
+                    from_number,
+                    phone_number_id
                 )
+            except Exception as e:
+                logging.error(f"Error sending message: {e}")
 
-        return {"status": "success"}
+        # Log performance
+        total_time = time.time() - start_time
+        logging.info(f"Webhook processed in {total_time:.3f}s (processing: {result.processing_time:.3f}s)")
+
+        return {"status": "success", "processing_time": total_time}
 
     except Exception as error:
-        logging.error("Error in webhook processing: %s", str(error))
-        raise HTTPException(status_code=500, detail="Internal Server Error") from error
+        total_time = time.time() - start_time
+        logging.error(f"Webhook error after {total_time:.3f}s: {str(error)}")
+        
+        # Try to send error message
+        try:
+            if 'from_number' in locals() and 'phone_number_id' in locals():
+                whatsapp_service.send_message(
+                    "I'm experiencing technical difficulties. Please try again.",
+                    whatsapp_token,
+                    from_number,
+                    phone_number_id
+                )
+        except:
+            pass
+        
+        return {"status": "error", "processing_time": total_time}
+
+async def send_template_response(template_name: str, phone_number_id: str, from_number: str, sender_name: str):
+    """Send template responses"""
+    try:
+        if template_name == "custom_feedback":
+            whatsapp_service.send_templatev2(
+                token=whatsapp_token,
+                template="custom_feedback",
+                phone_number_id=phone_number_id,
+                recipient_id=from_number,
+                components=[]
+            )
+        elif template_name == "welcome_message":
+            whatsapp_service.send_templatev2(
+                token=whatsapp_token,
+                template="welcome_message", 
+                phone_number_id=phone_number_id,
+                recipient_id=from_number,
+                components=[
+                    {"type": "body", "parameters": [{"type": "text", "text": sender_name}]}
+                ]
+            )
+        elif template_name == "choose_language":
+            whatsapp_service.send_templatev2(
+                token=whatsapp_token,
+                template="choose_language",
+                phone_number_id=phone_number_id,
+                recipient_id=from_number,
+                components=[]
+            )
+    except Exception as e:
+        logging.error(f"Error sending template {template_name}: {e}")
 
 
 @router.get("/webhook")
