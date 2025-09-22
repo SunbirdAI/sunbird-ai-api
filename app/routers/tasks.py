@@ -1148,27 +1148,52 @@ async def send_template_response(template_name: str, phone_number_id: str, from_
     """Send template responses"""
     try:
         if template_name == "custom_feedback":
-            whatsapp_service.send_templatev2(
-                token=whatsapp_token,
-                template="custom_feedback",
+            whatsapp_service.send_button(
+                button={
+                    "header": "Header Testing",
+                    "body": "Body Testing",
+                    "footer": "Footer Testing",
+                    "action": {
+                        "button": "Button Testing",
+                        "sections": [
+                            {
+                                "title": "iBank",
+                                "rows": [
+                                    {"id": "row 1", "title": "Send Money", "description": ""},
+                                    {
+                                        "id": "row 2",
+                                        "title": "Withdraw money",
+                                        "description": "",
+                                    },
+                                ],
+                            }
+                        ],
+                    },
+                },
                 phone_number_id=phone_number_id,
                 recipient_id=from_number,
-                components=[
-                    {
-                        "type": "button",
-                        "sub_type": "flow",
-                        "index": "0",
-                        "parameters": [
-                            {
-                                "type": "action",
-                                "action": {
-                                    "flow_token": f"feedback_flow_{from_number}_{int(time.time())}"
-                                }
-                            }
-                        ]
-                    }
-                ]
             )
+            # whatsapp_service.send_templatev2(
+            #     token=whatsapp_token,
+            #     template="custom_feedback",
+            #     phone_number_id=phone_number_id,
+            #     recipient_id=from_number,
+            #     components=[
+            #         {
+            #             "type": "button",
+            #             "sub_type": "flow",
+            #             "index": "0",
+            #             "parameters": [
+            #                 {
+            #                     "type": "action",
+            #                     "action": {
+            #                         "flow_token": f"feedback_flow_{from_number}_{int(time.time())}"
+            #                     }
+            #                 }
+            #             ]
+            #         }
+            #     ]
+            # )
         elif template_name == "welcome_message":
             whatsapp_service.send_templatev2(
                 token=whatsapp_token,
