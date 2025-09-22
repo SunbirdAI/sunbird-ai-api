@@ -1153,7 +1153,7 @@ async def send_template_response(template_name: str, phone_number_id: str, from_
                 template="custom_feedback",
                 phone_number_id=phone_number_id,
                 recipient_id=from_number,
-                components=[]
+                # components=[]
             )
         elif template_name == "welcome_message":
             whatsapp_service.send_templatev2(
@@ -1171,7 +1171,7 @@ async def send_template_response(template_name: str, phone_number_id: str, from_
                 template="choose_language",
                 phone_number_id=phone_number_id,
                 recipient_id=from_number,
-                components=[]
+                # components=[]
             )
     except Exception as e:
         logging.error(f"Error sending template {template_name}: {e}")

@@ -1750,20 +1750,20 @@ class WhatsAppService:
 
     def _show_command_help(self):
         """Show available commands and usage"""
-        help_text = """🌻 **Sunflower Assistant Commands**
+        help_text = """🌻 *Sunflower Assistant Commands*
 
-        **Basic Commands:**
+        *Basic Commands:*
         • `help` - Show this help message
         • `status` - Show your current settings
         • `languages` - Show supported languages
 
-        **Language Commands:**
+        *Language Commands:*
         • `set language [name]` - Set your preferred language
         Example: `set language luganda`
         • `translate [text]` - Translate text directly
         Example: `translate hello world`
 
-        **Natural Questions:**
+        *Natural Questions:*
         You can also ask naturally:
         • "What can you do?"
         • "What languages do you support?"
@@ -1778,11 +1778,11 @@ class WhatsAppService:
         try:
             language_name = language_mapping.get(target_language, target_language)
 
-            status_text = f"""👤 **Status for {sender_name}**
+            status_text = f"""👤 *Status for {sender_name}*
 
-            🌐 **Current Language:** {language_name} ({target_language})
-            🤖 **Assistant:** Sunflower by Sunbird AI
-            📱 **Platform:** WhatsApp
+            🌐 *Current Language:* {language_name} ({target_language})
+            🤖 *Assistant:* Sunflower by Sunbird AI
+            📱 *Platform:* WhatsApp
 
             Type `help` for available commands or just chat naturally!"""
 
@@ -1799,7 +1799,7 @@ class WhatsAppService:
             for code, name in sorted(language_mapping.items()):
                 languages_list.append(f"• {name} ({code})")
 
-            languages_text = f"""🌐 **Supported Languages**
+            languages_text = f"""🌐 *Supported Languages*
 
                             {chr(10).join(languages_list)}
 
