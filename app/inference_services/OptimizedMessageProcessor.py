@@ -14,6 +14,7 @@ from app.inference_services.ug40_inference import run_inference
 from app.inference_services.user_preference import (
     get_user_last_five_conversation_pairs,
     get_user_preference,
+    save_user_preference,
     save_message,
     save_response,
     update_feedback,
@@ -101,7 +102,7 @@ class OptimizedMessageProcessor:
             if message_type == MessageType.REACTION:
                 result = self._handle_reaction(payload)
             elif message_type == MessageType.INTERACTIVE:
-                result = self._handle_interactive(payload, sender_name)
+                result = self._handle_interactive(payload, sender_name, from_number)
             elif message_type == MessageType.UNSUPPORTED:
                 result = self._handle_unsupported(sender_name)
             elif message_type == MessageType.AUDIO:
@@ -156,14 +157,14 @@ class OptimizedMessageProcessor:
             logging.error(f"Error handling reaction: {e}")
         return ProcessingResult("", ResponseType.SKIP)
 
-    def _handle_interactive(self, payload: Dict, sender_name: str) -> ProcessingResult:
+    def _handle_interactive(self, payload: Dict, sender_name: str, from_number: str) -> ProcessingResult:
         """Handle interactive button responses"""
         try:
             interactive_response = self._get_interactive_response(payload)
             if interactive_response:
                 # Handle different types of button responses
                 if "list_reply" in interactive_response:
-                    return self._handle_list_reply(interactive_response["list_reply"], sender_name)
+                    return self._handle_list_reply(interactive_response["list_reply"], from_number)
                 elif "button_reply" in interactive_response:
                     return self._handle_button_reply(interactive_response["button_reply"], sender_name)
         except Exception as e:
@@ -574,7 +575,7 @@ class OptimizedMessageProcessor:
         return None
 
     # Response generators
-    def _handle_list_reply(self, list_reply: Dict, sender_name: str) -> ProcessingResult:
+    def _handle_list_reply(self, list_reply: Dict, from_number: str) -> ProcessingResult:
         """Handle list selection responses"""
         selected_id = list_reply.get("id", "")
         selected_title = list_reply.get("title", "")
@@ -586,6 +587,7 @@ class OptimizedMessageProcessor:
                 language_name = self.language_mapping[language_code]
                 # Here you would typically save the user's language preference
                 # save_user_language_preference(from_number, language_code)
+                save_user_preference(sender_name, "preferred_language", language_code)
                 return ProcessingResult(
                     f"✅ Language set to {language_name}! You can now send messages in {language_name} or ask me to translate to {language_name}.",
                     ResponseType.TEXT
@@ -616,7 +618,7 @@ class OptimizedMessageProcessor:
             return ProcessingResult(
                 "",
                 ResponseType.BUTTON,
-                button_data=self._create_language_selection_button()
+                button_data=self.create_language_selection_button()
             )
         
         return ProcessingResult(
@@ -625,7 +627,7 @@ class OptimizedMessageProcessor:
             should_save=False
         )
 
-    def _create_language_selection_button(self) -> Dict:
+    def create_language_selection_button(self) -> Dict:
         """Create interactive button for language selection"""
         language_rows = []
         for code, name in self.language_mapping.items():
@@ -650,7 +652,7 @@ class OptimizedMessageProcessor:
             }
         }
 
-    def _create_feedback_button(self) -> Dict:
+    def create_feedback_button(self) -> Dict:
         """Create feedback button"""
         return {
             "header": "Feedback",
@@ -688,7 +690,7 @@ class OptimizedMessageProcessor:
             }
         }
 
-    def _create_welcome_button(self) -> Dict:
+    def create_welcome_button(self) -> Dict:
         """Create welcome button for new users"""
         return {
             "header": "Welcome to Sunflower!",
