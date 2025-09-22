@@ -251,7 +251,7 @@ def run_inference(
             {"role": "system", "content": system_message},
             {"role": "user", "content": instruction},
         ],
-        "temperature": 0.5,
+        "temperature": 0.3,
         "stream": stream,  # Enable streaming if requested
     }
 
