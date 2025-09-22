@@ -1153,7 +1153,21 @@ async def send_template_response(template_name: str, phone_number_id: str, from_
                 template="custom_feedback",
                 phone_number_id=phone_number_id,
                 recipient_id=from_number,
-                # components=[]
+                components=[
+                    {
+                        "type": "button",
+                        "sub_type": "flow",
+                        "index": "0",
+                        "parameters": [
+                            {
+                                "type": "action",
+                                "action": {
+                                    "flow_token": f"feedback_flow_{from_number}_{int(time.time())}"
+                                }
+                            }
+                        ]
+                    }
+                ]
             )
         elif template_name == "welcome_message":
             whatsapp_service.send_templatev2(
@@ -1171,7 +1185,83 @@ async def send_template_response(template_name: str, phone_number_id: str, from_
                 template="choose_language",
                 phone_number_id=phone_number_id,
                 recipient_id=from_number,
-                # components=[]
+                components=[
+                    {
+                        "type": "body",
+                        "parameters": [
+                            {
+                                "type": "text", 
+                                "text": sender_name
+                            }
+                        ]
+                    },
+                    {
+                        "type": "button",
+                        "sub_type": "quick_reply",
+                        "index": "0",
+                        "parameters": [
+                            {
+                                "type": "payload",
+                                "payload": "luganda"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "button",
+                        "sub_type": "quick_reply", 
+                        "index": "1",
+                        "parameters": [
+                            {
+                                "type": "payload",
+                                "payload": "acholi"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "button",
+                        "sub_type": "quick_reply",
+                        "index": "2", 
+                        "parameters": [
+                            {
+                                "type": "payload",
+                                "payload": "ateso"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "button",
+                        "sub_type": "quick_reply",
+                        "index": "3", 
+                        "parameters": [
+                            {
+                                "type": "payload",
+                                "payload": "lugbara"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "button",
+                        "sub_type": "quick_reply",
+                        "index": "4", 
+                        "parameters": [
+                            {
+                                "type": "payload",
+                                "payload": "english"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "button",
+                        "sub_type": "quick_reply",
+                        "index": "5", 
+                        "parameters": [
+                            {
+                                "type": "payload",
+                                "payload": "runyankole"
+                            }
+                        ]
+                    }
+                ]
             )
     except Exception as e:
         logging.error(f"Error sending template {template_name}: {e}")
