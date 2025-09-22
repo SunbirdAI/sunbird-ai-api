@@ -66,11 +66,15 @@ class OptimizedMessageProcessor:
             "lgg": "Lugbara", "nyn": "Runyankole", "eng": "English"
         }
         self.system_message = (
-            "You are Sunflower, a multilingual assistant for Ugandan languages "
-            "made by Sunbird AI. You specialise in accurate translations, explanations, "
-            "summaries and other cross-lingual tasks. Keep responses concise and helpful. "
-            "We also provide a few recent chats of the user and the model just for context. "
-            "Use the context only if relevant to the current query."
+            "You are Sunflower, a multilingual assistant for Ugandan languages made by Sunbird AI. "
+            "You specialise in accurate translations, explanations, summaries, and other cross-lingual tasks. "
+            "Keep responses concise and helpful.\n\n"
+            "IMPORTANT INSTRUCTIONS:\n"
+            "- You will receive conversation history for context only - DO NOT continue or respond to old messages\n"
+            "- Only respond to the CURRENT message that comes after 'Current message:'\n"
+            "- Use the conversation history only to understand context, user preferences, or ongoing topics\n"
+            "- Give a fresh, direct response to the current message only\n"
+            "- Do not acknowledge or reference the conversation history unless directly relevant to the current message"
         )
 
     async def process_message(
@@ -423,8 +427,9 @@ class OptimizedMessageProcessor:
             response = await self._call_ug40_optimized(user_instruction)
             response_content = self._clean_response(response)
             
-            # Save response in background
-            asyncio.create_task(self._save_response_async(from_number, input_text, response_content, message_id))
+            # Save response in background only if not a technical error
+            if response_content != "I'm having technical difficulties. Please try again.":
+                asyncio.create_task(self._save_response_async(from_number, input_text, response_content, message_id))
             
             return ProcessingResult(response_content, ResponseType.TEXT)
             
@@ -440,55 +445,46 @@ class OptimizedMessageProcessor:
         text_lower = input_text.lower().strip()
         
         # Most common commands - return immediately without UG40 calls
-        if text_lower in ['help', 'commands']:
+        if text_lower in ['help', 'commands', 'Help', 'HELP']:
             return ProcessingResult(self._get_help_text(), ResponseType.TEXT)
         elif text_lower == 'status':
             return ProcessingResult(self._get_status_text(target_language, sender_name), ResponseType.TEXT)
-        elif text_lower in ['languages', 'language']:
+        elif text_lower in ['languages', 'language', 'Languages', 'LANGUAGES', 'Language', 'LANGUAGE']:
             return ProcessingResult(self._get_languages_text(), ResponseType.TEXT)
         elif text_lower.startswith('set language'):
             return ProcessingResult("", ResponseType.TEMPLATE, template_name="choose_language")
         
-        # # Quick pattern matching for other common requests
-        # if any(phrase in text_lower for phrase in ['what can you do', 'how to use']):
-        #     return ProcessingResult(self._get_help_text(), ResponseType.TEXT)
-        
         return None
-
+    
     def _build_optimized_prompt(self, input_text: str, context: list) -> str:
-        """Build prompt with limited context for speed"""
+        """Build prompt with clear separation between context and current message"""
         if not context:
             return f'Current message: "{input_text}"'
         
-        # Use only essential context to keep prompt short
+        # Format context more clearly to prevent confusion
         context_str = ""
         for i, conv in enumerate(context, 1):
             user_msg = conv['user_message']
             bot_msg = conv['bot_response']
-            context_str += f"\n{i}. User: \"{user_msg}\" Bot: \"{bot_msg}\""
+            context_str += f"\n{i}. User said: \"{user_msg}\"\n   You replied: \"{bot_msg}\""
         
-        return f"Recent context:{context_str}\nCurrent: \"{input_text}\""
+        return (
+            f"=== CONVERSATION HISTORY (for context only) ===\n"
+            f"{context_str}\n\n"
+            f"=== CURRENT MESSAGE (respond to this) ===\n"
+            f'User: "{input_text}"\n\n'
+            f"Your response:"
+        )
 
     async def _call_ug40_optimized(self, user_instruction: str) -> Dict:
         """Optimized UG40 call with shorter timeout"""
         try:
             logging.error(f"User instruction: {user_instruction}")
-            loop = asyncio.get_event_loop()
-            # response = await asyncio.wait_for(
-            #     loop.run_in_executor(
-            #         None,
-            #         lambda: run_inference(
-            #             user_instruction,
-            #             "qwen", 
-            #             custom_system_message=self.system_message
-            #         )
-            #     ),
-            #     timeout=30.0  # Shorter timeout for faster response
-            # )
+        
             response = run_inference(
-                    user_instruction, 
-                    "qwen",
-                    custom_system_message=self.system_message
+                user_instruction,
+                "qwen",
+                custom_system_message=self.system_message
                 )
             return response
         except asyncio.TimeoutError:
@@ -504,10 +500,6 @@ class OptimizedMessageProcessor:
         
         if not content:
             return "I'm having trouble understanding. Could you please rephrase?"
-        
-        # Keep reasonable length for WhatsApp
-        if len(content) > 1200:
-            content = content[:1150] + "..."
         
         return content
 
