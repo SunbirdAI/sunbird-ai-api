@@ -480,7 +480,7 @@ class OptimizedMessageProcessor:
                         custom_system_message=self.system_message
                     )
                 ),
-                timeout=30.0  # Shorter timeout for faster response
+                # timeout=30.0  # Shorter timeout for faster response
             )
             return response
         except asyncio.TimeoutError:
