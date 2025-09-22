@@ -480,7 +480,7 @@ class OptimizedMessageProcessor:
                         custom_system_message=self.system_message
                     )
                 ),
-                timeout=30.0
+                timeout=30.0  # Shorter timeout for faster response
             )
             return response
         except asyncio.TimeoutError:
@@ -561,16 +561,16 @@ class OptimizedMessageProcessor:
     def _get_help_text(self) -> str:
         return """Sunflower Assistant Commands
 
-**Basic Commands:**
+*Basic Commands:*
 • `help` - Show this help message  
 • `status` - Show your current settings
 • `languages` - Show supported languages
 
-**Language Commands:**
+*Language Commands:*
 • `set language [name]` - Set your preferred language
 Example: `set language luganda`
 
-**Natural Questions:**
+*Natural Questions:*
 You can also ask naturally:
 • "What can you do?"
 • "What languages do you support?"
@@ -579,17 +579,17 @@ Just type your message normally - I'm here to help!"""
 
     def _get_status_text(self, target_language: str, sender_name: str) -> str:
         language_name = self.language_mapping.get(target_language, target_language)
-        return f"""**Status for {sender_name}**
+        return f"""*Status for {sender_name}*
 
-**Current Language:** {language_name} ({target_language})
-**Assistant:** Sunflower by Sunbird AI
-**Platform:** WhatsApp
+*Current Language:* {language_name} ({target_language})
+*Assistant:* Sunflower by Sunbird AI
+*Platform:* WhatsApp
 
 Type `help` for available commands or just chat naturally!"""
 
     def _get_languages_text(self) -> str:
         languages_list = [f"• {name} ({code})" for code, name in sorted(self.language_mapping.items())]
-        return f"""**Supported Languages**
+        return f"""*Supported Languages*
 
 {chr(10).join(languages_list)}
 
