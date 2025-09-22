@@ -449,9 +449,9 @@ class OptimizedMessageProcessor:
         elif text_lower.startswith('set language'):
             return ProcessingResult("", ResponseType.TEMPLATE, template_name="choose_language")
         
-        # Quick pattern matching for other common requests
-        if any(phrase in text_lower for phrase in ['what can you do', 'how to use']):
-            return ProcessingResult(self._get_help_text(), ResponseType.TEXT)
+        # # Quick pattern matching for other common requests
+        # if any(phrase in text_lower for phrase in ['what can you do', 'how to use']):
+        #     return ProcessingResult(self._get_help_text(), ResponseType.TEXT)
         
         return None
 
@@ -472,18 +472,24 @@ class OptimizedMessageProcessor:
     async def _call_ug40_optimized(self, user_instruction: str) -> Dict:
         """Optimized UG40 call with shorter timeout"""
         try:
+            logging.error(f"User instruction: {user_instruction}")
             loop = asyncio.get_event_loop()
-            response = await asyncio.wait_for(
-                loop.run_in_executor(
-                    None,
-                    lambda: run_inference(
-                        user_instruction,
-                        "qwen", 
-                        custom_system_message=self.system_message
-                    )
-                ),
-                # timeout=30.0  # Shorter timeout for faster response
-            )
+            # response = await asyncio.wait_for(
+            #     loop.run_in_executor(
+            #         None,
+            #         lambda: run_inference(
+            #             user_instruction,
+            #             "qwen", 
+            #             custom_system_message=self.system_message
+            #         )
+            #     ),
+            #     timeout=30.0  # Shorter timeout for faster response
+            # )
+            response = run_inference(
+                    user_instruction, 
+                    "qwen",
+                    custom_system_message=self.system_message
+                )
             return response
         except asyncio.TimeoutError:
             logging.error("UG40 call timed out")
