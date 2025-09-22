@@ -1093,6 +1093,9 @@ async def webhook(payload: dict, background_tasks: BackgroundTasks):
         # Get user preference
         target_language = get_user_preference(from_number)
 
+        if not target_language:
+            target_language = "eng"  # Default to English if no preference set
+
         # Process message
         result = await processor.process_message(
             payload, from_number, sender_name, target_language, phone_number_id
@@ -1169,40 +1172,21 @@ async def send_template_response(template_name: str, phone_number_id: str, from_
                 phone_number_id=phone_number_id,
                 recipient_id=from_number
             )
-            # whatsapp_service.send_templatev2(
-            #     token=whatsapp_token,
-            #     template="custom_feedback",
-            #     phone_number_id=phone_number_id,
-            #     recipient_id=from_number
-            # )
+        
         elif template_name == "welcome_message":
             whatsapp_service.send_button(
                 button=processor.create_welcome_button,
                 phone_number_id=phone_number_id,
                 recipient_id=from_number
             )
-            # whatsapp_service.send_templatev2(
-            #     token=whatsapp_token,
-            #     template="welcome_message", 
-            #     phone_number_id=phone_number_id,
-            #     recipient_id=from_number,
-            #     components=[
-            #         {"type": "body", "parameters": [{"type": "text", "text": sender_name}]}
-            #     ]
-            # )
+            
         elif template_name == "choose_language":
             whatsapp_service.send_button(
                 button=processor.create_language_selection_button,
                 phone_number_id=phone_number_id,
                 recipient_id=from_number
             )
-            # whatsapp_service.send_templatev2(
-            #     token=whatsapp_token,
-            #     template="choose_language",
-            #     phone_number_id=phone_number_id,
-            #     recipient_id=from_number
-            #     # components=[]
-            # )
+           
     except Exception as e:
         logging.error(f"Error sending template {template_name}: {e}")
 
