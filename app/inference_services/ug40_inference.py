@@ -23,7 +23,7 @@ QWEN_ENDPOINT_ID = os.getenv("QWEN_ENDPOINT_ID")
 ENDPOINTS = {
     "qwen": {
         "endpoint_id": QWEN_ENDPOINT_ID,
-        "model_name": "Sunbird/qwen3-14b-sunflower-merged",
+        "model_name": "Sunbird/Sunflower-14B-FP8",
     },
 }
 
