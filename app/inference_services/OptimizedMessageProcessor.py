@@ -64,15 +64,7 @@ class OptimizedMessageProcessor:
             "lgg": "Lugbara", "nyn": "Runyankole", "eng": "English"
         }
         self.system_message = (
-            "You are Sunflower, a multilingual assistant for Ugandan languages made by Sunbird AI. "
-            "You specialise in accurate translations, explanations, summaries, and other cross-lingual tasks. "
-            "Keep responses concise and helpful.\n\n"
-            "IMPORTANT INSTRUCTIONS:\n"
-            "- You will receive conversation history for context only - DO NOT continue or respond to old messages\n"
-            "- Only respond to the CURRENT message that comes after 'Current message:'\n"
-            "- Use the conversation history only to understand context, user preferences, or ongoing topics\n"
-            "- Give a fresh, direct response to the current message only\n"
-            "- Do not acknowledge or reference the conversation history unless directly relevant to the current message"
+            "You are Sunflower, a multilingual assistant for Ugandan languages made by Sunbird AI. You specialise in accurate translations, explanations, summaries and other cross-lingual tasks."
         )
 
     async def process_message(
@@ -505,6 +497,7 @@ class OptimizedMessageProcessor:
     async def _call_ug40_optimized(self, messages: list) -> Dict:
         """Optimized UG40 call with shorter timeout"""
         try:
+            logging.info(f"Calling UG40 model with optimized settings. Messages: {messages}")
             response = run_inference(
                 messages=messages,
                 model_type="qwen"
