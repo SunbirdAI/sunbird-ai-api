@@ -64,15 +64,7 @@ class OptimizedMessageProcessor:
             "lgg": "Lugbara", "nyn": "Runyankole", "eng": "English"
         }
         self.system_message = (
-            "You are Sunflower, a multilingual assistant for Ugandan languages made by Sunbird AI. "
-            "You specialise in accurate translations, explanations, summaries, and other cross-lingual tasks. "
-            "Keep responses concise and helpful.\n\n"
-            "IMPORTANT INSTRUCTIONS:\n"
-            "- You will receive conversation history for context only - DO NOT continue or respond to old messages\n"
-            "- Only respond to the CURRENT message that comes after 'Current message:'\n"
-            "- Use the conversation history only to understand context, user preferences, or ongoing topics\n"
-            "- Give a fresh, direct response to the current message only\n"
-            "- Do not acknowledge or reference the conversation history unless directly relevant to the current message"
+            "You are Sunflower, a multilingual assistant for Ugandan languages made by Sunbird AI. You specialise in accurate translations, explanations, summaries and other cross-lingual tasks."
         )
 
     async def process_message(
@@ -474,8 +466,12 @@ class OptimizedMessageProcessor:
         """Handle most common commands quickly"""
         text_lower = input_text.lower().strip()
         
+        # Greeting messages - show welcome template
+        if text_lower in ['hello', 'hi', 'hey', 'hola', 'greetings']:
+            return ProcessingResult("", ResponseType.TEMPLATE, template_name="welcome_message", should_save=False)
+        
         # Most common commands - return immediately without UG40 calls
-        if text_lower in ['help', 'commands']:
+        elif text_lower in ['help', 'commands']:
             return ProcessingResult(self._get_help_text(), ResponseType.TEXT)
         elif text_lower == 'status':
             return ProcessingResult(self._get_status_text(target_language, sender_name), ResponseType.TEXT)
@@ -505,6 +501,7 @@ class OptimizedMessageProcessor:
     async def _call_ug40_optimized(self, messages: list) -> Dict:
         """Optimized UG40 call with shorter timeout"""
         try:
+            logging.info(f"Calling UG40 model with optimized settings. Messages: {messages}")
             response = run_inference(
                 messages=messages,
                 model_type="qwen"
@@ -886,8 +883,7 @@ class OptimizedMessageProcessor:
 • `languages` - Show supported languages
 
 *Language Commands:*
-• `set language [name]` - Set your preferred language
-Example: `set language luganda`
+• `set language` - Set your preferred language for audio commands
 
 *Natural Questions:*
 You can also ask naturally:
