@@ -361,12 +361,12 @@ class OptimizedMessageProcessor:
                     ]
                     
                     ug40_response = run_inference(
-                        model_type="qwen",
-                        messages=messages
+                        messages=messages,
+                        model_type="qwen"
                     )
-                    
-                    final_response = ug40_response.get("content", "")
-                    if final_response and not self._is_error_response(final_response):
+
+                    final_response = self._clean_response(ug40_response)
+                    if final_response:
                         whatsapp_service.send_message(
                             final_response,
                             WHATSAPP_TOKEN,
