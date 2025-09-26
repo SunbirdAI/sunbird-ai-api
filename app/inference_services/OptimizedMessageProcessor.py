@@ -172,7 +172,7 @@ class OptimizedMessageProcessor:
     def _handle_unsupported(self, sender_name: str) -> ProcessingResult:
         """Handle unsupported message types"""
         return ProcessingResult(
-            f"Dear {sender_name}, I currently only support text and audio messages. Please try again with text or voice.",
+            f"Dear {sender_name}, I currently only support text and audio messages. \n\n Please try again with text or voice.",
             ResponseType.TEXT,
             should_save=False
         )
@@ -288,7 +288,7 @@ class OptimizedMessageProcessor:
             except Exception as e:
                 logging.error(f"Cloud storage upload error: {str(e)}")
                 whatsapp_service.send_message(
-                    "Failed to upload audio. Please try again.",
+                    "Failed to upload audio. \n\n Please try again.",
                     WHATSAPP_TOKEN,
                     from_number,
                     phone_number_id
@@ -320,7 +320,7 @@ class OptimizedMessageProcessor:
             except Exception as e:
                 logging.error(f"Transcription error: {str(e)}")
                 whatsapp_service.send_message(
-                    "An error occurred during transcription. Please try again later.",
+                    "An error occurred during transcription. \n\n Please try again later.",
                     WHATSAPP_TOKEN,
                     from_number,
                     phone_number_id
@@ -331,7 +331,7 @@ class OptimizedMessageProcessor:
             transcribed_text = request_response.get("audio_transcription", "").strip()
             if not transcribed_text:
                 whatsapp_service.send_message(
-                    "No speech detected. Please ensure you're speaking clearly and try again.",
+                    "*No speech detected*. \n\n Please ensure you're speaking clearly and try again.",
                     WHATSAPP_TOKEN,
                     from_number,
                     phone_number_id
@@ -396,7 +396,7 @@ class OptimizedMessageProcessor:
         except Exception as e:
             logging.error(f"Unexpected error in audio processing: {str(e)}")
             whatsapp_service.send_message(
-                "An unexpected error occurred while processing your audio. Please try again.",
+                "An unexpected error occurred while processing your audio. \n\n Please try again.",
                 WHATSAPP_TOKEN,
                 from_number,
                 phone_number_id
@@ -451,7 +451,7 @@ class OptimizedMessageProcessor:
             response_content = self._clean_response(response)
             
             # Save response in background only if not a technical error
-            if response_content != "I'm having technical difficulties. Please try again.":
+            if response_content != "I'm having technical difficulties. \n\n Please try again.":
                 asyncio.create_task(self._save_response_async(from_number, input_text, response_content, message_id))
             
             return ProcessingResult(response_content, ResponseType.TEXT)
@@ -510,10 +510,10 @@ class OptimizedMessageProcessor:
             return response
         except asyncio.TimeoutError:
             logging.error("UG40 call timed out")
-            return {"content": "I'm running a bit slow right now. Please try again."}
+            return {"content": "I'm running a bit slow right now. \n\n Please try again."}
         except Exception as e:
             logging.error(f"UG40 call error: {e}")
-            return {"content": "I'm having technical difficulties. Please try again."}
+            return {"content": "I'm having technical difficulties. \n\n Please try again."}
 
     def _clean_response(self, ug40_response: Dict) -> str:
         """Clean and validate response"""
@@ -602,7 +602,7 @@ class OptimizedMessageProcessor:
             interactive_response = self._get_interactive_response(payload)
             if not interactive_response:
                 return ProcessingResult(
-                    f"Dear {sender_name}, I didn't receive your selection properly. Please try again.",
+                    f"Dear {sender_name}, I didn't receive your selection properly. \n\n Please try again.",
                     ResponseType.TEXT,
                     should_save=False
                 )
@@ -615,7 +615,7 @@ class OptimizedMessageProcessor:
             else:
                 logging.warning(f"Unknown interactive response type: {interactive_response}")
                 return ProcessingResult(
-                    f"Dear {sender_name}, I received your response but couldn't process it. Please try again.",
+                    f"Dear {sender_name}, I received your response but couldn't process it. \n\n Please try again.",
                     ResponseType.TEXT,
                     should_save=False
                 )
@@ -740,17 +740,27 @@ class OptimizedMessageProcessor:
         """Handle feedback by title with personalized responses"""
         try:
             feedback_responses = {
-                "Excellent": f"🌟 Wonderful {sender_name}! Thank you for the excellent rating! "
-                           f"I'm thrilled I could help you effectively. Feel free to ask me anything else!",
-                
-                "Good": f"😊 Thank you {sender_name}! I'm glad the response was helpful. "
-                       f"I'm here whenever you need assistance with languages or translations!",
-                
-                "Fair": f"👍 Thanks {sender_name} for the honest feedback! "
-                       f"I'm always learning and improving. Please let me know how I can help better next time!",
-                
-                "Poor": f"🤔 Thank you {sender_name} for the feedback. I apologize the response wasn't helpful. "
-                       f"Please try rephrasing your question - I'll do my best to give you a better answer!"
+                "Excellent": (
+                    f"🌟 *Wonderful* {sender_name}!\n\n"
+                    f"Thank you for the *excellent* rating!\n"
+                    f"I'm *thrilled* I could help you effectively.\n\n"
+                    f"*Feel free to ask me anything else!*"
+                ),
+                "Good": (
+                    f"😊 Thank you {sender_name}!\n\n"
+                    f"I'm glad the response was *helpful*.\n"
+                    f"I'm here whenever you need *assistance* with *languages* or *translations*!"
+                ),
+                "Fair": (
+                    f"👍 Thanks {sender_name} for the *honest feedback*!\n\n"
+                    f"I'm always *learning* and *improving*.\n"
+                    f"Please let me know how I can help *better* next time!"
+                ),
+                "Poor": (
+                    f"🤔 Thank you {sender_name} for the feedback.\n\n"
+                    f"I apologize the response wasn't *helpful*.\n"
+                    f"Please try *rephrasing your question* - I'll do my best to give you a *better answer*!"
+                )
             }
             
             response_message = feedback_responses.get(
@@ -906,41 +916,38 @@ class OptimizedMessageProcessor:
         }
     
     def _get_help_text(self) -> str:
-        return """Sunflower Assistant Commands
-
-*Basic Commands:*
-• `help` - Show this help message  
-• `status` - Show your current settings
-• `languages` - Show supported languages
-
-*Language Commands:*
-• `set language` - Set your preferred language for audio commands
-
-*Natural Questions:*
-You can also ask naturally:
-• "What can you do?"
-• "What languages do you support?"
-
-Just type your message normally - I'm here to help!"""
+        return (
+            "*🌻 Sunflower Assistant Commands*\n\n"
+            "*Basic Commands:*\n"
+            "• *help* – Show this help message\n"
+            "• *status* – Show your current settings\n"
+            "• *languages* – Show supported languages\n\n"
+            "*Language Commands:*\n"
+            "• *set language* – Set your preferred language for audio commands\n\n"
+            "*Natural Questions:*\n"
+            "You can also ask naturally:\n"
+            "• *What can you do?*\n"
+            "• *What languages do you support?*\n\n"
+            "Just type your message normally – *I'm here to help!*"
+        )
 
     def _get_status_text(self, target_language: str, sender_name: str) -> str:
         language_name = self.language_mapping.get(target_language, target_language)
-        return f"""*Status for {sender_name}*
-
-*Current Language:* {language_name} ({target_language})
-*Assistant:* Sunflower by Sunbird AI
-*Platform:* WhatsApp
-
-Type `help` for available commands or just chat naturally!"""
+        return (
+            f"*🌻 Status for {sender_name}*\n\n"
+            f"*Current Language:* *{language_name}* ({target_language})\n"
+            "*Assistant:* Sunflower by Sunbird AI\n"
+            "*Platform:* WhatsApp\n\n"
+            "Type *help* for available commands or just *chat naturally!*"
+        )
 
     def _get_languages_text(self) -> str:
-        languages_list = [f"• {name} ({code})" for code, name in sorted(self.language_mapping.items())]
-        return f"""*Supported Languages*
-
-{chr(10).join(languages_list)}
-
-To set your language, type:
-`set language [name]` or `set language [code]`
-
-Example: `set language english`"""
+        languages_list = [f"• *{name}* ({code})" for code, name in sorted(self.language_mapping.items())]
+        return (
+            "*🌐 Supported Languages*\n\n"
+            f"{chr(10).join(languages_list)}\n\n"
+            "To set your language, type:\n"
+            "*set language [name]* or *set language [code]*\n\n"
+            "Example: *set language english*"
+        )
 
