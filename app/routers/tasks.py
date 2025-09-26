@@ -1093,6 +1093,22 @@ async def ug40_inference(
     - Usage tracking and monitoring
     - Support for custom system messages
     - Message history management
+
+    Example message list with previous chat:
+    [
+        {"role": "system", "content": "You are Sunflower, a multilingual assistant for Ugandan languages made by Sunbird AI. You specialise in accurate translations, explanations, summaries and other cross-lingual tasks."},
+        {"role": "user", "content": "Translate 'How are you?' to Luganda."},
+        {"role": "assistant", "content": "In Luganda, 'How are you?' is 'Oli otya?'."},
+        {"role": "user", "content": "How do I say 'Good morning' in Acholi?"}
+    ]
+
+    Example message list without previous chat:
+    [
+        {"role": "user", "content": "Explain the meaning of 'Ubuntu'."}
+    ]
+
+    Suggested system prompt:
+    "You are Sunflower, a multilingual assistant for Ugandan languages made by Sunbird AI. You specialise in accurate translations, explanations, summaries and other cross-lingual tasks. Always provide clear, culturally relevant, and educational responses."
     """
     
     start_time = time.time()
