@@ -442,6 +442,8 @@ class OptimizedMessageProcessor:
             is_new_user = len(conversation_pairs) == 0
             
             if is_new_user:
+                # Save initial user interaction to mark them as no longer new
+                asyncio.create_task(self._save_message_async(from_number, input_text))
                 return ProcessingResult("", ResponseType.TEMPLATE, template_name="welcome_message", should_save=False)
 
             # Build optimized prompt (limit context for speed)
@@ -629,23 +631,38 @@ class OptimizedMessageProcessor:
                     should_save=False
                 )
 
-            # Handle language selection
-            if selected_id.startswith("lang_"):
-                return self._handle_language_selection(selected_id, selected_title, from_number, sender_name)
+            # Map row IDs to specific actions based on context
+            # Welcome button responses
+            if selected_id == "row 1" and selected_title == "Get Help":
+                return ProcessingResult(self._get_help_text(), ResponseType.TEXT, should_save=True)
             
-            # Handle feedback selection
-            elif selected_id.startswith("feedback_"):
-                return self._handle_feedback_selection(selected_id, selected_title, from_number, sender_name)
+            elif selected_id == "row 2" and selected_title == "Set Language":
+                return ProcessingResult("", ResponseType.TEMPLATE, template_name="choose_language", should_save=False)
             
-            # Handle welcome/onboarding selections
-            elif selected_id.startswith("welcome_"):
-                return self._handle_welcome_selection(selected_id, selected_title, from_number, sender_name)
-            
-            # Unknown selection type
-            else:
-                logging.warning(f"Unknown list selection: {selected_id}")
+            elif selected_id == "row 3" and selected_title == "Start Chatting":
                 return ProcessingResult(
-                    f"Thanks {sender_name}, I received your selection: {selected_title}",
+                    f"Perfect {sender_name}! 🌻 I'm ready to help you with:\n\n"
+                    f"• Translations between Ugandan languages and English\n"
+                    f"• Audio transcription in local languages\n" 
+                    f"• Language learning support\n\n"
+                    f"Just send me a message or audio to get started!",
+                    ResponseType.TEXT,
+                    should_save=True
+                )
+            
+            # Language selection responses
+            elif selected_title in self.language_mapping.values():
+                return self._handle_language_selection_by_name(selected_title, from_number, sender_name)
+            
+            # Feedback responses  
+            elif selected_title in ["Excellent", "Good", "Fair", "Poor"]:
+                return self._handle_feedback_by_title(selected_title, from_number, sender_name)
+            
+            # Unknown selection - fallback
+            else:
+                logging.warning(f"Unknown list selection: {selected_id} - {selected_title}")
+                return ProcessingResult(
+                    f"Thanks {sender_name}! I received your selection. How can I help you further?",
                     ResponseType.TEXT,
                     should_save=True
                 )
@@ -658,85 +675,35 @@ class OptimizedMessageProcessor:
                 should_save=False
             )
 
-    def _handle_button_reply(self, button_reply: Dict, from_number: str, sender_name: str) -> ProcessingResult:
-        """Handle button click responses with proper routing"""
+    def _handle_language_selection_by_name(self, language_name: str, from_number: str, sender_name: str) -> ProcessingResult:
+        """Handle language selection by language name"""
         try:
-            button_id = button_reply.get("id", "")
-            button_title = button_reply.get("title", "")
+            # Find the language code for the selected name
+            language_code = None
+            for code, name in self.language_mapping.items():
+                if name == language_name:
+                    language_code = code
+                    break
             
-            if not button_id:
+            if not language_code:
                 return ProcessingResult(
-                    f"Dear {sender_name}, I didn't receive your selection properly. Please try again.",
+                    f"Sorry {sender_name}, I couldn't find that language. Please try again.",
                     ResponseType.TEXT,
                     should_save=False
                 )
-
-            # Route to specific handlers
-            if button_id == "get_help":
-                return ProcessingResult(self._get_help_text(), ResponseType.TEXT, should_save=True)
-            
-            elif button_id == "show_languages":
-                return ProcessingResult("", ResponseType.TEMPLATE, template_name="choose_language", should_save=False)
-            
-            elif button_id == "start_chat":
-                return ProcessingResult(
-                    f"Perfect {sender_name}! I'm ready to help. You can:\n\n"
-                    "• Send me text messages to translate or get help\n"
-                    "• Send audio messages for transcription\n"
-                    "• Ask me questions about Ugandan languages\n\n"
-                    "Just type your message or send an audio - I'm here to help!",
-                    ResponseType.TEXT,
-                    should_save=True
-                )
-            
-            elif button_id == "set_language":
-                return ProcessingResult("", ResponseType.TEMPLATE, template_name="choose_language", should_save=False)
-            
-            # Unknown button
-            else:
-                logging.warning(f"Unknown button clicked: {button_id}")
-                return ProcessingResult(
-                    f"Thanks {sender_name} for clicking '{button_title}'!",
-                    ResponseType.TEXT,
-                    should_save=True
-                )
-                
-        except Exception as e:
-            logging.error(f"Error handling button reply: {e}")
-            return ProcessingResult(
-                f"Dear {sender_name}, I encountered an error processing your selection. Please try again.",
-                ResponseType.TEXT,
-                should_save=False
-            )
-
-    def _handle_language_selection(self, selected_id: str, selected_title: str, from_number: str, sender_name: str) -> ProcessingResult:
-        """Handle language selection with validation and confirmation"""
-        try:
-            language_code = selected_id.replace("lang_", "")
-            
-            # Validate language code
-            if language_code not in self.language_mapping:
-                logging.error(f"Invalid language code selected: {language_code}")
-                return ProcessingResult(
-                    f"Sorry {sender_name}, there was an error with your language selection. Please try again.",
-                    ResponseType.TEXT,
-                    should_save=False
-                )
-
-            language_name = self.language_mapping[language_code]
             
             # Save the language preference
             try:
-                save_user_preference(from_number, "preferred_language", language_code)
+                save_user_preference(from_number, "English", language_code)  # Default source to English
                 logging.info(f"Language preference saved for {from_number}: {language_code}")
                 
                 return ProcessingResult(
-                    f"✅ Language set to {language_name}!\n\n"
+                    f"✅ Perfect! Language set to {language_name}!\n\n"
                     f"You can now:\n"
                     f"• Send messages in {language_name} or English\n"
                     f"• Ask me to translate to {language_name}\n"
                     f"• Send audio in {language_name} for transcription\n\n"
-                    f"Just start typing or send an audio message!",
+                    f"Just start typing or send an audio message! 🎤📝",
                     ResponseType.TEXT,
                     should_save=True
                 )
@@ -744,114 +711,59 @@ class OptimizedMessageProcessor:
             except Exception as db_error:
                 logging.error(f"Database error saving language preference: {db_error}")
                 return ProcessingResult(
-                    f"I set your language to {language_name}, but there was a small issue saving it. "
-                    f"You can still use the service normally!",
+                    f"I've set your language to {language_name}! "
+                    f"You can now send messages or audio in {language_name}. "
+                    f"How can I help you today?",
                     ResponseType.TEXT,
                     should_save=True
                 )
                 
         except Exception as e:
-            logging.error(f"Error handling language selection: {e}")
+            logging.error(f"Error handling language selection by name: {e}")
             return ProcessingResult(
-                f"Sorry {sender_name}, I encountered an error setting your language. Please try again.",
+                f"I've received your language preference. How can I help you today?",
                 ResponseType.TEXT,
-                should_save=False
+                should_save=True
             )
 
-    def _handle_feedback_selection(self, selected_id: str, selected_title: str, from_number: str, sender_name: str) -> ProcessingResult:
-        """Handle feedback selection with proper saving"""
+    def _handle_feedback_by_title(self, feedback_title: str, from_number: str, sender_name: str) -> ProcessingResult:
+        """Handle feedback by title with personalized responses"""
         try:
-            feedback_type = selected_id.replace("feedback_", "")
-            
-            # Map feedback to emojis for consistency with reaction handling
-            feedback_emoji_map = {
-                "excellent": "👍",
-                "good": "👍", 
-                "fair": "👌",
-                "poor": "👎"
+            feedback_responses = {
+                "Excellent": f"🌟 Wonderful {sender_name}! Thank you for the excellent rating! "
+                           f"I'm thrilled I could help you effectively. Feel free to ask me anything else!",
+                
+                "Good": f"😊 Thank you {sender_name}! I'm glad the response was helpful. "
+                       f"I'm here whenever you need assistance with languages or translations!",
+                
+                "Fair": f"👍 Thanks {sender_name} for the honest feedback! "
+                       f"I'm always learning and improving. Please let me know how I can help better next time!",
+                
+                "Poor": f"🤔 Thank you {sender_name} for the feedback. I apologize the response wasn't helpful. "
+                       f"Please try rephrasing your question - I'll do my best to give you a better answer!"
             }
             
-            emoji = feedback_emoji_map.get(feedback_type, "👍")
+            response_message = feedback_responses.get(
+                feedback_title,
+                f"Thank you {sender_name} for your feedback! It helps me improve."
+            )
             
-            # Try to get the most recent message ID for this user to link feedback
-            # This is a simplified approach - in production you might want more sophisticated linking
+            # Log the feedback
             try:
-                # You might want to store the message ID being referenced in the button payload
-                # For now, we'll just log the feedback
-                logging.info(f"Feedback received from {from_number}: {feedback_type} ({emoji})")
-                
-                # You could also save general feedback to the database
-                save_message(from_number, f"FEEDBACK: {selected_title}")
-                
-                feedback_responses = {
-                    "excellent": f"🌟 Thank you {sender_name}! I'm glad I could help you excellently.",
-                    "good": f"😊 Thank you {sender_name}! I'm happy the response was helpful.",
-                    "fair": f"👍 Thank you {sender_name} for the feedback. I'll keep improving!",
-                    "poor": f"🤔 Thank you {sender_name} for the honest feedback. I'll work on doing better!"
-                }
-                
-                response_message = feedback_responses.get(
-                    feedback_type,
-                    f"Thank you {sender_name} for your feedback! It helps me improve."
-                )
-                
-                return ProcessingResult(response_message, ResponseType.TEXT, should_save=True)
-                
+                save_message(from_number, f"FEEDBACK: {feedback_title}")
+                logging.info(f"Feedback saved: {from_number} - {feedback_title}")
             except Exception as save_error:
                 logging.error(f"Error saving feedback: {save_error}")
-                return ProcessingResult(
-                    f"Thank you {sender_name} for your {selected_title.lower()} feedback! "
-                    f"It helps us improve Sunflower.",
-                    ResponseType.TEXT,
-                    should_save=True
-                )
+            
+            return ProcessingResult(response_message, ResponseType.TEXT, should_save=True)
                 
         except Exception as e:
-            logging.error(f"Error handling feedback selection: {e}")
+            logging.error(f"Error handling feedback by title: {e}")
             return ProcessingResult(
-                f"Thank you {sender_name} for the feedback!",
+                f"Thank you {sender_name} for the feedback! How can I help you next?",
                 ResponseType.TEXT,
                 should_save=True
             )
-
-    def _handle_welcome_selection(self, selected_id: str, selected_title: str, from_number: str, sender_name: str) -> ProcessingResult:
-        """Handle welcome/onboarding selections"""
-        try:
-            action = selected_id.replace("welcome_", "")
-            
-            if action == "get_help":
-                return ProcessingResult(self._get_help_text(), ResponseType.TEXT, should_save=True)
-            
-            elif action == "show_languages":
-                return ProcessingResult("", ResponseType.TEMPLATE, template_name="choose_language", should_save=False)
-            
-            elif action == "start_chat":
-                return ProcessingResult(
-                    f"Welcome {sender_name}! 🌻\n\n"
-                    f"I'm ready to help you with:\n"
-                    f"• Translations between Ugandan languages and English\n"
-                    f"• Audio transcription in local languages\n"
-                    f"• Language learning support\n\n"
-                    f"Just send me a message or audio to get started!",
-                    ResponseType.TEXT,
-                    should_save=True
-                )
-            
-            else:
-                return ProcessingResult(
-                    f"Thanks {sender_name} for selecting '{selected_title}'!",
-                    ResponseType.TEXT,
-                    should_save=True
-                )
-                
-        except Exception as e:
-            logging.error(f"Error handling welcome selection: {e}")
-            return ProcessingResult(
-                f"Welcome {sender_name}! How can I help you today?",
-                ResponseType.TEXT,
-                should_save=True
-            )
-
 
     # Updated button creation methods with proper IDs
 
@@ -862,15 +774,15 @@ class OptimizedMessageProcessor:
         for code, name in self.language_mapping.items():
             language_rows.append({
                 "id": f"row {i}",
-                "title": name,
-                "description": f"Set language to {name}"
+                "title": name,  # This will be matched in _handle_list_reply
+                "description": f"Set your preferred language to {name}"
             })
             i += 1
         
         return {
-            "header": "Language Selection",
-            "body": "Please select your preferred language for translations and responses:",
-            "footer": "Powered by Sunbird AI",
+            "header": "🌐 Language Selection",
+            "body": "Please select your preferred language for translations and audio transcription:",
+            "footer": "Powered by Sunbird AI 🌻",
             "action": {
                 "button": "Select Language",
                 "sections": [
@@ -885,9 +797,9 @@ class OptimizedMessageProcessor:
     def create_feedback_button(self) -> Dict:
         """Create feedback button with proper IDs"""
         return {
-            "header": "Feedback",
-            "body": "Please help us improve Sunflower with your feedback:",
-            "footer": "Your feedback helps us serve you better",
+            "header": "📝 Feedback",
+            "body": "How was my response? Your feedback helps me improve!",
+            "footer": "Thank you for helping Sunflower grow 🌻",
             "action": {
                 "button": "Rate Response",
                 "sections": [
@@ -896,23 +808,23 @@ class OptimizedMessageProcessor:
                         "rows": [
                             {
                                 "id": "row 1",
-                                "title": "Excellent",
-                                "description": "Very helpful response"
+                                "title": "Excellent",  # This will be matched
+                                "description": "🌟 Very helpful response!"
                             },
                             {
-                                "id": "row 2",
+                                "id": "row 2", 
                                 "title": "Good",
-                                "description": "Helpful response"
+                                "description": "😊 Helpful response"
                             },
                             {
                                 "id": "row 3",
-                                "title": "Fair", 
-                                "description": "Somewhat helpful"
+                                "title": "Fair",
+                                "description": "👌 Somewhat helpful"
                             },
                             {
                                 "id": "row 4",
-                                "title": "Poor",
-                                "description": "Not helpful"
+                                "title": "Poor", 
+                                "description": "👎 Not helpful"
                             }
                         ]
                     }
@@ -923,9 +835,9 @@ class OptimizedMessageProcessor:
     def create_welcome_button(self) -> Dict:
         """Create welcome button for new users with proper IDs"""
         return {
-            "header": "Welcome to Sunflower!",
-            "body": "I'm your Ugandan language assistant. What would you like to do?",
-            "footer": "Made by Sunbird AI",
+            "header": "🌻 Welcome to Sunflower!",
+            "body": "I'm your multilingual assistant for Ugandan languages. What would you like to do first?",
+            "footer": "Made with ❤️ by Sunbird AI",
             "action": {
                 "button": "Get Started",
                 "sections": [
@@ -934,18 +846,18 @@ class OptimizedMessageProcessor:
                         "rows": [
                             {
                                 "id": "row 1",
-                                "title": "Get Help",
-                                "description": "Learn what I can do"
+                                "title": "Get Help",  # This will be matched
+                                "description": "📚 Learn what I can do for you"
                             },
                             {
                                 "id": "row 2",
                                 "title": "Set Language",
-                                "description": "Choose your preferred language"
+                                "description": "🌐 Choose your preferred language"
                             },
                             {
                                 "id": "row 3",
                                 "title": "Start Chatting",
-                                "description": "Begin conversation"
+                                "description": "💬 Begin our conversation"
                             }
                         ]
                     }
