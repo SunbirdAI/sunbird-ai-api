@@ -69,6 +69,14 @@ from app.schemas.tasks import (
 )
 from app.utils.auth_utils import ALGORITHM, SECRET_KEY
 from app.utils.upload_audio_file_gcp import upload_audio_file, upload_file_to_bucket
+from app.inference_services.ug40_inference import ( 
+    ModelLoadingError,
+    run_inference,
+    SunflowerChatMessage,
+    SunflowerChatRequest,
+    SunflowerChatResponse,
+    SunflowerUsageStats,
+    )
 
 router = APIRouter()
 
@@ -1058,6 +1066,283 @@ async def text_to_speech(
     response["output"] = request_response
 
     return response
+
+@router.post(
+    "/ug40_inference",
+    response_model=SunflowerChatResponse,
+)
+@limiter.limit(get_account_type_limit)
+async def ug40_inference(
+    request: Request,
+    chat_request: SunflowerChatRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    Professional UG40 (Sunflower) inference endpoint for multilingual chat completions.
+    
+    This endpoint provides access to Sunbird AI's Sunflower model, specialized in:
+    - Multilingual conversations in Ugandan languages (Luganda, Acholi, Ateso, etc.)
+    - Cross-lingual translations and explanations
+    - Cultural context understanding
+    - Educational content in local languages
+    
+    Features:
+    - Automatic retry with exponential backoff
+    - Context-aware responses
+    - Usage tracking and monitoring
+    - Support for custom system messages
+    - Message history management
+    """
+    
+    start_time = time.time()
+    user = current_user
+    
+    try:
+        # Validate input
+        if not chat_request.messages:
+            raise HTTPException(
+                status_code=400,
+                detail="At least one message is required"
+            )
+            
+        # Validate message format
+        valid_roles = {"system", "user", "assistant"}
+        for i, message in enumerate(chat_request.messages):
+            if not hasattr(message, 'role') or not hasattr(message, 'content'):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Message {i} must have 'role' and 'content' fields"
+                )
+            if message.role not in valid_roles:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Message {i} role must be one of: {', '.join(valid_roles)}"
+                )
+            if not message.content or not message.content.strip():
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Message {i} content cannot be empty"
+                )
+        
+        # Convert messages to dict format for the inference function
+        messages_dict = [
+            {"role": msg.role, "content": msg.content.strip()} 
+            for msg in chat_request.messages
+        ]
+        
+        # Add default system message if none provided
+        has_system_message = any(msg["role"] == "system" for msg in messages_dict)
+        if not has_system_message:
+            default_system = (
+                "You are Sunflower, a multilingual assistant for Ugandan languages made by Sunbird AI. You specialise in accurate translations, explanations, summaries and other cross-lingual tasks."
+            )
+            messages_dict.insert(0, {"role": "system", "content": default_system})
+        
+        # Log the inference attempt
+        logging.info(f"UG40 inference requested by user {user.id} with {len(messages_dict)} messages")
+        logging.info(f"Model type: {chat_request.model_type}")
+        logging.info(f"Temperature: {chat_request.temperature}")
+        
+        # Call the UG40 inference with retry logic
+        try:
+            response = run_inference(
+                messages=messages_dict,
+                model_type=chat_request.model_type,
+                stream=chat_request.stream,
+                custom_system_message=chat_request.system_message
+            )
+            
+            logging.info(f"UG40 inference successful for user {user.id}")
+            
+        except ModelLoadingError as e:
+            logging.error(f"Model loading error: {e}")
+            raise HTTPException(
+                status_code=503,
+                detail="The AI model is currently loading. This usually takes 2-3 minutes. Please try again shortly."
+            )
+        except TimeoutError as e:
+            logging.error(f"Inference timeout: {e}")
+            raise HTTPException(
+                status_code=504,
+                detail="The request timed out. Please try again with a shorter prompt or check your network connection."
+            )
+        except ValueError as e:
+            logging.error(f"Invalid request: {e}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid request: {str(e)}"
+            )
+        except Exception as e:
+            logging.error(f"Unexpected inference error: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail="An unexpected error occurred during inference. Please try again."
+            )
+            
+        # Process the response
+        if not response or not response.get("content"):
+            raise HTTPException(
+                status_code=502,
+                detail="The model returned an empty response. Please try rephrasing your request."
+            )
+            
+        end_time = time.time()
+        total_time = end_time - start_time
+        
+        # Create response object
+        chat_response = SunflowerChatResponse(
+            content=response["content"],
+            model_type=response.get("model_type", chat_request.model_type),
+            usage={
+                "completion_tokens": response.get("usage", {}).get("completion_tokens"),
+                "prompt_tokens": response.get("usage", {}).get("prompt_tokens"), 
+                "total_tokens": response.get("usage", {}).get("total_tokens"),
+            },
+            processing_time=total_time,
+            inference_time=response.get("processing_time", 0),
+            message_count=len(messages_dict)
+        )
+        
+        # Log endpoint usage in database
+        try:
+            await log_endpoint(db, user, request, start_time, end_time)
+        except Exception as e:
+            logging.error(f"Failed to log endpoint usage: {e}")
+            # Don't fail the request due to logging issues
+            
+        logging.info(f"UG40 inference completed in {total_time:.2f}s (model: {response.get('processing_time', 0):.2f}s)")
+        
+        return chat_response
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        end_time = time.time()
+        total_time = end_time - start_time
+        
+        logging.error(f"Unexpected error in ug40_inference after {total_time:.2f}s: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="An unexpected server error occurred. Please try again later."
+        )
+
+
+@router.post(
+    "/ug40_simple",
+    response_model=Dict[str, Any],
+)
+@limiter.limit(get_account_type_limit) 
+async def ug40_simple_inference(
+    request: Request,
+    instruction: str = Form(..., description="The instruction or question for the AI"),
+    model_type: str = Form("qwen", description="Model type (qwen or gemma)"),
+    temperature: float = Form(0.3, ge=0.0, le=2.0, description="Sampling temperature"),
+    system_message: str = Form(None, description="Custom system message"),
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    Simple UG40 inference endpoint for single instruction/response.
+    
+    This is a simplified interface for users who want to send a single instruction
+    rather than managing conversation history.
+    
+    Parameters:
+    - instruction: The question or instruction for the AI
+    - model_type: Either 'qwen' (default) or 'gemma' 
+    - temperature: Controls randomness (0.0 = deterministic, 1.0 = creative)
+    - system_message: Optional custom system message
+    """
+    
+    start_time = time.time()
+    user = current_user
+    
+    try:
+        # Validate input
+        if not instruction or not instruction.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="Instruction cannot be empty"
+            )
+            
+        if len(instruction.strip()) > 4000:
+            raise HTTPException(
+                status_code=400,
+                detail="Instruction too long. Please limit to 4000 characters."
+            )
+            
+        # Validate model type
+        if model_type not in ["qwen", "gemma"]:
+            raise HTTPException(
+                status_code=400,
+                detail="Model type must be either 'qwen' or 'gemma'"
+            )
+        
+        logging.info(f"Simple UG40 inference requested by user {user.id}")
+        logging.info(f"Instruction length: {len(instruction)} characters")
+        
+        # Call the inference
+        try:
+            response = run_inference(
+                instruction=instruction.strip(),
+                model_type=model_type,
+                stream=False,
+                custom_system_message=system_message
+            )
+            
+        except ModelLoadingError as e:
+            logging.error(f"Model loading error: {e}")
+            raise HTTPException(
+                status_code=503,
+                detail="The AI model is currently loading. Please wait 2-3 minutes and try again."
+            )
+        except TimeoutError as e:
+            logging.error(f"Inference timeout: {e}")
+            raise HTTPException(
+                status_code=504,
+                detail="Request timed out. Please try again with a shorter instruction."
+            )
+        except Exception as e:
+            logging.error(f"Inference error: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail="Inference failed. Please try again."
+            )
+            
+        end_time = time.time()
+        total_time = end_time - start_time
+        
+        # Log usage
+        try:
+            await log_endpoint(db, user, request, start_time, end_time)
+        except Exception as e:
+            logging.error(f"Failed to log endpoint usage: {e}")
+            
+        # Return simple response
+        result = {
+            "response": response.get("content", ""),
+            "model_type": response.get("model_type", model_type),
+            "processing_time": total_time,
+            "usage": response.get("usage", {}),
+            "success": True
+        }
+        
+        logging.info(f"Simple UG40 inference completed in {total_time:.2f}s")
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        end_time = time.time()
+        total_time = end_time - start_time
+        
+        logging.error(f"Unexpected error in simple inference: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="An unexpected error occurred"
+        )
+
 
 # Webhook handlers
 @router.post("/webhook")
