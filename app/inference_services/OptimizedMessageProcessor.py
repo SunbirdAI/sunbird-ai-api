@@ -451,10 +451,10 @@ class OptimizedMessageProcessor:
             conversation_pairs = get_user_last_five_conversation_pairs(from_number)
             
             # Build optimized prompt (limit context for speed)
-            user_instruction = self._build_optimized_prompt(input_text, conversation_pairs[-2:])  # Only last 2
+            messages = self._build_optimized_prompt(input_text, conversation_pairs[-2:])  # Only last 2
             
             # Call UG40 model with timeout
-            response = await self._call_ug40_optimized(user_instruction)
+            response = await self._call_ug40_optimized(messages)
             response_content = self._clean_response(response)
             
             # Save response in background only if not a technical error
@@ -486,30 +486,29 @@ class OptimizedMessageProcessor:
         
         return None
     
-    def _build_optimized_prompt(self, input_text: str, context: list) -> str:
-        """Build prompt with clear separation between context and current message"""
-        if not context:
-            return f'Current message: "{input_text}"'
-        
-        # Format context more clearly to prevent confusion
+    def _build_optimized_prompt(self, input_text: str, context: list) -> list:
+        """Build messages array with clear separation between context and current message"""
         messages = [
             {"role": "system", "content": self.system_message},
         ]
-        for i, conv in enumerate(context, 1):
+        
+        # Add conversation context
+        for conv in context:
             messages.append({"role": "user", "content": conv['user_message']})
             messages.append({"role": "assistant", "content": conv['bot_response']})
-
+        
+        # Add current message
+        messages.append({"role": "user", "content": input_text})
+        
         return messages
 
-    async def _call_ug40_optimized(self, messages: list, user_instruction: str) -> Dict:
+    async def _call_ug40_optimized(self, messages: list) -> Dict:
         """Optimized UG40 call with shorter timeout"""
         try:
-            logging.error(f"User instruction: {user_instruction}")
-        
             response = run_inference(
                 messages=messages,
-                model="qwen"
-                )
+                model_type="qwen"
+            )
             return response
         except asyncio.TimeoutError:
             logging.error("UG40 call timed out")
