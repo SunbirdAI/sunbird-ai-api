@@ -189,39 +189,37 @@ def _classify_error(error: Exception, response_text: str = None) -> Exception:
 
 
 @exponential_backoff_retry(
-    max_retries=4,  # Total of 5 attempts (initial + 4 retries)
-    base_delay=3.0,  # Start with 3 second delay (increased for model loading)
-    max_delay=180.0,  # Max 3 minutes between retries (increased for cold starts)
-    exponential_base=2.0,  # Double the delay each time
-    jitter=True,  # Add randomness to prevent thundering herd
+    max_retries=4,
+    base_delay=3.0,
+    max_delay=180.0,
+    exponential_base=2.0,
+    jitter=True,
     retryable_exceptions=(ModelLoadingError, TimeoutError),
 )
 def run_inference(
-    instruction: str,
-    model_type: str,
+    instruction: str = None,
+    model_type: str = "qwen",
     stream: bool = False,
     custom_system_message: str = None,
+    messages: list = None,  # Add this parameter
 ) -> dict:
     """
     Run inference using the UG40 model via RunPod
 
     Args:
-        instruction (str): The input text/instruction for the model
+        instruction (str): The input text/instruction for the model (legacy support)
         model_type (str): Either "gemma" or "qwen"
         stream (bool): Whether to stream the response
         custom_system_message (str): Custom system message to override the default
+        messages (list): Full conversation messages in OpenAI format (preferred)
 
     Returns:
         dict: Response containing content, usage stats, and processing time
     """
     logger.info("Starting run_inference function")
-    logger.info(
-        f"Instruction: {instruction[:100]}..."
-        if len(instruction) > 100
-        else f"Instruction: {instruction}"
-    )
     logger.info(f"Model Type: {model_type}")
     logger.info(f"Stream: {stream}")
+    logger.info(f"Messages format: {'Yes' if messages else 'No'}")
     logger.info(f"Custom system message: {'Yes' if custom_system_message else 'No'}")
 
     config = ENDPOINTS.get(model_type.lower())
@@ -242,17 +240,46 @@ def run_inference(
         base_url=url,
     )
 
-    # Use custom system message if provided, otherwise use default
-    system_message = custom_system_message if custom_system_message else SYSTEM_MESSAGE
+    # Build messages array
+    if messages:
+        # Use provided messages array (preferred approach)
+        final_messages = messages.copy()
+
+        # Override system message if custom one provided
+        if custom_system_message:
+            # Find and replace system message
+            for i, msg in enumerate(final_messages):
+                if msg.get("role") == "system":
+                    final_messages[i]["content"] = custom_system_message
+                    break
+            else:
+                # No system message found, add at beginning
+                final_messages.insert(
+                    0, {"role": "system", "content": custom_system_message}
+                )
+
+        logger.info(f"Using messages array with {len(final_messages)} messages")
+
+    else:
+        # Legacy support - build from instruction
+        system_message = (
+            custom_system_message if custom_system_message else SYSTEM_MESSAGE
+        )
+        final_messages = [
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": instruction},
+        ]
+        logger.info(
+            f"Using legacy instruction format: {instruction[:100]}..."
+            if len(instruction) > 100
+            else f"Instruction: {instruction}"
+        )
 
     payload = {
         "model": config["model_name"],
-        "messages": [
-            {"role": "system", "content": system_message},
-            {"role": "user", "content": instruction},
-        ],
+        "messages": final_messages,
         "temperature": 0.3,
-        "stream": stream,  # Enable streaming if requested
+        "stream": stream,
     }
 
     response_text = None
@@ -262,7 +289,6 @@ def run_inference(
         logger.debug(f"Request URL: {url}")
         logger.debug(f"Request payload: {json.dumps(payload, indent=2)}")
 
-        logger.info(f"Payload request to RunPod API: {payload}\n")
         response = client.chat.completions.create(**payload)
         logger.info(f"Raw response: {response}\n\n")
 
@@ -278,6 +304,7 @@ def run_inference(
                 else None
             )
             logger.info(f"Raw response content: {response_content}\n\n")
+
             # Remove all <think> and </think> tags
             cleaned_content_output = (
                 re.sub(r"</?think>", "", response_content).strip()
@@ -305,7 +332,7 @@ def run_inference(
                 "model_type": model_type,
                 "processing_time": processing_time,
             }
-            logger.info(f"Request to RunPod API successful: {result_json}")
+            logger.info(f"Request to RunPod API successful")
             return result_json
 
         else:
