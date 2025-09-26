@@ -1395,7 +1395,7 @@ class WhatsAppService:
 
             # Step 5: Initialize transcription service
             self.send_message(
-                f"🎯 Starting transcription to {target_lang_name}...",
+                f"🎯 Starting transcription in {target_lang_name}...",
                 os.getenv("WHATSAPP_TOKEN"),
                 from_number,
                 phone_number_id,

@@ -23,7 +23,7 @@ Enhanced the WhatsApp audio transcription system by adapting the robust implemen
   - "🎵 Audio message received. Processing..."
   - "⬇️ Downloading audio file..."
   - "☁️ Uploading to cloud storage..."
-  - "🎯 Starting transcription to [Language]..."
+  - "🎯 Starting transcription in [Language]..."
   - "🧠 Processing with advanced language model..."
 - **Emoji Indicators**: Clear visual indicators for each processing stage
 - **Error Messages**: User-friendly error messages with actionable guidance

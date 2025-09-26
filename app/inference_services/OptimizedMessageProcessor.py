@@ -304,7 +304,7 @@ class OptimizedMessageProcessor:
 
             # Step 6: Transcribe
             whatsapp_service.send_message(
-                f"Starting transcription to {target_lang_name}...",
+                f"Starting transcription in {target_lang_name}...",
                 WHATSAPP_TOKEN,
                 from_number,
                 phone_number_id,
@@ -437,15 +437,19 @@ class OptimizedMessageProcessor:
             if command_result:
                 return command_result
 
-            # Check if new user (direct DB call - no caching)
-            conversation_pairs = get_user_last_five_conversation_pairs(from_number)
-            is_new_user = len(conversation_pairs) == 0
+            # Check if new user using preference lookup (faster than conversation history)
+            user_preference = get_user_preference(from_number)
+            is_new_user = user_preference is None
             
             if is_new_user:
-                # Save initial user interaction to mark them as no longer new
+                # Save initial user interaction and set default preference to mark them as no longer new
                 asyncio.create_task(self._save_message_async(from_number, input_text))
+                asyncio.create_task(self._set_default_preference_async(from_number))
                 return ProcessingResult("", ResponseType.TEMPLATE, template_name="welcome_message", should_save=False)
 
+            # Get conversation context for existing users
+            conversation_pairs = get_user_last_five_conversation_pairs(from_number)
+            
             # Build optimized prompt (limit context for speed)
             user_instruction = self._build_optimized_prompt(input_text, conversation_pairs[-2:])  # Only last 2
             
@@ -522,6 +526,15 @@ class OptimizedMessageProcessor:
             return "I'm having trouble understanding. Could you please rephrase?"
         
         return content
+    
+    async def _set_default_preference_async(self, from_number: str):
+        """Set default user preference asynchronously to mark user as no longer new"""
+        try:
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, save_user_preference, from_number, "English", "eng")  # Default to English
+            logging.info(f"Default preference set for new user: {from_number}")
+        except Exception as e:
+            logging.error(f"Error setting default preference: {e}")
 
     # Async database operations
     async def _save_message_async(self, from_number: str, message: str):
@@ -781,7 +794,7 @@ class OptimizedMessageProcessor:
         
         return {
             "header": "🌐 Language Selection",
-            "body": "Please select your preferred language for translations and audio transcription:",
+            "body": "Please select your preferred language for your audio commands:",
             "footer": "Powered by Sunbird AI 🌻",
             "action": {
                 "button": "Select Language",
@@ -846,13 +859,13 @@ class OptimizedMessageProcessor:
                         "rows": [
                             {
                                 "id": "row 1",
-                                "title": "Get Help",  # This will be matched
+                                "title": "Get Help",
                                 "description": "📚 Learn what I can do for you"
                             },
                             {
                                 "id": "row 2",
                                 "title": "Set Language",
-                                "description": "🌐 Choose your preferred language"
+                                "description": "🌐 Choose language in which your audio commands will be sent"
                             },
                             {
                                 "id": "row 3",
