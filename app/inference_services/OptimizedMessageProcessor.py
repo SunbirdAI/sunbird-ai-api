@@ -18,6 +18,7 @@ from app.inference_services.user_preference import (
     save_message,
     save_response,
     update_feedback,
+    save_feedback_with_context,
 )
 from app.inference_services.whatsapp_service import WhatsAppService
 from app.utils.upload_audio_file_gcp import upload_audio_file
@@ -136,14 +137,14 @@ class OptimizedMessageProcessor:
             return MessageType.TEXT
 
     def _handle_reaction(self, payload: Dict) -> ProcessingResult:
-        """Handle emoji reactions"""
+        """Handle emoji reactions with proper feedback saving"""
         try:
             reaction = self._get_reaction(payload)
             if reaction:
                 mess_id = reaction["message_id"]
                 emoji = reaction["emoji"]
-                # Non-blocking feedback update
-                asyncio.create_task(self._update_feedback_async(mess_id, emoji))
+                # Save feedback with context
+                asyncio.create_task(self._save_reaction_feedback_async(mess_id, emoji))
                 return ProcessingResult("", ResponseType.TEMPLATE, template_name="custom_feedback", should_save=False)
         except Exception as e:
             logging.error(f"Error handling reaction: {e}")
@@ -757,12 +758,8 @@ class OptimizedMessageProcessor:
                 f"Thank you {sender_name} for your feedback! It helps me improve."
             )
             
-            # Log the feedback
-            try:
-                save_message(from_number, f"FEEDBACK: {feedback_title}")
-                logging.info(f"Feedback saved: {from_number} - {feedback_title}")
-            except Exception as save_error:
-                logging.error(f"Error saving feedback: {save_error}")
+            # Save detailed feedback with context
+            asyncio.create_task(self._save_detailed_feedback_async(from_number, feedback_title, sender_name))
             
             return ProcessingResult(response_message, ResponseType.TEXT, should_save=True)
                 
@@ -773,6 +770,40 @@ class OptimizedMessageProcessor:
                 ResponseType.TEXT,
                 should_save=True
             )
+
+    # Add new async methods for better feedback handling
+    async def _save_reaction_feedback_async(self, message_id: str, emoji: str):
+        """Save reaction feedback with context"""
+        try:
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, self._save_reaction_feedback_sync, message_id, emoji)
+        except Exception as e:
+            logging.error(f"Error saving reaction feedback: {e}")
+
+    def _save_reaction_feedback_sync(self, message_id: str, emoji: str):
+        """Synchronous method to save reaction feedback with full context"""
+        try:
+            from app.inference_services.user_preference import save_detailed_feedback
+            save_detailed_feedback(message_id, emoji, feedback_type="reaction")
+            logging.info(f"Reaction feedback saved: {message_id} - {emoji}")
+        except Exception as e:
+            logging.error(f"Error in sync reaction feedback save: {e}")
+
+    async def _save_detailed_feedback_async(self, from_number: str, feedback_title: str, sender_name: str):
+        """Save detailed feedback for button selections"""
+        try:
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, self._save_detailed_feedback_sync, from_number, feedback_title, sender_name)
+        except Exception as e:
+            logging.error(f"Error saving detailed feedback: {e}")
+
+    def _save_detailed_feedback_sync(self, from_number: str, feedback_title: str, sender_name: str):
+        """Save detailed feedback with the most recent conversation context"""
+        try:
+            save_feedback_with_context(from_number, feedback_title, sender_name, feedback_type="button")
+            logging.info(f"Detailed feedback saved: {from_number} - {feedback_title}")
+        except Exception as e:
+            logging.error(f"Error in sync detailed feedback save: {e}")
 
     # Updated button creation methods with proper IDs
 

@@ -55,7 +55,8 @@ def save_user_preference(user_id, source_language, target_language):
 
 def update_feedback(message_id, feedback):
     """
-    Update feedback for a specific translation in Firestore
+    Update feedback for a specific translation in Firestore (legacy function)
+    Now also saves to the new detailed feedback collection
 
     Args:
         message_id (str): ID of the sent message
@@ -65,16 +66,22 @@ def update_feedback(message_id, feedback):
         bool: True if the update was successful, False otherwise
     """
     try:
+        # Update the old way (for backward compatibility)
         translations_ref = db.collection("whatsapp_translations")
         query = translations_ref.where("message_id", "==", message_id).stream()
 
+        updated = False
         for doc in query:
             doc_ref = translations_ref.document(doc.id)
             doc_ref.update({"feedback": feedback})
             logging.info(f"Feedback updated for message ID: {message_id}")
-            return True
-        logging.error(f"No document found with message ID: {message_id}")
-        return False
+            updated = True
+
+        # Also save to the new detailed feedback collection
+        save_detailed_feedback(message_id, feedback, feedback_type="reaction")
+        
+        return updated
+        
     except Exception as e:
         logging.error(f"Error updating feedback: {e}")
         return False
@@ -224,3 +231,179 @@ def get_user_last_five_conversation_pairs(user_id):
     return (
         conversation_pairs[-5:] if len(conversation_pairs) > 5 else conversation_pairs
     )
+
+
+def save_detailed_feedback(message_id, feedback, feedback_type="reaction"):
+    """
+    Save detailed feedback with full context including user message and bot response
+
+    Args:
+        message_id (str): ID of the message being reacted to
+        feedback (str): Feedback content (emoji or rating)
+        feedback_type (str): Type of feedback ("reaction" or "button")
+
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        # First, try to find the bot response this feedback is about
+        messages_ref = db.collection("whatsapp_messages")
+        
+        # Find the specific message by message_id
+        target_message = None
+        query = messages_ref.where("message_id", "==", message_id).limit(1).stream()
+        for doc in query:
+            target_message = doc.to_dict()
+            break
+        
+        if target_message:
+            user_id = target_message.get("user_id")
+            bot_response = target_message.get("message_text", "")
+            user_message = target_message.get("user_message", "")
+            
+            # Save comprehensive feedback record
+            feedback_doc = {
+                "user_id": user_id,
+                "message_id": message_id,
+                "user_message": user_message,
+                "bot_response": bot_response,
+                "feedback": feedback,
+                "feedback_type": feedback_type,
+                "timestamp": firestore.SERVER_TIMESTAMP,
+            }
+            
+            doc_ref = db.collection("whatsapp_feedback").add(feedback_doc)
+            logging.info(f"Detailed feedback saved with ID: {doc_ref[1].id}")
+            return True
+        else:
+            logging.warning(f"Could not find message with ID: {message_id}")
+            return False
+            
+    except Exception as e:
+        logging.error(f"Error saving detailed feedback: {e}")
+        return False
+
+
+def save_feedback_with_context(user_id, feedback, sender_name, feedback_type="button"):
+    """
+    Save feedback with context from the most recent conversation
+
+    Args:
+        user_id (str): User ID
+        feedback (str): Feedback content
+        sender_name (str): Name of the user providing feedback
+        feedback_type (str): Type of feedback
+
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        # Get the most recent conversation pair for this user
+        conversation_pairs = get_user_last_five_conversation_pairs(user_id)
+        
+        if conversation_pairs:
+            # Get the most recent conversation
+            latest_conversation = conversation_pairs[-1]
+            user_message = latest_conversation.get("user_message", "")
+            bot_response = latest_conversation.get("bot_response", "")
+            
+            # Save comprehensive feedback record
+            feedback_doc = {
+                "user_id": user_id,
+                "sender_name": sender_name,
+                "user_message": user_message,
+                "bot_response": bot_response,
+                "feedback": feedback,
+                "feedback_type": feedback_type,
+                "timestamp": firestore.SERVER_TIMESTAMP,
+                "message_id": None  # No specific message_id for button feedback
+            }
+            
+            doc_ref = db.collection("whatsapp_feedback").add(feedback_doc)
+            logging.info(f"Contextual feedback saved with ID: {doc_ref[1].id}")
+            return True
+        else:
+            logging.warning(f"No conversation history found for user: {user_id}")
+            # Save basic feedback without context
+            feedback_doc = {
+                "user_id": user_id,
+                "sender_name": sender_name,
+                "user_message": "",
+                "bot_response": "",
+                "feedback": feedback,
+                "feedback_type": feedback_type,
+                "timestamp": firestore.SERVER_TIMESTAMP,
+                "message_id": None
+            }
+            
+            doc_ref = db.collection("whatsapp_feedback").add(feedback_doc)
+            logging.info(f"Basic feedback saved with ID: {doc_ref[1].id}")
+            return True
+            
+    except Exception as e:
+        logging.error(f"Error saving contextual feedback: {e}")
+        return False
+
+
+def get_user_feedback_history(user_id, limit=10):
+    """
+    Retrieve feedback history for a specific user
+
+    Args:
+        user_id (str): User ID
+        limit (int): Maximum number of feedback records to return
+
+    Returns:
+        list: List of feedback records with full context
+    """
+    try:
+        feedback_ref = db.collection("whatsapp_feedback")
+        query = (
+            feedback_ref.where("user_id", "==", user_id)
+            .order_by("timestamp", direction=firestore.Query.DESCENDING)
+            .limit(limit)
+            .stream()
+        )
+        
+        feedback_history = []
+        for doc in query:
+            feedback_data = doc.to_dict()
+            feedback_data["feedback_id"] = doc.id
+            feedback_history.append(feedback_data)
+        
+        return feedback_history
+        
+    except Exception as e:
+        logging.error(f"Error retrieving feedback history: {e}")
+        return []
+
+
+def get_all_feedback_summary(limit=100):
+    """
+    Get a summary of all feedback for analytics
+
+    Args:
+        limit (int): Maximum number of records to retrieve
+
+    Returns:
+        list: List of all feedback records
+    """
+    try:
+        feedback_ref = db.collection("whatsapp_feedback")
+        query = (
+            feedback_ref.order_by("timestamp", direction=firestore.Query.DESCENDING)
+            .limit(limit)
+            .stream()
+        )
+        
+        all_feedback = []
+        for doc in query:
+            feedback_data = doc.to_dict()
+            feedback_data["feedback_id"] = doc.id
+            all_feedback.append(feedback_data)
+        
+        return all_feedback
+        
+    except Exception as e:
+        logging.error(f"Error retrieving feedback summary: {e}")
+        return []
