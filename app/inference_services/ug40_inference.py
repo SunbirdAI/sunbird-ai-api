@@ -8,6 +8,8 @@ import requests
 from dotenv import load_dotenv
 from openai import OpenAI
 from requests.exceptions import ConnectionError, HTTPError, RequestException, Timeout
+from typing import List, Optional, Dict, Any
+from pydantic import BaseModel, Field
 
 # Load environment variables
 load_dotenv()
@@ -40,6 +42,30 @@ class TimeoutError(Exception):
     """Exception raised when the request times out"""
 
     pass
+
+class SunflowerChatMessage(BaseModel):
+    role: str = Field(..., description="Message role: 'system', 'user', or 'assistant'")
+    content: str = Field(..., description="Message content")
+
+class SunflowerChatRequest(BaseModel):
+    messages: List[SunflowerChatMessage] = Field(..., description="List of conversation messages")
+    model_type: str = Field("qwen", description="Model type: 'qwen' or 'gemma'")
+    temperature: float = Field(0.3, ge=0.0, le=2.0, description="Sampling temperature")
+    stream: bool = Field(False, description="Whether to stream the response")
+    system_message: Optional[str] = Field(None, description="Custom system message")
+
+class SunflowerUsageStats(BaseModel):
+    completion_tokens: Optional[int] = Field(None, description="Number of tokens in the completion")
+    prompt_tokens: Optional[int] = Field(None, description="Number of tokens in the prompt")
+    total_tokens: Optional[int] = Field(None, description="Total number of tokens used")
+
+class SunflowerChatResponse(BaseModel):
+    content: str = Field(..., description="The AI's response")
+    model_type: str = Field(..., description="Model used for inference")
+    usage: SunflowerUsageStats = Field(..., description="Token usage statistics")
+    processing_time: float = Field(..., description="Total processing time in seconds")
+    inference_time: float = Field(..., description="Model inference time in seconds")
+    message_count: int = Field(..., description="Number of messages processed")
 
 
 def exponential_backoff_retry(
