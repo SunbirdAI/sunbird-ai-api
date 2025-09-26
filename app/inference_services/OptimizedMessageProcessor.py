@@ -348,6 +348,7 @@ class OptimizedMessageProcessor:
                 )
 
                 try:
+                    logging.info(f"Sending to UG40 for processing: {transcribed_text}")
                     # Build messages for audio transcription
                     messages = [
                         {
@@ -360,11 +361,13 @@ class OptimizedMessageProcessor:
                         }
                     ]
                     
+                    logging.info(f"UG40 Messages: {messages}")
                     ug40_response = run_inference(
                         messages=messages,
                         model_type="qwen"
                     )
 
+                    logging.info(f"UG40 Response: {ug40_response}")
                     final_response = self._clean_response(ug40_response)
                     if final_response:
                         whatsapp_service.send_message(
