@@ -466,8 +466,12 @@ class OptimizedMessageProcessor:
         """Handle most common commands quickly"""
         text_lower = input_text.lower().strip()
         
+        # Greeting messages - show welcome template
+        if text_lower in ['hello', 'hi', 'hey', 'hola', 'greetings']:
+            return ProcessingResult("", ResponseType.TEMPLATE, template_name="welcome_message", should_save=False)
+        
         # Most common commands - return immediately without UG40 calls
-        if text_lower in ['help', 'commands']:
+        elif text_lower in ['help', 'commands']:
             return ProcessingResult(self._get_help_text(), ResponseType.TEXT)
         elif text_lower == 'status':
             return ProcessingResult(self._get_status_text(target_language, sender_name), ResponseType.TEXT)
@@ -879,8 +883,7 @@ class OptimizedMessageProcessor:
 • `languages` - Show supported languages
 
 *Language Commands:*
-• `set language [name]` - Set your preferred language
-Example: `set language luganda`
+• `set language` - Set your preferred language for audio commands
 
 *Natural Questions:*
 You can also ask naturally:
