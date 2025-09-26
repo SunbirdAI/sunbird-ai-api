@@ -6,6 +6,7 @@
 This repository contains code for the publicly accessible Sunbird AI APIs.
 
 To get started using the API, [view the tutorial](tutorial.md).
+To get started with the sunflower model, [view the sunflower API docs](sunflower_api_docs.md).
 
 ## Getting started locally on Windows
 
