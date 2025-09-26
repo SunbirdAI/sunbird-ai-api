@@ -345,45 +345,60 @@ class OptimizedMessageProcessor:
                 )
                 return
 
-            # Step 8: Process with UG40
-            whatsapp_service.send_message(
-                "Processing with language model...",
-                WHATSAPP_TOKEN,
-                from_number,
-                phone_number_id,
-            )
-
-            try:
-                ug40_response = run_inference(
-                    transcribed_text, 
-                    "qwen",
-                    custom_system_message=self.system_message
+            # Step 8: Process with UG40 using messages format
+            if transcribed_text:
+                whatsapp_service.send_message(
+                    "Processing with language model...",
+                    WHATSAPP_TOKEN,
+                    from_number,
+                    phone_number_id,
                 )
-                
-                final_response = ug40_response.get("content", "")
-                if final_response:
-                    whatsapp_service.send_message(
-                        final_response,
-                        WHATSAPP_TOKEN,
-                        from_number,
-                        phone_number_id
+
+                try:
+                    # Build messages for audio transcription
+                    messages = [
+                        {
+                            "role": "system",
+                            "content": self.system_message
+                        },
+                        {
+                            "role": "user",
+                            "content": transcribed_text
+                        }
+                    ]
+                    
+                    ug40_response = run_inference(
+                        model_type="qwen",
+                        messages=messages
                     )
-                else:
+                    
+                    final_response = ug40_response.get("content", "")
+                    if final_response and not self._is_error_response(final_response):
+                        whatsapp_service.send_message(
+                            final_response,
+                            WHATSAPP_TOKEN,
+                            from_number,
+                            phone_number_id
+                        )
+                        # Save the audio transcription and response
+                        save_response(from_number, f"[AUDIO]: {transcribed_text}", final_response)
+                    else:
+                        # Fallback to just showing transcription
+                        whatsapp_service.send_message(
+                            f"Audio Transcription: \"{transcribed_text}\"\n\nYour message has been transcribed successfully!",
+                            WHATSAPP_TOKEN,
+                            from_number,
+                            phone_number_id
+                        )
+                        
+                except Exception as ug40_error:
+                    logging.error(f"UG40 processing error: {str(ug40_error)}")
                     whatsapp_service.send_message(
                         f"Audio Transcription: \"{transcribed_text}\"\n\nYour message has been transcribed successfully!",
                         WHATSAPP_TOKEN,
                         from_number,
                         phone_number_id
                     )
-                    
-            except Exception as ug40_error:
-                logging.error(f"UG40 processing error: {str(ug40_error)}")
-                whatsapp_service.send_message(
-                    f"Audio Transcription: \"{transcribed_text}\"\n\nYour message has been transcribed successfully!",
-                    WHATSAPP_TOKEN,
-                    from_number,
-                    phone_number_id
-                )
 
         except Exception as e:
             logging.error(f"Unexpected error in audio processing: {str(e)}")
@@ -471,28 +486,23 @@ class OptimizedMessageProcessor:
             return f'Current message: "{input_text}"'
         
         # Format context more clearly to prevent confusion
-        context_str = ""
+        messages = [
+            {"role": "system", "content": self.system_message},
+        ]
         for i, conv in enumerate(context, 1):
-            user_msg = conv['user_message']
-            context_str += f"\n{i}. \"{user_msg}\"\n"
-        
-        return (
-            f"=== CONVERSATION HISTORY (for context only) ===\n"
-            f"{context_str}\n\n"
-            f"=== CURRENT MESSAGE (respond to this) ===\n"
-            f'User: "{input_text}"\n\n'
-            f"Please provide a concise and relevant response to the current message only."
-        )
+            messages.append({"role": "user", "content": conv['user_message']})
+            messages.append({"role": "assistant", "content": conv['bot_response']})
 
-    async def _call_ug40_optimized(self, user_instruction: str) -> Dict:
+        return messages
+
+    async def _call_ug40_optimized(self, messages: list, user_instruction: str) -> Dict:
         """Optimized UG40 call with shorter timeout"""
         try:
             logging.error(f"User instruction: {user_instruction}")
         
             response = run_inference(
-                user_instruction,
-                "qwen",
-                custom_system_message=self.system_message
+                messages=messages,
+                model="qwen"
                 )
             return response
         except asyncio.TimeoutError:

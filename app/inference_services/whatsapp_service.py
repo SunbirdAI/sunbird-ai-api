@@ -1453,9 +1453,22 @@ class WhatsAppService:
             #             # Create specialized prompt for UG40
             ug40_system_message = f""" You are Sunflower, a multilingual assistant for Ugandan languages made by Sunbird AI. You specialise in accurate translations, explanations, summaries and other cross-lingual tasks."""
 
+            # Build messages for audio transcription
+            messages = [
+                {
+                    "role": "system",
+                    "content": self.system_message
+                },
+                {
+                    "role": "user",
+                    "content": transcribed_text
+                }
+            ]
+
             try:
                 ug40_response = run_inference(
-                    transcribed_text, "qwen", custom_system_message=ug40_system_message
+                    messages=messages, 
+                    custom_system_message=ug40_system_message
                 )
 
                 return ug40_response.get("content", "")
@@ -1540,18 +1553,18 @@ class WhatsAppService:
                 # )
                 return " ", True, "welcome_message"
             else:
-                # Format previous conversation pairs for context
-                formatted_pairs = ""
-                for i, pair in enumerate(conversation_pairs, 1):
-                    formatted_pairs += f"\n{i}. User: \"{pair['user_message']}\"\n   Bot: \"{pair['bot_response'][:100]}{'...' if len(pair['bot_response']) > 100 else ''}\""
-                user_instruction = (
-                    f"Previous conversation:{formatted_pairs}\n"
-                    f'Current message: "{input_text}"'
-                )
+                # Format context more clearly to prevent confusion
+                messages = [
+                    {"role": "system", "content": self.system_message},
+                ]
+                for i, conv in enumerate(conversation_pairs, 1):
+                    messages.append({"role": "user", "content": conv['user_message']})
+                    messages.append({"role": "assistant", "content": conv['bot_response']})
 
             # Call UG40 model with enhanced system message
             ug40_response = run_inference(
-                user_instruction, "qwen", custom_system_message=enhanced_system_message
+                messages=messages,
+                model="qwen",
             )
 
             response_content = ug40_response.get("content", "").strip()
