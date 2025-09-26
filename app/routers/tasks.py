@@ -1168,21 +1168,21 @@ async def send_template_response(template_name: str, phone_number_id: str, from_
     try:
         if template_name == "custom_feedback":
             whatsapp_service.send_button(
-                button=processor.create_feedback_button,
+                button=processor.create_feedback_button(),
                 phone_number_id=phone_number_id,
                 recipient_id=from_number
             )
         
         elif template_name == "welcome_message":
             whatsapp_service.send_button(
-                button=processor.create_welcome_button,
+                button=processor.create_welcome_button(),
                 phone_number_id=phone_number_id,
                 recipient_id=from_number
             )
             
         elif template_name == "choose_language":
             whatsapp_service.send_button(
-                button=processor.create_language_selection_button,
+                button=processor.create_language_selection_button(),
                 phone_number_id=phone_number_id,
                 recipient_id=from_number
             )
