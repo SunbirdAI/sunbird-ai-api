@@ -348,24 +348,18 @@ class OptimizedMessageProcessor:
                 )
 
                 try:
+                    logging.info(f"Sending to UG40 for processing: {transcribed_text}")
                     # Build messages for audio transcription
                     messages = [
-                        {
-                            "role": "system",
-                            "content": self.system_message
-                        },
-                        {
-                            "role": "user",
-                            "content": transcribed_text
-                        }
+                        {"role": "system","content": self.system_message},
+                        {"role": "user","content": transcribed_text}
                     ]
                     
-                    ug40_response = run_inference(
-                        messages=messages,
-                        model_type="qwen"
-                    )
-
-                    final_response = self._clean_response(ug40_response)
+                    logging.info(f"UG40 Messages: {messages}")
+                    # Call UG40 model with timeout
+                    response = await self._call_ug40_optimized(messages)
+                    final_response = self._clean_response(response)
+                    logging.info(f"Final UG40 Response: {final_response}")
                     if final_response:
                         whatsapp_service.send_message(
                             final_response,
