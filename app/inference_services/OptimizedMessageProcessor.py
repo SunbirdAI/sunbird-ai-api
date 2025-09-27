@@ -338,6 +338,13 @@ class OptimizedMessageProcessor:
                 )
                 return
 
+            whatsapp_service.send_message(
+                f"*You said*: \"{transcribed_text}\"",
+                WHATSAPP_TOKEN,
+                from_number,
+                phone_number_id,
+            )
+
             # Step 8: Process with UG40 using messages format
             if transcribed_text:
                 whatsapp_service.send_message(
