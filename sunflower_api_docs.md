@@ -91,7 +91,7 @@ Professional endpoint for multilingual chat completions with full conversation m
       "content": "Message content"
     }
   ],
-  "model_type": "qwen|gemma",
+  "model_type": "qwen",
   "temperature": 0.3,
   "stream": false,
   "system_message": "Optional custom system message"
@@ -103,7 +103,7 @@ Professional endpoint for multilingual chat completions with full conversation m
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `messages` | Array | Yes | - | List of conversation messages |
-| `model_type` | String | No | "qwen" | Model type: "qwen" or "gemma" |
+| `model_type` | String | No | "qwen" | Model type: "qwen" |
 | `temperature` | Float | No | 0.3 | Sampling temperature (0.0-2.0) |
 | `stream` | Boolean | No | false | Whether to stream the response |
 | `system_message` | String | No | null | Custom system message |
@@ -154,7 +154,7 @@ Simplified interface for single instruction/response interactions.
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `instruction` | String | Yes | - | The instruction or question |
-| `model_type` | String | No | "qwen" | Model type: "qwen" or "gemma" |
+| `model_type` | String | No | "qwen" | Model type: "qwen" |
 | `temperature` | Float | No | 0.3 | Sampling temperature (0.0-2.0) |
 | `system_message` | String | No | null | Custom system message |
 
