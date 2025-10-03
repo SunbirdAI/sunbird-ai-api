@@ -1020,6 +1020,37 @@ async def text_to_speech(
 ):
     """
     Endpoint for text-to-speech conversion.
+    Converts input text to speech audio using a specified speaker voice.
+
+    Args:
+        request (Request): The incoming HTTP request object.
+        tts_request (TTSRequest): The request body containing text, speaker ID, and synthesis parameters.
+        db (AsyncSession, optional): Database session dependency.
+        current_user (User, optional): The authenticated user making the request.
+
+    Returns:
+        dict: A dictionary containing the generated speech audio with signed URL and metadata.
+
+    Raises:
+        HTTPException: Returns 503 if the service is unavailable due to timeout or connection error.
+        HTTPException: Returns 500 for any other internal server errors.
+
+    Speaker IDs:
+        241: Acholi (female)
+        242: Ateso (female)
+        243: Runyankore (female)
+        245: Lugbara (female)
+        246: Swahili (male)
+        248: Luganda (female)
+
+    Example Response:
+        {
+            "output": {
+                "audio_url": "https:...",
+                "blob": "tts/20251003082338_f2ff97b3-9cb9-42fb-850d-0657f51e539e.mp3",
+                "sample_rate": 16000
+            }
+        }
     """
     endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
     user = current_user
