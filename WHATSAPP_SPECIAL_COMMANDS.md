@@ -1,228 +1,190 @@
-# WhatsApp Special Commands Enhancement
+# 🌻 Sunflower WhatsApp Bot User Guide
 
-## Overview
-Enhanced the WhatsApp UG40 service with special commands that start with the dollar sign ($) to provide users with direct control over language settings and translation features.
+**Your multilingual assistant for Ugandan languages by Sunbird AI**
 
-## Special Commands Implemented
+---
 
-### 🛠️ **Language Management Commands**
+## 🚀 Getting Started
 
-#### `$ set language [language_name/code]`
-**Purpose**: Change the user's target language preference
-**Examples**:
-- `$ set language luganda`
-- `$ set language lug`
-- `$ set language english`
-- `$ set language eng`
+Simply send **"hello"** or **"menu"** to start using Sunflower!
 
-**Features**:
-- Case-insensitive language matching
-- Supports both language names and codes
-- Partial name matching (e.g., "lug" matches "luganda")
-- Automatic preference saving to database
-- Confirmation message with full language name
+---
 
-#### `$ status`
-**Purpose**: Display current user language settings and status
-**Shows**:
-- User's current target language
-- Language code
-- Explanation of what the setting means
-- Instructions for changing settings
+## 🎯 What Can Sunflower Do?
 
-#### `$ languages`
-**Purpose**: Display all supported languages with their codes
-**Features**:
-- Alphabetically sorted language list
-- Shows both full names and codes
-- Usage instructions
-- Current feature availability
+### 📝 Text Translation
+- Translate between Ugandan languages and English
+- Just send any text message and I'll translate it
+- **Example:** Send "Hello, how are you?" → Get "Oli otya?" in Luganda
 
-### 🔄 **Translation Commands**
+### 🎤 Audio Transcription
+- Send voice messages in any supported language
+- Get accurate text transcription
+- I can then answer questions about your audio
 
-#### `$ translate [text]`
-**Purpose**: Direct translation using the backend translate method
-**Examples**:
-- `$ translate Hello, how are you?`
-- `$ translate Oli otya?`
-- `$ translate Good morning everyone`
+### 💬 Smart Conversations
+- Chat naturally in your preferred language
+- Ask questions about Ugandan culture
+- Get help with language learning
 
-**Features**:
-- Automatic source language detection
-- Direct translation to user's target language
-- Same-language detection with helpful message
-- Database logging of translation
-- Detailed response showing source and target languages
+---
 
-### ❓ **Help Command**
+## 🌍 Supported Languages
 
-#### `$ help`
-**Purpose**: Display comprehensive help for all special commands
-**Shows**:
-- Complete command reference
-- Usage examples
-- Command categories
-- Notes about case-insensitivity
+- **🇺🇬 Luganda** (lug)
+- **🇺🇬 Acholi** (ach) 
+- **🇺🇬 Ateso** (teo)
+- **🇺🇬 Lugbara** (lgg)
+- **🇺🇬 Runyankole** (nyn)
+- **🇬🇧 English** (eng)
 
-## Technical Implementation Details
+---
 
-### **Command Processing Pipeline**
-1. **Detection**: Messages starting with `$` are identified as special commands
-2. **Parsing**: Command is stripped of `$` and parsed into components
-3. **Routing**: Command is routed to appropriate handler method
-4. **Execution**: Specific command logic is executed
-5. **Response**: Formatted response is returned to user
+## ⚡ Quick Commands
 
-### **Command Structure**
+Type these commands anytime:
+
+- **`menu`** - Show main menu
+- **`help`** - Get help and commands
+- **`languages`** - See all supported languages
+- **`set language`** - Change your language preference
+- **`status`** - Check your current settings
+
+---
+
+## 🎵 How to Send Audio
+
+1. **Press and hold** the microphone button 🎤
+2. **Speak clearly** in your preferred language
+3. **Release** to send
+4. Wait for transcription and response
+
+### 💡 Audio Tips
+- Speak in a quiet environment
+- Hold phone 6-8 inches from your mouth
+- Keep recordings under 10 minutes
+- Speak at normal pace
+
+---
+
+## 📋 Main Menu Options
+
+When you type **"menu"**, you'll see:
+
+### 🔧 Main Services
+- **📝 Translate Text** - Translate between languages
+- **🎤 Audio Transcription** - Convert speech to text
+- **💬 Chat with AI** - Have conversations
+
+### ⚙️ Settings & Help
+- **🌐 Language Settings** - Set your preferred language
+- **❓ Help & Guide** - Get detailed help
+- **ℹ️ About Sunflower** - Learn about the assistant
+
+---
+
+## 🔄 How Translation Works
+
+### Simple Translation
+Just send any text:
 ```
-$ [main_command] [sub_command] [arguments]
-```
-
-**Examples**:
-- `$ set language luganda` → main: "set", sub: "language", args: "luganda"
-- `$ translate hello world` → main: "translate", args: "hello world"
-- `$ help` → main: "help"
-
-### **Language Matching Algorithm**
-1. **Direct Code Match**: Check if input matches language code (e.g., "lug")
-2. **Direct Name Match**: Check if input matches full language name (e.g., "luganda")
-3. **Partial Match**: Check if input is contained in or starts with language name
-4. **Case Insensitive**: All matching is case-insensitive
-
-### **Error Handling**
-- **Unknown Commands**: Clear error message with help suggestion
-- **Missing Arguments**: Usage instructions with examples
-- **Translation Errors**: Detailed error message with fallback options
-- **Language Not Found**: List of available languages with proper usage
-
-## User Experience Features
-
-### **Smart Response Formatting**
-- **Emojis**: Visual indicators for different types of responses
-- **Markdown Formatting**: Bold text for emphasis and structure
-- **Clear Sections**: Organized information with headers
-- **Examples**: Concrete usage examples in help text
-
-### **Contextual Messages**
-- **Success Confirmations**: Clear confirmation when settings change
-- **Status Information**: Comprehensive current state display
-- **Error Guidance**: Helpful suggestions when commands fail
-- **Educational Content**: Explanations of what settings mean
-
-### **Database Integration**
-- **Preference Saving**: Language preferences automatically saved
-- **Translation Logging**: All direct translations logged for user history
-- **User Tracking**: Commands logged for analytics and debugging
-
-## Command Examples and Responses
-
-### **Language Setting Examples**
-
-**Input**: `$ set language luganda`
-**Response**:
-```
-✅ Language Updated
-
-Your target language has been set to: Luganda (lug)
-
-All translations will now be converted to Luganda.
+You: "Thank you very much"
+Sunflower: "Webale nnyo" (Luganda)
 ```
 
-**Input**: `$ set language xyz`
-**Response**:
+### Specify Languages
 ```
-❌ Language not recognized: 'xyz'
-
-Available languages:
-• Luganda (lug)
-• Acholi (ach)
-• Ateso (teo)
-• Lugbara (lgg)
-• Runyankole (nyn)
-• English (eng)
-
-Usage: $ set language [language_name or code]
-Example: $ set language luganda or $ set language lug
+You: "Translate 'good morning' to Acholi"
+Sunflower: "Oyot maber"
 ```
 
-### **Translation Examples**
+---
 
-**Input**: `$ translate Good morning`
-**Response**:
+## 💭 Natural Conversations
+
+You can chat naturally:
+
 ```
-🔄 Direct Translation
-
-Original (English): Good morning
-
-Translation (Luganda): Ssebo wasuze otya
-```
-
-**Input**: `$ translate`
-**Response**:
-```
-❌ No text provided
-
-Usage: $ translate [your text here]
-Example: $ translate Hello, how are you?
+You: "What's the weather like in Kampala?"
+You: "How do I say 'I love you' in Luganda?"
+You: "Tell me about Ugandan culture"
 ```
 
-### **Status Example**
+---
 
-**Input**: `$ status`
-**Response**:
-```
-📊 Your Language Settings
+## 📱 Message Types Supported
 
-👤 User: John Doe
-🎯 Target Language: Luganda (lug)
+✅ **Text messages** - Full support
+✅ **Audio messages** - Full transcription
+✅ **Voice notes** - Transcribe and respond
+✅ **Interactive buttons** - Menu navigation
 
-What this means:
-• All translations will be converted to Luganda
-• Audio transcriptions will be in Luganda
+❌ **Images** - Not supported yet
+❌ **Videos** - Not supported yet  
+❌ **Documents** - Not supported yet
 
-To change: $ set language [new_language]
-For help: $ help
-```
+---
 
-## Benefits and Impact
+## 🎯 Language Settings
 
-### **For Users**
-- **Direct Control**: Easy language preference management
-- **Quick Translation**: Fast, direct translation without UG40 processing
-- **Clear Feedback**: Immediate confirmation of settings changes
-- **Self-Service**: Help and status information readily available
+### Setting Your Preferred Language
+1. Type **"set language"** or use the menu
+2. Choose from the list of supported languages
+3. Your preference is saved for future interactions
 
-### **For System**
-- **Reduced Load**: Simple commands don't require UG40 model inference
-- **Better Logging**: Direct command tracking for analytics
-- **User Insights**: Clear data on language preferences and usage patterns
-- **Debugging**: Easier troubleshooting with command logs
+### For Audio Commands
+Your language setting determines:
+- Which language to transcribe your audio in
+- Which language I'll respond in
+- Translation preferences
 
-### **For Support**
-- **Self-Help**: Users can resolve common issues independently
-- **Clear Status**: Easy to check user settings during support
-- **Standardized Commands**: Consistent interface reduces confusion
-- **Documentation**: Built-in help reduces support ticket volume
+---
 
-## Future Enhancements
+## 🔧 Troubleshooting
 
-### **Potential Additional Commands**
-- `$ history` - Show recent translations
-- `$ clear history` - Clear user's translation history
-- `$ feedback [rating]` - Quick feedback submission
-- `$ examples [language]` - Show example phrases in specific language
-- `$ learn [topic]` - Educational content requests
+### Audio Issues
+- **No speech detected**: Speak louder and clearer
+- **Bad quality**: Record in a quieter environment
+- **Long processing**: Wait a moment, large files take time
 
-### **Advanced Features**
-- **Command Aliases**: Shorter versions of commands (e.g., `$sl` for `$ set language`)
-- **Batch Commands**: Multiple commands in one message
-- **Conditional Commands**: Commands that check conditions before execution
-- **Scheduled Commands**: Set reminders or recurring tasks
+### Text Issues
+- **No response**: Try rephrasing your message
+- **Wrong translation**: Be more specific with context
+- **Error message**: Wait a moment and try again
 
-### **Integration Enhancements**
-- **Voice Commands**: Audio-based special commands
-- **Quick Reply Buttons**: WhatsApp buttons for common commands
-- **Command History**: Recent commands accessible via up arrow
-- **Command Suggestions**: Smart suggestions based on user behavior
+### General Tips
+- Start fresh by typing **"menu"**
+- Check your internet connection
+- Keep messages under 200 words for best results
 
-This special commands system transforms the WhatsApp service from a purely conversational interface to a powerful, user-controlled language service platform with direct access to core functionality.
+---
+
+## 🆘 Need Help?
+
+- Type **"help"** anytime for quick commands
+- Type **"menu"** to see all options
+- Send **"hello"** to restart
+
+---
+
+## 📞 Contact & Support
+
+**Sunflower** is powered by **Sunbird AI**
+- 🌐 Website: [sunbird.ai](https://sunbird.ai)
+- 📧 For technical support, visit our website
+
+---
+
+## 🌟 Tips for Best Experience
+
+1. **Be clear and specific** in your messages
+2. **Use the menu** to explore all features
+3. **Set your language** for personalized experience
+4. **Try audio messages** for transcription
+5. **Give feedback** using the rating buttons when they appear
+
+---
+
+**Made with ❤️ by Sunbird AI for Uganda**
+
+*Empowering communication across Ugandan languages* 🇺🇬
