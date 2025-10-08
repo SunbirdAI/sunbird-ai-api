@@ -1099,18 +1099,18 @@ async def text_to_speech(
     return response
 
 @router.post(
-    "/ug40_inference",
+    "/sunflower_inference",
     response_model=SunflowerChatResponse,
 )
 @limiter.limit(get_account_type_limit)
-async def ug40_inference(
+async def sunflower_inference(
     request: Request,
     chat_request: SunflowerChatRequest,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     """
-    Professional UG40 (Sunflower) inference endpoint for multilingual chat completions.
+    Professional Sunflower inference endpoint for multilingual chat completions.
     
     This endpoint provides access to Sunbird AI's Sunflower model, specialized in:
     - Multilingual conversations in Ugandan languages (Luganda, Acholi, Ateso, etc.)
@@ -1276,11 +1276,11 @@ async def ug40_inference(
 
 
 @router.post(
-    "/ug40_simple",
+    "/sunflower_simple",
     response_model=Dict[str, Any],
 )
 @limiter.limit(get_account_type_limit) 
-async def ug40_simple_inference(
+async def sunflower_simple_inference(
     request: Request,
     instruction: str = Form(..., description="The instruction or question for the AI"),
     model_type: str = Form("qwen", description="Model type (qwen or gemma)"),
@@ -1290,7 +1290,7 @@ async def ug40_simple_inference(
     current_user=Depends(get_current_user),
 ):
     """
-    Simple UG40 inference endpoint for single instruction/response.
+    Simple Sunflower inference endpoint for single instruction/response.
     
     This is a simplified interface for users who want to send a single instruction
     rather than managing conversation history.
