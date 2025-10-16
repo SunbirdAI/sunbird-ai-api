@@ -11,6 +11,7 @@ import uuid
 from datetime import timedelta
 from typing import Any, Dict
 
+import aiohttp
 import aiofiles
 import requests
 import runpod
@@ -127,6 +128,115 @@ ALLOWED_AUDIO_TYPES = {
     "audio/x-m4a": [".m4a"],
     "audio/aac": [".aac"],
 }
+
+# Get feedback URL from environment
+FEEDBACK_URL = os.getenv('FEEDBACK_URL')
+
+async def save_sunflower_inference(
+    source_text: str,
+    model_results: str,
+    username: str,
+    model_type: str = None,
+    processing_time: float = None
+):
+    """
+    Save inference data to DynamoDB via the same HTTP endpoint as JS services
+    """
+    # Validate FEEDBACK_URL
+    if not FEEDBACK_URL:
+        logging.debug("FEEDBACK_URL not configured; skipping saving sunflower inference.")
+        return False
+
+    # Normalize timestamp (milliseconds since epoch)
+    try:
+        timestamp = int(datetime.datetime.now().timestamp() * 1000)
+    except Exception:
+        timestamp = int(time.time() * 1000)
+
+    # Normalize username (accept user object or string)
+    username_str = None
+    try:
+        if hasattr(username, "id"):
+            username_str = str(getattr(username, "id"))
+        elif isinstance(username, dict) and "id" in username:
+            username_str = str(username.get("id"))
+        elif hasattr(username, "username"):
+            username_str = str(getattr(username, "username"))
+        elif hasattr(username, "email"):
+            username_str = str(getattr(username, "email"))
+        else:
+            username_str = str(username)
+    except Exception:
+        username_str = str(username)
+
+    # Prepare payload - keep values JSON serializable
+    try:
+        source_serialized = (
+            json.dumps(source_text, ensure_ascii=False)
+            if isinstance(source_text, (dict, list))
+            else str(source_text)
+        )
+    except Exception:
+        source_serialized = str(source_text)
+
+    try:
+        results_serialized = (
+            json.dumps(model_results, ensure_ascii=False)
+            if isinstance(model_results, (dict, list))
+            else str(model_results)
+        )
+    except Exception:
+        results_serialized = str(model_results)
+
+    payload = {
+        "Timestamp": timestamp,
+        "feedback": "sunflower_api_inference",
+        "SourceText": source_serialized,
+        "ModelResults": results_serialized,
+        "username": username_str,
+        "FeedBackType": "SunflowerAPIInference",
+    }
+
+    if model_type:
+        payload["ModelType"] = model_type
+    if processing_time is not None:
+        payload["ProcessingTime"] = processing_time
+
+    logging.info(f"Saving inference feedback for user: {username_str}")
+    logging.debug(f"Feedback payload (truncated): {json.dumps(payload)[:1000]}")
+
+    # Retry network errors a few times with exponential backoff
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(min=1, max=8),
+        retry=retry_if_exception_type((aiohttp.ClientError, asyncio.TimeoutError)),
+        reraise=True,
+    )
+    async def _post_feedback(p: dict):
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                FEEDBACK_URL,
+                headers={"Content-Type": "application/json"},
+                json=p,
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as response:
+                text = await response.text()
+                if 200 <= response.status < 300:
+                    logging.info(
+                        f"Inference feedback saved successfully for user: {username_str}"
+                    )
+                    return True
+                else:
+                    logging.warning(
+                        f"Feedback save failed with status {response.status}: {text}"
+                    )
+                    return False
+
+    try:
+        return await _post_feedback(payload)
+    except Exception as e:
+        logging.error(f"Failed to save inference feedback after retries: {e}")
+        return False
 
 
 def custom_key_func(request: Request):
@@ -1106,6 +1216,7 @@ async def text_to_speech(
 async def sunflower_inference(
     request: Request,
     chat_request: SunflowerChatRequest,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
@@ -1236,6 +1347,20 @@ async def sunflower_inference(
             
         end_time = time.time()
         total_time = end_time - start_time
+
+        # Save to DynamoDB via HTTP endpoint (non-blocking)
+        # Use the request's BackgroundTasks instance to schedule the job
+        try:
+            background_tasks.add_task(
+                save_sunflower_inference,
+                messages_dict,
+                response.get("content", ""),
+                user,
+                chat_request.model_type,
+                total_time,
+            )
+        except Exception as e:
+            logging.warning(f"Failed to schedule feedback save task: {e}")
         
         # Create response object
         chat_response = SunflowerChatResponse(
@@ -1282,6 +1407,7 @@ async def sunflower_inference(
 @limiter.limit(get_account_type_limit) 
 async def sunflower_simple_inference(
     request: Request,
+    background_tasks: BackgroundTasks,
     instruction: str = Form(..., description="The instruction or question for the AI"),
     model_type: str = Form("qwen", description="Model type (qwen or gemma)"),
     temperature: float = Form(0.3, ge=0.0, le=2.0, description="Sampling temperature"),
@@ -1359,6 +1485,19 @@ async def sunflower_simple_inference(
             
         end_time = time.time()
         total_time = end_time - start_time
+
+        # Save to DynamoDB via HTTP endpoint (non-blocking)
+        try:
+            background_tasks.add_task(
+                save_sunflower_inference,
+                instruction.strip(),
+                response.get("content", ""),
+                user,
+                model_type,
+                total_time,
+            )
+        except Exception as e:
+            logging.warning(f"Failed to schedule feedback save task: {e}")
         
         # Log usage
         try:
