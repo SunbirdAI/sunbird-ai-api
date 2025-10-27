@@ -3,6 +3,7 @@ import datetime
 import json
 import logging
 import mimetypes
+import hashlib
 import os
 import shutil
 import tempfile
@@ -132,12 +133,14 @@ ALLOWED_AUDIO_TYPES = {
 # Get feedback URL from environment
 FEEDBACK_URL = os.getenv('FEEDBACK_URL')
 
-async def save_sunflower_inference(
+async def save_api_inference(
     source_text: str,
     model_results: str,
     username: str,
     model_type: str = None,
-    processing_time: float = None
+    processing_time: float = None,
+    inference_type: str = "chat",
+    job_details: Dict[str, Any] | None = None,
 ):
     """
     Save inference data to DynamoDB via the same HTTP endpoint as JS services
@@ -190,17 +193,48 @@ async def save_sunflower_inference(
 
     payload = {
         "Timestamp": timestamp,
-        "feedback": "sunflower_api_inference",
+        "feedback": "api_inference",
         "SourceText": source_serialized,
         "ModelResults": results_serialized,
         "username": username_str,
-        "FeedBackType": "SunflowerAPIInference",
+        "FeedBackType": inference_type,
     }
 
     if model_type:
         payload["ModelType"] = model_type
     if processing_time is not None:
         payload["ProcessingTime"] = processing_time
+
+    # Add minimal job details for reproducibility (TTS specific)
+    if job_details:
+        # For TTS we only save what's necessary to reproduce the output:
+        # - text_hash: hash of the input text
+        # - speaker_id
+        # - model_type
+        # - output_blob (if available)
+        # - sample_rate (if available)
+        if inference_type == "tts":
+            tts_payload = {}
+            text_val = source_serialized if source_serialized else ""
+            # Short text hash to identify the request without storing full text
+            text_hash = hashlib.sha256(text_val.encode("utf-8")).hexdigest()
+            tts_payload["text_hash"] = text_hash
+            if "speaker_id" in job_details:
+                tts_payload["speaker_id"] = str(job_details.get("speaker_id"))
+            if "blob" in job_details:
+                tts_payload["output_blob"] = job_details.get("blob")
+            if "sample_rate" in job_details:
+                tts_payload["sample_rate"] = job_details.get("sample_rate")
+            if "job_id" in job_details:
+                tts_payload["job_id"] = job_details.get("job_id")
+            # include model_type if provided
+            if model_type:
+                tts_payload["model_type"] = model_type
+
+            payload["JobDetails"] = tts_payload
+        else:
+            # For other inference types, store a compact job summary if provided
+            payload["JobDetails"] = {k: job_details[k] for k in job_details if k in ("job_id", "model_type")} if isinstance(job_details, dict) else {}
 
     logging.info(f"Saving inference feedback for user: {username_str}")
     logging.debug(f"Feedback payload (truncated): {json.dumps(payload)[:1000]}")
@@ -1125,6 +1159,7 @@ async def nllb_translate(
 async def text_to_speech(
     request: Request,
     tts_request: TTSRequest,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
@@ -1205,6 +1240,37 @@ async def text_to_speech(
 
     response = {}
     response["output"] = request_response
+
+    # Schedule saving minimal TTS inference details for reproducibility
+    try:
+        # Normalize job details from the worker response if present
+        job_info = {}
+        # worker returns structure like {"audio_url":..., "blob":..., "sample_rate":...}
+        if isinstance(request_response, dict):
+            out = request_response.get("output") or request_response
+            if isinstance(out, dict):
+                job_info["blob"] = out.get("blob")
+                job_info["sample_rate"] = out.get("sample_rate")
+                # include job_id if the worker provided it
+                job_info["job_id"] = out.get("job_id") or request_response.get("job_id")
+        # include speaker id
+        try:
+            job_info["speaker_id"] = tts_request.speaker_id.value
+        except Exception:
+            pass
+
+        background_tasks.add_task(
+            save_api_inference,
+            tts_request.text,
+            json.dumps(request_response) if isinstance(request_response, (dict, list)) else str(request_response),
+            user,
+            tts_request.speaker_id.name if hasattr(tts_request.speaker_id, "name") else None,
+            end_time - start_time,
+            "tts",
+            job_info,
+        )
+    except Exception as e:
+        logging.warning(f"Failed to schedule TTS feedback save task: {e}")
 
     return response
 
@@ -1352,7 +1418,7 @@ async def sunflower_inference(
         # Use the request's BackgroundTasks instance to schedule the job
         try:
             background_tasks.add_task(
-                save_sunflower_inference,
+                save_api_inference,
                 messages_dict,
                 response.get("content", ""),
                 user,
@@ -1489,7 +1555,7 @@ async def sunflower_simple_inference(
         # Save to DynamoDB via HTTP endpoint (non-blocking)
         try:
             background_tasks.add_task(
-                save_sunflower_inference,
+                save_api_inference,
                 instruction.strip(),
                 response.get("content", ""),
                 user,
