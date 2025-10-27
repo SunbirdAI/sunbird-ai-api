@@ -10,7 +10,7 @@ import tempfile
 import time
 import uuid
 from datetime import timedelta
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import aiohttp
 import aiofiles
@@ -133,65 +133,74 @@ ALLOWED_AUDIO_TYPES = {
 # Get feedback URL from environment
 FEEDBACK_URL = os.getenv('FEEDBACK_URL')
 
+# Inference type constants — use these when scheduling feedback saves so
+# downstream systems can easily classify events.
+INFERENCE_CHAT = "chat"
+INFERENCE_TTS = "tts"
+INFERENCE_SUNFLOWER_CHAT = "sunflower_chat"
+INFERENCE_SUNFLOWER_SIMPLE = "sunflower_simple"
+
 async def save_api_inference(
-    source_text: str,
-    model_results: str,
-    username: str,
-    model_type: str = None,
-    processing_time: float = None,
-    inference_type: str = "chat",
-    job_details: Dict[str, Any] | None = None,
-):
+    source_text: Any,
+    model_results: Any,
+    username: Any,
+    model_type: Optional[str] = None,
+    processing_time: Optional[float] = None,
+    inference_type: str = INFERENCE_CHAT,
+    job_details: Optional[Dict[str, Any]] = None,
+) -> bool:
     """
-    Save inference data to DynamoDB via the same HTTP endpoint as JS services
+    Persist a compact, JSON-serializable inference record to the configured
+    FEEDBACK_URL. This function is idempotent and non-blocking when scheduled
+    via FastAPI BackgroundTasks.
+
+    Inputs are deliberately permissive (Any) because callers pass strings,
+    dicts or model objects. The function normalizes values to simple types.
+
+    Returns True on a successful POST (2xx), False otherwise.
     """
-    # Validate FEEDBACK_URL
+
     if not FEEDBACK_URL:
-        logging.debug("FEEDBACK_URL not configured; skipping saving sunflower inference.")
+        logging.debug("FEEDBACK_URL not configured; skipping inference feedback save")
         return False
 
-    # Normalize timestamp (milliseconds since epoch)
-    try:
-        timestamp = int(datetime.datetime.now().timestamp() * 1000)
-    except Exception:
-        timestamp = int(time.time() * 1000)
+    # Timestamp in milliseconds
+    timestamp = int(datetime.datetime.utcnow().timestamp() * 1000)
 
-    # Normalize username (accept user object or string)
+    # Normalize username to a short string identifier when possible
     username_str = None
     try:
         if hasattr(username, "id"):
             username_str = str(getattr(username, "id"))
-        elif isinstance(username, dict) and "id" in username:
+        elif isinstance(username, dict) and username.get("id"):
             username_str = str(username.get("id"))
-        elif hasattr(username, "username"):
-            username_str = str(getattr(username, "username"))
-        elif hasattr(username, "email"):
-            username_str = str(getattr(username, "email"))
+        elif isinstance(username, str):
+            username_str = username
         else:
-            username_str = str(username)
+            # fallback to email/username attributes if present
+            username_str = (
+                getattr(username, "username", None)
+                or getattr(username, "email", None)
+                or str(username)
+            )
     except Exception:
         username_str = str(username)
 
-    # Prepare payload - keep values JSON serializable
-    try:
-        source_serialized = (
-            json.dumps(source_text, ensure_ascii=False)
-            if isinstance(source_text, (dict, list))
-            else str(source_text)
-        )
-    except Exception:
-        source_serialized = str(source_text)
+    # Serialize inputs safely
+    def _serialize(v: Any) -> Any:
+        if v is None:
+            return None
+        if isinstance(v, (str, int, float, bool)):
+            return v
+        try:
+            return json.loads(json.dumps(v, ensure_ascii=False))
+        except Exception:
+            return str(v)
 
-    try:
-        results_serialized = (
-            json.dumps(model_results, ensure_ascii=False)
-            if isinstance(model_results, (dict, list))
-            else str(model_results)
-        )
-    except Exception:
-        results_serialized = str(model_results)
+    source_serialized = _serialize(source_text)
+    results_serialized = _serialize(model_results)
 
-    payload = {
+    payload: Dict[str, Any] = {
         "Timestamp": timestamp,
         "feedback": "api_inference",
         "SourceText": source_serialized,
@@ -205,66 +214,46 @@ async def save_api_inference(
     if processing_time is not None:
         payload["ProcessingTime"] = processing_time
 
-    # Add minimal job details for reproducibility (TTS specific)
-    if job_details:
-        # For TTS we only save what's necessary to reproduce the output:
-        # - text_hash: hash of the input text
-        # - speaker_id
-        # - model_type
-        # - output_blob (if available)
-        # - sample_rate (if available)
-        if inference_type == "tts":
-            tts_payload = {}
-            text_val = source_serialized if source_serialized else ""
-            # Short text hash to identify the request without storing full text
-            text_hash = hashlib.sha256(text_val.encode("utf-8")).hexdigest()
-            tts_payload["text_hash"] = text_hash
-            if "speaker_id" in job_details:
-                tts_payload["speaker_id"] = str(job_details.get("speaker_id"))
-            if "blob" in job_details:
-                tts_payload["output_blob"] = job_details.get("blob")
-            if "sample_rate" in job_details:
-                tts_payload["sample_rate"] = job_details.get("sample_rate")
-            if "job_id" in job_details:
-                tts_payload["job_id"] = job_details.get("job_id")
-            # include model_type if provided
-            if model_type:
-                tts_payload["model_type"] = model_type
+    # Compact job details to avoid leaking large blobs
+    if job_details and isinstance(job_details, dict):
+        jd: Dict[str, Any] = {}
+        # Common safe fields
+        for k in ("job_id", "model_type", "blob", "sample_rate", "speaker_id"):
+            if k in job_details:
+                jd[k] = job_details.get(k)
 
-            payload["JobDetails"] = tts_payload
-        else:
-            # For other inference types, store a compact job summary if provided
-            payload["JobDetails"] = {k: job_details[k] for k in job_details if k in ("job_id", "model_type")} if isinstance(job_details, dict) else {}
+        # For TTS keep a short hash of the source text instead of raw text
+        if inference_type == INFERENCE_TTS:
+            try:
+                text_val = (
+                    source_serialized if isinstance(source_serialized, str) else json.dumps(source_serialized, ensure_ascii=False)
+                )
+                jd.setdefault("text_hash", hashlib.sha256(text_val.encode("utf-8")).hexdigest())
+            except Exception:
+                pass
 
-    logging.info(f"Saving inference feedback for user: {username_str}")
+        if jd:
+            payload["JobDetails"] = jd
+
+    logging.info(f"Saving inference feedback for user: {username_str}, type: {inference_type}")
     logging.debug(f"Feedback payload (truncated): {json.dumps(payload)[:1000]}")
 
-    # Retry network errors a few times with exponential backoff
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(min=1, max=8),
         retry=retry_if_exception_type((aiohttp.ClientError, asyncio.TimeoutError)),
         reraise=True,
     )
-    async def _post_feedback(p: dict):
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                FEEDBACK_URL,
-                headers={"Content-Type": "application/json"},
-                json=p,
-                timeout=aiohttp.ClientTimeout(total=10),
-            ) as response:
-                text = await response.text()
-                if 200 <= response.status < 300:
-                    logging.info(
-                        f"Inference feedback saved successfully for user: {username_str}"
-                    )
+    async def _post_feedback(p: Dict[str, Any]) -> bool:
+        timeout = aiohttp.ClientTimeout(total=10)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.post(FEEDBACK_URL, json=p, headers={"Content-Type": "application/json"}) as resp:
+                text = await resp.text()
+                if 200 <= resp.status < 300:
+                    logging.info("Inference feedback saved successfully")
                     return True
-                else:
-                    logging.warning(
-                        f"Feedback save failed with status {response.status}: {text}"
-                    )
-                    return False
+                logging.warning(f"Feedback save failed status={resp.status} body={text}")
+                return False
 
     try:
         return await _post_feedback(payload)
@@ -275,14 +264,21 @@ async def save_api_inference(
 
 def custom_key_func(request: Request):
     header = request.headers.get("Authorization")
+    if not header:
+        return "anonymous"
     _, _, token = header.partition(" ")
-    payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    account_type: str = payload.get("account_type")
-    logging.info(f"account_type: {account_type}")
-    return account_type
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        account_type: str = payload.get("account_type", "")
+        logging.info(f"account_type: {account_type}")
+        return account_type or ""
+    except Exception:
+        return ""
 
 
 def get_account_type_limit(key: str) -> str:
+    if not key:
+        return "50/minute"
     if key.lower() == "admin":
         return "1000/minute"
     if key.lower() == "premium":
@@ -292,7 +288,6 @@ def get_account_type_limit(key: str) -> str:
 
 # Initialize the Limiter
 limiter = Limiter(key_func=custom_key_func)
-
 
 def get_endpoint_details(endpoint_id: str):
     url = f"https://rest.runpod.io/v1/endpoints/{endpoint_id}"
@@ -1264,10 +1259,10 @@ async def text_to_speech(
             tts_request.text,
             json.dumps(request_response) if isinstance(request_response, (dict, list)) else str(request_response),
             user,
-            tts_request.speaker_id.name if hasattr(tts_request.speaker_id, "name") else None,
-            end_time - start_time,
-            "tts",
-            job_info,
+            model_type=(tts_request.speaker_id.name if hasattr(tts_request.speaker_id, "name") else None),
+            processing_time=(end_time - start_time),
+            inference_type=INFERENCE_TTS,
+            job_details=job_info,
         )
     except Exception as e:
         logging.warning(f"Failed to schedule TTS feedback save task: {e}")
@@ -1422,8 +1417,9 @@ async def sunflower_inference(
                 messages_dict,
                 response.get("content", ""),
                 user,
-                chat_request.model_type,
-                total_time,
+                model_type=chat_request.model_type,
+                processing_time=total_time,
+                inference_type=INFERENCE_SUNFLOWER_CHAT,
             )
         except Exception as e:
             logging.warning(f"Failed to schedule feedback save task: {e}")
@@ -1559,8 +1555,9 @@ async def sunflower_simple_inference(
                 instruction.strip(),
                 response.get("content", ""),
                 user,
-                model_type,
-                total_time,
+                model_type=model_type,
+                processing_time=total_time,
+                inference_type=INFERENCE_SUNFLOWER_SIMPLE,
             )
         except Exception as e:
             logging.warning(f"Failed to schedule feedback save task: {e}")
