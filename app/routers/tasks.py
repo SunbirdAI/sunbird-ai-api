@@ -1196,14 +1196,47 @@ async def text_to_speech(
     user = current_user
 
     text = tts_request.text
+    # Validate inputs early and return informative 4xx errors
+    if not isinstance(text, str) or not text.strip():
+        raise HTTPException(status_code=400, detail="`text` is required for TTS and must be a non-empty string")
+
+    # Limit text size to avoid worker-side errors
+    MAX_TTS_CHARS = 10000
+    if len(text) > MAX_TTS_CHARS:
+        raise HTTPException(status_code=400, detail=f"`text` is too long for TTS (max {MAX_TTS_CHARS} characters)")
+
+    # Validate speaker_id, temperature and token limits
+    try:
+        speaker_id_val = tts_request.speaker_id.value
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid or missing `speaker_id` in TTS request")
+
+    try:
+        temperature = float(tts_request.temperature)
+        if not (0.0 <= temperature <= 2.0):
+            raise HTTPException(status_code=400, detail="`temperature` must be between 0.0 and 2.0")
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid `temperature` value")
+
+    try:
+        max_new_audio_tokens = int(tts_request.max_new_audio_tokens)
+        if max_new_audio_tokens < 1:
+            raise HTTPException(status_code=400, detail="`max_new_audio_tokens` must be >= 1")
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid `max_new_audio_tokens` value")
+
     # Data to be sent in the request body
     data = {
         "input": {
             "task": "tts",
             "text": text.strip(),  # Remove leading/trailing spaces
-            "speaker_id": tts_request.speaker_id.value,
-            "temperature": tts_request.temperature,
-            "max_new_audio_tokens": tts_request.max_new_audio_tokens,
+            "speaker_id": speaker_id_val,
+            "temperature": temperature,
+            "max_new_audio_tokens": max_new_audio_tokens,
         }
     }
 
@@ -1212,17 +1245,17 @@ async def text_to_speech(
         request_response = await call_endpoint_with_retry(endpoint, data)
     except TimeoutError as e:
         logging.error(f"Job timed out: {str(e)}")
-        raise HTTPException(
-            status_code=503, detail="Service unavailable due to timeout."
-        )
+        raise HTTPException(status_code=503, detail="Service unavailable due to timeout")
     except ConnectionError as e:
         logging.error(f"Connection lost: {str(e)}")
-        raise HTTPException(
-            status_code=503, detail="Service unavailable due to connection error."
-        )
+        raise HTTPException(status_code=503, detail="Service unavailable due to connection error")
+    except ValueError as e:
+        # Worker reported a bad request / invalid input
+        logging.error(f"Bad request to worker: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid request to TTS worker: {e}")
     except Exception as e:
-        logging.error(f"Error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        logging.exception("Unexpected error when calling TTS worker")
+        raise HTTPException(status_code=502, detail=f"TTS worker error: {str(e)}")
 
     end_time = time.time()
     # Log endpoint in database
@@ -1236,7 +1269,7 @@ async def text_to_speech(
     response = {}
     response["output"] = request_response
 
-    # Schedule saving minimal TTS inference details for reproducibility
+    # Schedule saving minimal TTS inference details for reproducibility (best-effort)
     try:
         # Normalize job details from the worker response if present
         job_info = {}
@@ -1244,20 +1277,31 @@ async def text_to_speech(
         if isinstance(request_response, dict):
             out = request_response.get("output") or request_response
             if isinstance(out, dict):
-                job_info["blob"] = out.get("blob")
+                # prefer canonical keys
+                job_info["blob"] = out.get("blob") or out.get("output_blob") or out.get("audio_blob")
                 job_info["sample_rate"] = out.get("sample_rate")
                 # include job_id if the worker provided it
                 job_info["job_id"] = out.get("job_id") or request_response.get("job_id")
+                # also include audio_url if provided
+                job_info["audio_url"] = out.get("audio_url") or out.get("url")
         # include speaker id
         try:
             job_info["speaker_id"] = tts_request.speaker_id.value
         except Exception:
             pass
 
+        # Safely convert model results for background task: keep as dict or string
+        model_results_to_save = request_response
+        try:
+            if not isinstance(model_results_to_save, (dict, list, str)):
+                model_results_to_save = json.loads(json.dumps(model_results_to_save, ensure_ascii=False))
+        except Exception:
+            model_results_to_save = str(model_results_to_save)
+
         background_tasks.add_task(
             save_api_inference,
             tts_request.text,
-            json.dumps(request_response) if isinstance(request_response, (dict, list)) else str(request_response),
+            model_results_to_save,
             user,
             model_type=(tts_request.speaker_id.name if hasattr(tts_request.speaker_id, "name") else None),
             processing_time=(end_time - start_time),
