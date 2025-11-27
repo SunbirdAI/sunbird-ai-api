@@ -1,0 +1,2 @@
+[console_scripts]
+runpod = runpod.cli.entry:runpod_cli

@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from functools import partial
 from pathlib import Path
 from urllib.parse import urlparse
-
+from fastapi.responses import RedirectResponse, HTMLResponse
 import redis.asyncio as redis
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, Response
@@ -124,6 +124,8 @@ app = FastAPI(
     redoc_url="/redoc",
     openapi_url="/openapi.json",
     lifespan=lifespan,
+    docs_url=None,
+    redoc_url=None,
 )
 
 # ============================================================================

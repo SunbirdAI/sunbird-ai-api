@@ -1,0 +1,239 @@
+Metadata-Version: 2.4
+Name: runpod
+Version: 1.7.9
+Summary: 🐍 | Python library for RunPod API and serverless worker SDK.
+Home-page: https://runpod.io
+Author: RunPod
+Author-email: RunPod <engineer@runpod.io>, Justin Merrell <justin.merrell@runpod.io>
+License: MIT License
+Project-URL: Homepage, https://runpod.io
+Project-URL: Documentation, https://docs.runpod.io
+Project-URL: Repository, https://github.com/runpod/runpod-python
+Project-URL: Changelog, https://github.com/runpod/runpod-python/blob/main/CHANGELOG.md
+Project-URL: Bug Tracker, https://github.com/runpod/runpod-python/issues
+Keywords: runpod,ai,gpu,serverless,SDK,API,python,library
+Classifier: Environment :: Web Environment
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Topic :: Internet :: WWW/HTTP
+Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aiohttp[speedups]>=3.9.3
+Requires-Dist: aiohttp-retry>=2.8.3
+Requires-Dist: backoff>=2.2.1
+Requires-Dist: boto3>=1.26.165
+Requires-Dist: click>=8.1.7
+Requires-Dist: colorama<0.4.7,>=0.2.5
+Requires-Dist: cryptography<45.0.0
+Requires-Dist: fastapi[all]>=0.94.0
+Requires-Dist: paramiko>=3.3.1
+Requires-Dist: prettytable>=3.9.0
+Requires-Dist: py-cpuinfo>=9.0.0
+Requires-Dist: inquirerpy==0.3.4
+Requires-Dist: requests>=2.31.0
+Requires-Dist: tomli>=2.0.1
+Requires-Dist: tomlkit>=0.12.2
+Requires-Dist: tqdm-loggable>=0.1.4
+Requires-Dist: urllib3>=1.26.6
+Requires-Dist: watchdog>=3.0.0
+Provides-Extra: test
+Requires-Dist: asynctest; extra == "test"
+Requires-Dist: nest_asyncio; extra == "test"
+Requires-Dist: faker; extra == "test"
+Requires-Dist: pytest-asyncio; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: pytest-timeout; extra == "test"
+Requires-Dist: pytest-watch; extra == "test"
+Requires-Dist: pytest; extra == "test"
+Dynamic: author
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-python
+
+<div align="center">
+<h1>RunPod | Python Library </h1>
+
+[![PyPI Package](https://badge.fury.io/py/runpod.svg)](https://badge.fury.io/py/runpod)
+&nbsp;
+[![Downloads](https://static.pepy.tech/personalized-badge/runpod?period=total&units=international_system&left_color=grey&right_color=blue&left_text=Downloads)](https://pepy.tech/project/runpod)
+
+[![CI | End-to-End RunPod Python Tests](https://github.com/runpod/runpod-python/actions/workflows/CI-e2e.yml/badge.svg)](https://github.com/runpod/runpod-python/actions/workflows/CI-e2e.yml)
+
+[![CI | Code Quality](https://github.com/runpod/runpod-python/actions/workflows/CI-pylint.yml/badge.svg)](https://github.com/runpod/runpod-python/actions/workflows/CI-pylint.yml)
+&nbsp;
+[![CI | Unit Tests](https://github.com/runpod/runpod-python/actions/workflows/CI-pytests.yml/badge.svg)](https://github.com/runpod/runpod-python/actions/workflows/CI-pytests.yml)
+&nbsp;
+[![CI | CodeQL](https://github.com/runpod/runpod-python/actions/workflows/CI-codeql.yml/badge.svg)](https://github.com/runpod/runpod-python/actions/workflows/CI-codeql.yml)
+
+</div>
+
+Welcome to the official Python library for RunPod API &amp; SDK.
+
+## Table of Contents
+
+- [Table of Contents](#table-of-contents)
+- [💻 | Installation](#--installation)
+- [⚡ | Serverless Worker (SDK)](#--serverless-worker-sdk)
+  - [Quick Start](#quick-start)
+  - [Local Test Worker](#local-test-worker)
+- [📚 | API Language Library (GraphQL Wrapper)](#--api-language-library-graphql-wrapper)
+  - [Endpoints](#endpoints)
+  - [GPU Cloud (Pods)](#gpu-cloud-pods)
+- [📁 | Directory](#--directory)
+- [🤝 | Community and Contributing](#--community-and-contributing)
+
+## 💻 | Installation
+
+```bash
+# Install the latest release version
+pip install runpod
+
+# or
+
+# Install the latest development version (main branch)
+pip install git+https://github.com/runpod/runpod-python.git
+```
+
+*Python 3.8 or higher is required to use the latest version of this package.*
+
+## ⚡ | Serverless Worker (SDK)
+
+This python package can also be used to create a serverless worker that can be deployed to RunPod as a custom endpoint API.
+
+### Quick Start
+
+Create a python script in your project that contains your model definition and the RunPod worker start code. Run this python code as your default container start command:
+
+```python
+# my_worker.py
+
+import runpod
+
+def is_even(job):
+
+    job_input = job["input"]
+    the_number = job_input["number"]
+
+    if not isinstance(the_number, int):
+        return {"error": "Silly human, you need to pass an integer."}
+
+    if the_number % 2 == 0:
+        return True
+
+    return False
+
+runpod.serverless.start({"handler": is_even})
+```
+
+Make sure that this file is ran when your container starts. This can be accomplished by calling it in the docker command when you set up a template at [runpod.io/console/serverless/user/templates](https://www.runpod.io/console/serverless/user/templates) or by setting it as the default command in your Dockerfile.
+
+See our [blog post](https://www.runpod.io/blog/serverless-create-a-basic-api) for creating a basic Serverless API, or view the [details docs](https://docs.runpod.io/serverless-ai/custom-apis) for more information.
+
+### Local Test Worker
+
+You can also test your worker locally before deploying it to RunPod. This is useful for debugging and testing.
+
+```bash
+python my_worker.py --rp_serve_api
+```
+
+## 📚 | API Language Library (GraphQL Wrapper)
+
+When interacting with the RunPod API you can use this library to make requests to the API.
+
+```python
+import runpod
+
+runpod.api_key = "your_runpod_api_key_found_under_settings"
+```
+
+### Endpoints
+
+You can interact with RunPod endpoints via a `run` or `run_sync` method.
+
+```python
+endpoint = runpod.Endpoint("ENDPOINT_ID")
+
+run_request = endpoint.run(
+    {"your_model_input_key": "your_model_input_value"}
+)
+
+# Check the status of the endpoint run request
+print(run_request.status())
+
+# Get the output of the endpoint run request, blocking until the endpoint run is complete.
+print(run_request.output())
+```
+
+```python
+endpoint = runpod.Endpoint("ENDPOINT_ID")
+
+run_request = endpoint.run_sync(
+    {"your_model_input_key": "your_model_input_value"}
+)
+
+# Returns the job results if completed within 90 seconds, otherwise, returns the job status.
+print(run_request )
+```
+
+### GPU Cloud (Pods)
+
+```python
+import runpod
+
+runpod.api_key = "your_runpod_api_key_found_under_settings"
+
+# Get all my pods
+pods = runpod.get_pods()
+
+# Get a specific pod
+pod = runpod.get_pod(pod.id)
+
+# Create a pod with GPU
+pod = runpod.create_pod("test", "runpod/stack", "NVIDIA GeForce RTX 3070")
+
+# Create a pod with CPU
+pod = runpod.create_pod("test", "runpod/stack", instance_id="cpu3c-2-4")
+
+# Stop the pod
+runpod.stop_pod(pod.id)
+
+# Resume the pod
+runpod.resume_pod(pod.id)
+
+# Terminate the pod
+runpod.terminate_pod(pod.id)
+```
+
+## 📁 | Directory
+
+```BASH
+.
+├── docs               # Documentation
+├── examples           # Examples
+├── runpod             # Package source code
+│   ├── api_wrapper    # Language library - API (GraphQL)
+│   ├── cli            # Command Line Interface Functions
+│   ├── endpoint       # Language library - Endpoints
+│   └── serverless     # SDK - Serverless Worker
+└── tests              # Package tests
+```
+
+## 🤝 | Community and Contributing
+
+We welcome both pull requests and issues on [GitHub](https://github.com/runpod/runpod-python). Bug fixes and new features are encouraged, but please read our [contributing guide](CONTRIBUTING.md) first.
+
+<div align="center">
+
+<a target="_blank" href="https://discord.gg/pJ3P2DbUUq">![Discord Banner 2](https://discordapp.com/api/guilds/912829806415085598/widget.png?style=banner2)</a>
+
+</div>

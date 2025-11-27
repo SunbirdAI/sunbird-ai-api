@@ -236,21 +236,13 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
 
         # Determine redirect URL
         redirect_url = (
-            f"/setup-organization" if db_user.organization == "Unknown" else "/"
+            f"/setup-organization" if db_user.organization == "Unknown" else "/login"
         )
 
-        # Include token in header response
-        response = RedirectResponse(url=redirect_url)
+        # Append token to redirect URL for frontend to capture
+        redirect_url = f"{redirect_url}?token={access_token}&alert=Successfully%20Logged%20In"
 
-        response.set_cookie(
-            key="access_token",
-            value=f"Bearer {access_token}",
-            httponly=True,
-            secure=True,  # Ensure secure=True in production
-            samesite="lax",
-        )
-
-        return response
+        return RedirectResponse(url=redirect_url)
 
     except Exception as e:
         logging.error(f"Error during Google callback: {e}")

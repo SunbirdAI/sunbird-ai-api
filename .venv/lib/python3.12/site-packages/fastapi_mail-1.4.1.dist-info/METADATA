@@ -1,0 +1,168 @@
+Metadata-Version: 2.1
+Name: fastapi-mail
+Version: 1.4.1
+Summary: Simple lightweight mail library for FastApi
+Home-page: https://github.com/sabuhish/fastapi-mail
+License: MIT
+Author: Sabuhi Shukurov
+Author-email: sabuhi.shukurov@gmail.com
+Requires-Python: >=3.8.1,<4.0
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.8
+Provides-Extra: httpx
+Provides-Extra: redis
+Requires-Dist: Jinja2 (>=3.0,<4.0)
+Requires-Dist: aiosmtplib (>=2.0,<3.0)
+Requires-Dist: blinker (>=1.5,<2.0)
+Requires-Dist: email-validator (>=2.0,<3.0)
+Requires-Dist: httpx[httpx] (>=0.23,<0.24) ; extra == "httpx"
+Requires-Dist: pydantic (>=2.0,<3.0)
+Requires-Dist: pydantic_settings (>=2.0,<3.0)
+Requires-Dist: redis[redis] (>=4.3,<5.0) ; extra == "redis"
+Requires-Dist: starlette (>=0.24,<1.0)
+Project-URL: Repository, https://github.com/sabuhish/fastapi-mail
+Description-Content-Type: text/markdown
+
+
+# Fastapi-mail
+
+The fastapi-mail is a simple lightweight mail system, for sending emails and attachments(individual && bulk)
+
+
+[![MIT licensed](https://img.shields.io/github/license/sabuhish/fastapi-mail)](https://raw.githubusercontent.com/sabuhish/fastapi-mail/master/LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/sabuhish/fastapi-mail.svg)](https://github.com/sabuhish/fastapi-mail/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/sabuhish/fastapi-mail.svg)](https://github.com/sabuhish/fastapi-mail/network)
+[![GitHub issues](https://img.shields.io/github/issues-raw/sabuhish/fastapi-mail)](https://github.com/sabuhish/fastapi-mail/issues)
+[![Downloads](https://pepy.tech/badge/fastapi-mail)](https://pepy.tech/project/fastapi-mail)
+
+
+###  🔨  Installation ###
+
+
+```bash
+python3 -m venv .venv
+
+source .venv/bin/activate
+
+pip install fastapi-mail
+
+for aioredis and httpx
+
+pip install 'fastapi-mail[aioredis]'
+pip install 'fastapi-mail[httpx]'
+
+```
+
+Alternatively, if you prefer to use `poetry` for package dependencies:
+
+```bash
+poetry shell
+
+poetry add fastapi-mail
+
+for aioredis and httpx
+
+poetry add 'fastapi-mail[aioredis]'
+poetry add 'fastapi-mail[httpx]'
+```
+
+---
+**Documentation**: [FastApi-MAIL](https://sabuhish.github.io/fastapi-mail/)
+---
+
+
+The key features are:
+
+-  sending emails either with FastApi or using asyncio module 
+-  sending emails using FastApi background task managment
+-  sending files either from form-data or files from server
+-  Using Jinja2 HTML Templates
+-  email utils (utility allows you to check temporary email addresses, you can block any email or domain)
+-  email utils has two available classes ```DefaultChecker``` and  ```WhoIsXmlApi```
+-  Unittests using FastapiMail
+
+More information on [Getting-Started](https://sabuhish.github.io/fastapi-mail/getting-started/)
+
+
+### Guide
+
+
+```python
+
+from typing import List
+
+from fastapi import BackgroundTasks, FastAPI
+from fastapi_mail import ConnectionConfig, FastMail, MessageSchema, MessageType
+from pydantic import BaseModel, EmailStr
+from starlette.responses import JSONResponse
+
+
+
+class EmailSchema(BaseModel):
+    email: List[EmailStr]
+
+
+conf = ConnectionConfig(
+    MAIL_USERNAME ="username",
+    MAIL_PASSWORD = "**********",
+    MAIL_FROM = "test@email.com",
+    MAIL_PORT = 465,
+    MAIL_SERVER = "mail server",
+    MAIL_STARTTLS = False,
+    MAIL_SSL_TLS = True,
+    USE_CREDENTIALS = True,
+    VALIDATE_CERTS = True
+)
+
+app = FastAPI()
+
+
+html = """
+<p>Thanks for using Fastapi-mail</p> 
+"""
+
+
+@app.post("/email")
+async def simple_send(email: EmailSchema) -> JSONResponse:
+
+    message = MessageSchema(
+        subject="Fastapi-Mail module",
+        recipients=email.dict().get("email"),
+        body=html,
+        subtype=MessageType.html)
+
+    fm = FastMail(conf)
+    await fm.send_message(message)
+    return JSONResponse(status_code=200, content={"message": "email has been sent"})     
+```
+
+## List of Examples
+
+For more examples of using fastapi-mail please check: 
+[example](https://sabuhish.github.io/fastapi-mail/example/) section.
+
+
+## Contributors ✨
+
+Thanks goes to these wonderful
+[People](https://github.com/sabuhish/fastapi-mail/blob/master/contributors.txt)
+
+
+# Contributing
+Contributions of any kind are welcome!
+
+Before you start, please read [CONTRIBUTING](https://github.com/sabuhish/fastapi-mail/blob/master/CONTRIBUTING.md)
+
+
+## LICENSE
+
+[MIT](LICENSE)
+
