@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { User, Mail, Building, Lock, ArrowRight } from 'lucide-react';
+import { User, Mail, Building, Lock, Loader2 } from 'lucide-react';
 import axios from 'axios';
 
 export default function Register() {
@@ -167,9 +167,9 @@ export default function Register() {
               type="submit"
               disabled={loading}
               className="w-full flex justify-center items-center gap-2 py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors shadow-lg shadow-primary-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
+            >  {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               {loading ? 'Creating Account...' : 'Create Account'}
-              {!loading && <ArrowRight className="w-4 h-4" />}
+              
             </button>
           </form>
 

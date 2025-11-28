@@ -1,16 +1,17 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { User, Mail, Lock, Moon, Sun, Laptop } from 'lucide-react';
+import { User, Mail, Lock, Moon, Sun, Laptop, CreditCard } from 'lucide-react';
 import axios from 'axios';
 
 export default function AccountSettings() {
   const { user } = useAuth();
   const { theme, setTheme } = useTheme();
   const [formData, setFormData] = useState({
-    name: user?.username || '',
+    username: user?.username || '',
     email: user?.email || '',
   });
+  console.log(user);
   const [passwordData, setPasswordData] = useState({
     oldPassword: '',
     newPassword: '',
@@ -76,14 +77,14 @@ export default function AccountSettings() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Full Name
+              Username
             </label>
             <div className="relative">
               <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                value={formData.username}
+                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                 className="w-full pl-9 pr-4 py-2 bg-white dark:bg-black/50 border border-gray-200 dark:border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:text-white"
               />
             </div>
@@ -102,6 +103,21 @@ export default function AccountSettings() {
                 className={`w-full pl-9 pr-4 py-2 bg-white dark:bg-black/50 border border-gray-200 dark:border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:text-white ${!canChangeEmail ? 'opacity-50 cursor-not-allowed' : ''}`}
                 disabled={!canChangeEmail}
                 title={!canChangeEmail ? "Email cannot be changed for OAuth accounts" : ""}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Account Type
+            </label>
+            <div className="relative">
+              <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                value={user?.account_type || 'Standard'}
+                readOnly
+                className="w-full pl-9 pr-4 py-2 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg focus:outline-none text-gray-500 dark:text-gray-400 cursor-not-allowed"
               />
             </div>
           </div>
@@ -183,6 +199,7 @@ export default function AccountSettings() {
                 <input
                   type="password"
                   required
+                  placeholder="••••••••"
                   value={passwordData.oldPassword}
                   onChange={(e) => setPasswordData({ ...passwordData, oldPassword: e.target.value })}
                   className="w-full pl-9 pr-4 py-2 bg-white dark:bg-black/50 border border-gray-200 dark:border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:text-white"
@@ -199,6 +216,7 @@ export default function AccountSettings() {
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="password"
+                  placeholder="••••••••"
                   required
                   value={passwordData.newPassword}
                   onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
@@ -217,6 +235,7 @@ export default function AccountSettings() {
                 <input
                   type="password"
                   required
+                  placeholder="••••••••"
                   value={passwordData.confirmPassword}
                   onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
                   className="w-full pl-9 pr-4 py-2 bg-white dark:bg-black/50 border border-gray-200 dark:border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:text-white"

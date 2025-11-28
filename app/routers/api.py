@@ -9,21 +9,13 @@ router = APIRouter(prefix="/api", tags=["api"])
 
 @router.get("/usage")
 async def get_usage_stats(
+    time_range: str = "7d",  # 7d, 30d, 90d
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """Get usage statistics for the current user"""
     username = current_user.username
-    stats = await get_dashboard_stats(db, username)
-    
-    # Define limits based on account type
-    # TODO: Get these from database or config
-    limits = {
-        "/v1/translate": 5000,
-        "/v1/stt": 1000,
-        "/v1/tts": 2000,
-        "/v1/language_id": 500,
-    }
+    stats = await get_dashboard_stats(db, username, time_range=time_range)
     
     # Format the response
     usage_data = []
@@ -31,14 +23,13 @@ async def get_usage_stats(
         usage_data.append({
             "endpoint": endpoint,
             "used": count,
-            "limit": limits.get(endpoint, 1000),
-            "reset": "2024-12-01"  # TODO: Calculate actual reset date
         })
     
     return {
         "usage": usage_data,
         "recent_activity": stats["recent_activity"],
         "chart_data": stats["chart_data"],
+        "endpoint_chart_data": stats["endpoint_chart_data"],
         "latency_chart": stats["latency_chart"],
         "distribution_chart": stats["distribution_chart"],
         "account_type": current_user.account_type.value,

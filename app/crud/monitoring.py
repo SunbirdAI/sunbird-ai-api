@@ -6,6 +6,7 @@ from typing import List
 from fastapi import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import func
 
 from app.database.db import async_session_maker
 from app.models import monitoring as models
@@ -85,3 +86,12 @@ async def get_logs_by_username_since(
         .filter(models.EndpointLog.date >= since)
     )
     return result.scalars().all()
+
+
+async def get_usage_stats_by_username(db: AsyncSession, username: str):
+    result = await db.execute(
+        select(models.EndpointLog.endpoint, func.count(models.EndpointLog.id))
+        .filter(models.EndpointLog.username == username)
+        .group_by(models.EndpointLog.endpoint)
+    )
+    return result.all()

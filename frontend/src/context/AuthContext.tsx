@@ -40,8 +40,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const token = localStorage.getItem('access_token');
     if (token) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      checkAuth();
+    } else {
+      // No token, so user is not authenticated - skip API call
+      setIsLoading(false);
     }
-    checkAuth();
   }, []);
 
   const login = async (username: string, password: string) => {

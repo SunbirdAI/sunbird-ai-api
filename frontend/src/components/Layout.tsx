@@ -1,19 +1,13 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../context/ThemeContext';
 import {
-  LayoutDashboard,
-  BarChart2,
-  Key,
+  LayoutDashboard, Key,
   Settings,
   BookOpen,
   LogOut,
   Menu,
-  X,
-  Sun,
-  Moon,
-  User,
+  X, User,
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
@@ -22,12 +16,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { user, logout } = useAuth();
-  const { theme, setTheme } = useTheme();
+  // const { theme, setTheme } = useTheme();
   const location = useLocation();
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Usage Stats', href: '/usage', icon: BarChart2 },
     { name: 'API Keys', href: '/keys', icon: Key },
     { name: 'Account', href: '/account', icon: Settings },
   ];
@@ -54,14 +47,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
 
         <div className="flex items-center gap-4">
-          <button
+          {/* <button
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
             className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 transition-colors"
           >
             {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
           </button>
-          
-          <div className="flex items-center gap-3 pl-4 border-l border-gray-200 dark:border-white/10">
+           */}
+           {/* border-l */}
+          <div className="flex items-center gap-3 pl-4  border-gray-200 dark:border-white/10">
             <div className="hidden md:block text-right">
               <p className="text-sm font-medium text-gray-900 dark:text-white">{user?.username || 'User'}</p>
               <p className="text-xs text-gray-500 dark:text-gray-400">{user?.organization || 'Organization'}</p>

@@ -114,6 +114,7 @@ export default function ResetPassword() {
               disabled={loading || !token}
               className="w-full flex justify-center items-center gap-2 py-2 px-4 border border-transparent rounded-lg text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
+              
               {loading ? 'Resetting Password...' : 'Reset Password'}
             </button>
           </form>

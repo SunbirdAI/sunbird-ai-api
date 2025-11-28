@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse, HTMLResponse
-import os
 from pathlib import Path
 
 router = APIRouter()

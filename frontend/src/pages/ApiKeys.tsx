@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
-import { Copy, Plus, Check } from 'lucide-react';
+import { Copy, Check } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import DataTable from '../components/DataTable';
 
@@ -8,8 +8,7 @@ interface ApiKey {
   id: string;
   name: string;
   key: string;
-  created: string;
-  lastUsed?: string;
+  status: 'Active' | 'Inactive' | 'Revoked';
 }
 
 export default function ApiKeys() {
@@ -29,8 +28,7 @@ export default function ApiKeys() {
             id: '1',
             name: 'Current API Key',
             key: token,
-            created: new Date().toISOString().split('T')[0],
-            lastUsed: 'Active'
+            status: 'Active'
           }]);
         }
       } catch (error) {
@@ -51,12 +49,7 @@ export default function ApiKeys() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const revokeKey = async (id: string) => {
-    if (confirm('Are you sure you want to revoke this API key? This action cannot be undone.')) {
-      setKeys(keys.filter(k => k.id !== id));
-      // TODO: Call backend to revoke the key
-    }
-  };
+
 
   const apiKeyColumns: ColumnDef<ApiKey>[] = [
     {
@@ -80,26 +73,19 @@ export default function ApiKeys() {
       )
     },
     {
-      accessorKey: 'created',
-      header: 'Created',
-    },
-    {
-      accessorKey: 'lastUsed',
-      header: 'Last Used',
-      cell: ({ row }) => row.original.lastUsed || 'Never'
-    },
-    {
-      id: 'actions',
-      header: 'Actions',
+      accessorKey: 'status',
+      header: 'Status',
       cell: ({ row }) => (
-        <button 
-          onClick={() => revokeKey(row.original.id)}
-          className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-sm font-medium"
-        >
-          Revoke
-        </button>
+        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+          row.original.status === 'Active' 
+            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+            : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400'
+        }`}>
+          {row.original.status}
+        </span>
       )
     },
+
   ];
 
   if (loading) {
@@ -111,19 +97,13 @@ export default function ApiKeys() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-5xl mx-auto space-y-8">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">API Keys</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage your API keys for authentication.</p>
         </div>
-        <button 
-          onClick={() => alert('Generate new key functionality coming soon')}
-          className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Generate New Key
-        </button>
+
       </div>
 
       <div className="bg-white dark:bg-secondary rounded-xl shadow-md dark:shadow-lg dark:shadow-black/10 border border-gray-200 dark:border-white/5 p-6">

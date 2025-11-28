@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Mail, ArrowLeft } from 'lucide-react';
+import { Mail, ArrowLeft, Loader2 } from 'lucide-react';
 import axios from 'axios';
 
 export default function ForgotPassword() {
@@ -84,6 +84,7 @@ export default function ForgotPassword() {
               disabled={loading}
               className="w-full flex justify-center items-center gap-2 py-2 px-4 border border-transparent rounded-lg text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
+                {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               {loading ? 'Sending...' : 'Send Reset Link'}
             </button>
           </form>

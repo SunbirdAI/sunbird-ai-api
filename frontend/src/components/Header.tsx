@@ -40,7 +40,7 @@ export default function Header() {
             >
               {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
             </button>
-            <div className="h-6 w-px bg-gray-200 dark:bg-white/10 mx-2" />
+             <div className="h-6 w-px bg-gray-200 dark:bg-white/10 mx-2" />
             {isAuthenticated ? (
               <Link to="/dashboard" className="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium transition-colors shadow-lg shadow-primary-500/20">
                 Dashboard
