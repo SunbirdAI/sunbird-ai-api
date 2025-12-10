@@ -1,0 +1,92 @@
+name: Deploy to Azure Container Apps
+
+on:
+  push:
+    branches:
+      - azure-deploy
+  pull_request:
+    branches:
+      - azure-deploy
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Login to Azure Container Registry
+        run: |
+          az acr login --name ${{ secrets.AZURE_ACR_NAME }}
+
+      - name: Create Firebase credentials file
+        run: |
+          echo "${{ secrets.GCP_CREDENTIALS }}" > firebase-credentials.json
+
+      - name: Build Docker image
+        run: |
+          IMAGE=${{ secrets.AZURE_ACR_NAME }}.azurecr.io/sunbird-ai-api:${{ github.sha }}
+          docker build -f Dockerfile.azure -t $IMAGE .
+          echo "IMAGE_TAG=$IMAGE" >> $GITHUB_ENV
+
+      - name: Push Docker image to ACR
+        run: |
+          docker push ${{ env.IMAGE_TAG }}
+
+      - name: Deploy to Azure Container Apps
+        run: |
+          az containerapp update \
+            --name ${{ secrets.AZURE_CONTAINER_APP_NAME }} \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --image ${{ env.IMAGE_TAG }} \
+            --set-env-vars \
+              ENVIRONMENT=production \
+              PORT=8080 \
+              DATABASE_URL="${{ secrets.DATABASE_URL }}" \
+              REDIS_URL="${{ secrets.REDIS_URL }}" \
+              GOOGLE_APPLICATION_CREDENTIALS=/app/firebase-credentials.json \
+              APPLICATIONINSIGHTS_CONNECTION_STRING="${{ secrets.APPLICATIONINSIGHTS_CONNECTION_STRING }}" \
+              SECRET_KEY="${{ secrets.SECRET_KEY }}" \
+              SMTP_SERVER="${{ secrets.SMTP_SERVER }}" \
+              SMTP_PORT="${{ secrets.SMTP_PORT }}" \
+              SMTP_USERNAME="${{ secrets.SMTP_USERNAME }}" \
+              SMTP_PASSWORD="${{ secrets.SMTP_PASSWORD }}" \
+              MAIL_FROM="${{ secrets.MAIL_FROM }}" \
+              FRONTEND_LOCAL_URL="${{ secrets.FRONTEND_LOCAL_URL }}" \
+              FRONTEND_PRODUCTION_URL="${{ secrets.FRONTEND_PRODUCTION_URL }}" \
+              RUNPOD_API_KEY="${{ secrets.RUNPOD_API_KEY }}" \
+              RUNPOD_ENDPOINT_ID="${{ secrets.RUNPOD_ENDPOINT_ID }}" \
+              HUGGING_FACE_TOKEN="${{ secrets.HUGGING_FACE_TOKEN }}" \
+              WHATSAPP_TOKEN="${{ secrets.WHATSAPP_TOKEN }}" \
+              VERIFY_TOKEN="${{ secrets.VERIFY_TOKEN }}" \
+              AUDIO_CONTENT_BUCKET_NAME="${{ secrets.AUDIO_CONTENT_BUCKET_NAME }}" \
+              PER_MINUTE_RATE_LIMIT="${{ secrets.PER_MINUTE_RATE_LIMIT }}" \
+              PROJECT_ID="${{ secrets.PROJECT_ID }}" \
+              PRIVATE_KEY_ID="${{ secrets.PRIVATE_KEY_ID }}" \
+              PRIVATE_KEY="${{ secrets.PRIVATE_KEY }}" \
+              CLIENT_EMAIL="${{ secrets.CLIENT_EMAIL }}" \
+              CLIENT_ID="${{ secrets.CLIENT_ID }}" \
+              AUTH_URI="${{ secrets.AUTH_URI }}" \
+              TOKEN_URI="${{ secrets.TOKEN_URI }}" \
+              AUTH_PROVIDER_X509_CERT_URL="${{ secrets.AUTH_PROVIDER_X509_CERT_URL }}" \
+              CLIENT_X509_CERT_URL="${{ secrets.CLIENT_X509_CERT_URL }}"
+
+      - name: Get Container App URL
+        run: |
+          FQDN=$(az containerapp show \
+            --name ${{ secrets.AZURE_CONTAINER_APP_NAME }} \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --query "properties.configuration.ingress.fqdn" \
+            --output tsv)
+          echo "Application deployed successfully!"
+          echo "URL: https://$FQDN"
