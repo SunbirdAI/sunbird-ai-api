@@ -258,6 +258,66 @@ Error: The name 'acrsunbirdaiprod' is already taken
 
 **Solution**: ACR names must be globally unique. Change the `project_name` variable or modify the ACR name in `main.tf`.
 
+### Error: Docker Image Architecture Mismatch
+
+```
+Error: image OS/Arc must be linux/amd64 but found linux/arm64
+```
+
+**Cause**: Building Docker images on Apple Silicon Macs (M1/M2/M3) creates `linux/arm64` images by default, but Azure Container Apps requires `linux/amd64` architecture.
+
+**Solution 1: Build for linux/amd64 (Default)**
+Both deployment methods automatically build for the correct architecture:
+
+```bash
+# Manual deployment (bin/deploy-api-azure.sh)
+docker build --platform linux/amd64 -f Dockerfile.azure -t <image-tag> .
+
+# The GitHub Actions workflow also includes --platform linux/amd64
+```
+
+**Solution 2: Use Azure Container Registry Build Tasks**
+Build images directly in Azure (no local Docker required):
+
+```bash
+# Build and push in one command
+az acr build \
+  --registry <acr-name> \
+  --image sunbird-ai-api:$(git rev-parse --short HEAD) \
+  --file Dockerfile.azure \
+  --platform linux/amd64 \
+  .
+
+# Then deploy
+az containerapp update \
+  --name <app-name> \
+  --resource-group <rg-name> \
+  --image <acr-name>.azurecr.io/sunbird-ai-api:$(git rev-parse --short HEAD)
+```
+
+### Error: Container App Cannot Pull Image from ACR
+
+```
+Error: UNAUTHORIZED: authentication required
+```
+
+**Solution**: The Container App needs credentials to pull images from ACR. The Terraform configuration includes ACR authentication via the `registry` and `secret` blocks in `main.tf`. This is automatically configured when you run `terraform apply`.
+
+If you're still seeing this error after applying Terraform:
+
+```bash
+# Verify ACR admin user is enabled
+az acr show --name <acr-name> --query adminUserEnabled
+
+# If false, enable it
+az acr update --name <acr-name> --admin-enabled true
+
+# Re-apply Terraform to update the Container App
+terraform apply
+```
+
+**Note**: The current configuration uses ACR admin credentials for simplicity. For production, consider using Managed Identity (see main deployment docs for details).
+
 ### Error: Quota Exceeded
 
 ```

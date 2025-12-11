@@ -409,6 +409,76 @@ az acr login --name <acr-name>
 az acr update --name <acr-name> --admin-enabled true
 ```
 
+#### Issue: Container App Cannot Pull Image from ACR
+
+**Error**: `UNAUTHORIZED: authentication required` when Container App tries to pull image from ACR
+
+**Solution**:
+The Container App needs credentials to access your private ACR. This is already configured in the Terraform `main.tf` file via the `registry` and `secret` blocks. If you provisioned infrastructure before this fix was added, update your Terraform configuration and run:
+
+```bash
+cd azure/terraform
+terraform apply
+```
+
+The configuration automatically:
+1. Uses ACR admin credentials (username/password)
+2. Stores the password as a secret in the Container App
+3. Configures the Container App to authenticate with ACR
+
+**Alternative**: Use Managed Identity (more secure for production):
+```bash
+# Enable system-assigned managed identity on Container App
+az containerapp identity assign --name <app-name> --resource-group <rg-name> --system-assigned
+
+# Grant the identity pull access to ACR
+az role assignment create \
+  --assignee <identity-principal-id> \
+  --role AcrPull \
+  --scope /subscriptions/<subscription-id>/resourceGroups/<rg-name>/providers/Microsoft.ContainerRegistry/registries/<acr-name>
+```
+
+#### Issue: Docker Image Architecture Mismatch
+
+**Error**: `image OS/Arc must be linux/amd64 but found linux/arm64`
+
+**Cause**: Building Docker images on Apple Silicon Macs (M1/M2/M3) creates `linux/arm64` images by default, but Azure Container Apps requires `linux/amd64` architecture.
+
+**Solution 1: Build for linux/amd64 (Recommended)**
+Both deployment methods have been updated to automatically build for the correct architecture:
+
+```bash
+# Manual deployment (already fixed in bin/deploy-api-azure.sh)
+docker build --platform linux/amd64 -f Dockerfile.azure -t <image-tag> .
+
+# The GitHub Actions workflow also uses --platform linux/amd64 flag
+```
+
+**Solution 2: Use Azure Container Registry Build Tasks**
+Build images in the cloud using ACR Tasks (eliminates platform dependency):
+
+```bash
+# Build image directly in ACR
+az acr build \
+  --registry <acr-name> \
+  --image sunbird-ai-api:$(git rev-parse --short HEAD) \
+  --file Dockerfile.azure \
+  --platform linux/amd64 \
+  .
+
+# Deploy the image built in ACR
+az containerapp update \
+  --name <app-name> \
+  --resource-group <rg-name> \
+  --image <acr-name>.azurecr.io/sunbird-ai-api:$(git rev-parse --short HEAD)
+```
+
+**Benefits of ACR Build Tasks**:
+- No local Docker installation required
+- Builds happen in Azure (faster in some regions)
+- No architecture mismatch issues
+- Can be integrated into CI/CD pipelines
+
 #### Issue: Terraform Apply Failed - Resource Providers Not Registered
 
 **Error**: `MissingSubscriptionRegistration: The subscription is not registered to use namespace 'Microsoft.App'`

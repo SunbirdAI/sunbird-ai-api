@@ -52,6 +52,18 @@ resource "azurerm_container_app" "main" {
   revision_mode                = "Single"
   tags                         = var.tags
 
+  # Configure ACR credentials
+  registry {
+    server               = azurerm_container_registry.main.login_server
+    username             = azurerm_container_registry.main.admin_username
+    password_secret_name = "acr-password"
+  }
+
+  secret {
+    name  = "acr-password"
+    value = azurerm_container_registry.main.admin_password
+  }
+
   template {
     min_replicas = var.container_app_min_replicas
     max_replicas = var.container_app_max_replicas

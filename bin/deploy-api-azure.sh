@@ -39,8 +39,8 @@ SUBSCRIPTION_NAME=$(az account show --query name -o tsv)
 echo -e "${GREEN}✓ Logged in to Azure (Subscription: $SUBSCRIPTION_NAME)${NC}\n"
 
 # Step 2: Build Docker image
-echo -e "${BLUE}Step 2: Building Docker image...${NC}"
-docker build -f Dockerfile.azure -t $IMAGE_TAG .
+echo -e "${BLUE}Step 2: Building Docker image for linux/amd64...${NC}"
+docker build --platform linux/amd64 -f Dockerfile.azure -t $IMAGE_TAG .
 echo -e "${GREEN}✓ Docker image built successfully${NC}\n"
 
 # Step 3: Login to Azure Container Registry
