@@ -1,0 +1,36 @@
+FROM python:3.12-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    python-is-python3 \
+    curl \
+    bash \
+    ffmpeg \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=True
+ENV APP_HOME=/app
+ENV PORT=8080
+
+# Set working directory
+WORKDIR $APP_HOME
+
+# Copy application code
+COPY . ./
+COPY ./start-azure.sh /app/start-azure.sh
+
+# Install Python dependencies
+RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
+
+# Make start script executable
+RUN chmod +x /app/start-azure.sh
+
+# Health check for Azure Container Apps
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD curl -f http://localhost:${PORT}/health || exit 1
+
+# Set the entrypoint to the start-azure.sh script
+# The script will run Alembic migrations and start Uvicorn with 2 workers
+ENTRYPOINT ["/app/start-azure.sh"]

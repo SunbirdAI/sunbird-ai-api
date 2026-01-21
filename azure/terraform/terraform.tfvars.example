@@ -1,0 +1,42 @@
+# Azure Deployment Configuration Example
+# Copy this file to terraform.tfvars and update with your values
+
+# Azure Subscription ID (optional)
+# If not specified, uses the current Azure CLI subscription
+# subscription_id = "00000000-0000-0000-0000-000000000000"
+
+# Azure region where resources will be deployed
+# Common options: eastus, westus2, westeurope, southeastasia
+location = "eastus"
+
+# Environment name (prod, staging, dev)
+environment = "prod"
+
+# Project name used for resource naming
+project_name = "sunbird-ai"
+
+# Azure Container Registry SKU
+# Options: Basic, Standard, Premium
+acr_sku = "Basic"
+
+# Log Analytics retention in days (30-730)
+log_analytics_retention_days = 30
+
+# Container App scaling configuration
+container_app_min_replicas = 1
+container_app_max_replicas = 10
+
+# Container resource allocation
+container_cpu    = 0.5
+container_memory = "1.0Gi"
+
+# Container port
+container_port = 8080
+
+# Resource tags
+tags = {
+  Environment = "Production"
+  Project     = "Sunbird-AI-API"
+  ManagedBy   = "Terraform"
+  Team        = "DevOps"
+}
