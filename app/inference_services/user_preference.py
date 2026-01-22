@@ -51,7 +51,7 @@ def save_user_preference(user_id, source_language, target_language):
     db.collection("whatsapp_user_preferences").document(user_id).set(
         {"source_language": source_language, "target_language": target_language}
     )
-    
+
 
 def update_feedback(message_id, feedback):
     """
@@ -79,9 +79,9 @@ def update_feedback(message_id, feedback):
 
         # Also save to the new detailed feedback collection
         save_detailed_feedback(message_id, feedback, feedback_type="reaction")
-        
+
         return updated
-        
+
     except Exception as e:
         logging.error(f"Error updating feedback: {e}")
         return False
@@ -248,19 +248,19 @@ def save_detailed_feedback(message_id, feedback, feedback_type="reaction"):
     try:
         # First, try to find the bot response this feedback is about
         messages_ref = db.collection("whatsapp_messages")
-        
+
         # Find the specific message by message_id
         target_message = None
         query = messages_ref.where("message_id", "==", message_id).limit(1).stream()
         for doc in query:
             target_message = doc.to_dict()
             break
-        
+
         if target_message:
             user_id = target_message.get("user_id")
             bot_response = target_message.get("message_text", "")
             user_message = target_message.get("user_message", "")
-            
+
             # Save comprehensive feedback record
             feedback_doc = {
                 "user_id": user_id,
@@ -271,14 +271,14 @@ def save_detailed_feedback(message_id, feedback, feedback_type="reaction"):
                 "feedback_type": feedback_type,
                 "timestamp": firestore.SERVER_TIMESTAMP,
             }
-            
+
             doc_ref = db.collection("whatsapp_feedback").add(feedback_doc)
             logging.info(f"Detailed feedback saved with ID: {doc_ref[1].id}")
             return True
         else:
             logging.warning(f"Could not find message with ID: {message_id}")
             return False
-            
+
     except Exception as e:
         logging.error(f"Error saving detailed feedback: {e}")
         return False
@@ -300,13 +300,13 @@ def save_feedback_with_context(user_id, feedback, sender_name, feedback_type="bu
     try:
         # Get the most recent conversation pair for this user
         conversation_pairs = get_user_last_five_conversation_pairs(user_id)
-        
+
         if conversation_pairs:
             # Get the most recent conversation
             latest_conversation = conversation_pairs[-1]
             user_message = latest_conversation.get("user_message", "")
             bot_response = latest_conversation.get("bot_response", "")
-            
+
             # Save comprehensive feedback record
             feedback_doc = {
                 "user_id": user_id,
@@ -316,9 +316,9 @@ def save_feedback_with_context(user_id, feedback, sender_name, feedback_type="bu
                 "feedback": feedback,
                 "feedback_type": feedback_type,
                 "timestamp": firestore.SERVER_TIMESTAMP,
-                "message_id": None  # No specific message_id for button feedback
+                "message_id": None,  # No specific message_id for button feedback
             }
-            
+
             doc_ref = db.collection("whatsapp_feedback").add(feedback_doc)
             logging.info(f"Contextual feedback saved with ID: {doc_ref[1].id}")
             return True
@@ -333,13 +333,13 @@ def save_feedback_with_context(user_id, feedback, sender_name, feedback_type="bu
                 "feedback": feedback,
                 "feedback_type": feedback_type,
                 "timestamp": firestore.SERVER_TIMESTAMP,
-                "message_id": None
+                "message_id": None,
             }
-            
+
             doc_ref = db.collection("whatsapp_feedback").add(feedback_doc)
             logging.info(f"Basic feedback saved with ID: {doc_ref[1].id}")
             return True
-            
+
     except Exception as e:
         logging.error(f"Error saving contextual feedback: {e}")
         return False
@@ -364,15 +364,15 @@ def get_user_feedback_history(user_id, limit=10):
             .limit(limit)
             .stream()
         )
-        
+
         feedback_history = []
         for doc in query:
             feedback_data = doc.to_dict()
             feedback_data["feedback_id"] = doc.id
             feedback_history.append(feedback_data)
-        
+
         return feedback_history
-        
+
     except Exception as e:
         logging.error(f"Error retrieving feedback history: {e}")
         return []
@@ -395,15 +395,15 @@ def get_all_feedback_summary(limit=100):
             .limit(limit)
             .stream()
         )
-        
+
         all_feedback = []
         for doc in query:
             feedback_data = doc.to_dict()
             feedback_data["feedback_id"] = doc.id
             all_feedback.append(feedback_data)
-        
+
         return all_feedback
-        
+
     except Exception as e:
         logging.error(f"Error retrieving feedback summary: {e}")
         return []

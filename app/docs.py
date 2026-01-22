@@ -27,6 +27,25 @@ Lugbara (lgg), and Runyankole (nyn).
 - Use the `/tasks/summarise` endpoint for anonymised summarization of text input. 
 This endpoint does anonymised summarisation of a given text. The text languages
 supported for now are English (eng) and Luganda (lug).
+
+### TTS API with GCP Storage Integration
+
+A Text-to-Speech API that converts text to audio using multiple Ugandan language voices.
+
+#### TTS Features
+
+- **Multiple Languages**: Acholi, Ateso, Runyankore, Lugbara, Swahili, and Luganda
+- **Signed URLs**: Audio files are stored in GCP Storage with 30-minute expiring URLs
+- **Streaming Support**: Stream audio chunks for large text inputs
+- **Combined Mode**: Stream audio AND get a final signed URL
+
+### Response Modes
+
+| Mode | Description |
+|------|-------------|
+| `url` | Generate audio, upload to GCP, return signed URL |
+| `stream` | Stream raw audio chunks directly |
+| `both` | Stream audio + upload to GCP + return final URL |
 """
 
 tags_metadata = [

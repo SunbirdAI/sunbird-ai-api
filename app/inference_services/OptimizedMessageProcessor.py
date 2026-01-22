@@ -5,6 +5,7 @@ import time
 from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, Optional, Set
+
 import runpod
 from dotenv import load_dotenv
 from pydub import AudioSegment
@@ -14,11 +15,11 @@ from app.inference_services.ug40_inference import run_inference
 from app.inference_services.user_preference import (
     get_user_last_five_conversation_pairs,
     get_user_preference,
-    save_user_preference,
+    save_feedback_with_context,
     save_message,
     save_response,
+    save_user_preference,
     update_feedback,
-    save_feedback_with_context,
 )
 from app.inference_services.whatsapp_service import WhatsAppService
 from app.utils.upload_audio_file_gcp import upload_audio_file
@@ -32,8 +33,11 @@ PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID")
 RUNPOD_ENDPOINT_ID = os.getenv("RUNPOD_ENDPOINT_ID")
 
 # Initialize services
-whatsapp_service = WhatsAppService(token=WHATSAPP_TOKEN, phone_number_id=PHONE_NUMBER_ID)
+whatsapp_service = WhatsAppService(
+    token=WHATSAPP_TOKEN, phone_number_id=PHONE_NUMBER_ID
+)
 processed_messages: Set[str] = set()
+
 
 class MessageType(Enum):
     TEXT = "text"
@@ -42,11 +46,13 @@ class MessageType(Enum):
     REACTION = "reaction"
     INTERACTIVE = "interactive"
 
+
 class ResponseType(Enum):
     TEXT = "text"
-    TEMPLATE = "template" 
+    TEMPLATE = "template"
     BUTTON = "button"
     SKIP = "skip"
+
 
 @dataclass
 class ProcessingResult:
@@ -56,41 +62,46 @@ class ProcessingResult:
     should_save: bool = True
     processing_time: float = 0.0
 
+
 class OptimizedMessageProcessor:
     """Optimized message processor for fast WhatsApp responses without Redis"""
-    
+
     def __init__(self):
         self.language_mapping = {
-            "lug": "Luganda", "ach": "Acholi", "teo": "Ateso",
-            "lgg": "Lugbara", "nyn": "Runyankole", "eng": "English"
+            "lug": "Luganda",
+            "ach": "Acholi",
+            "teo": "Ateso",
+            "lgg": "Lugbara",
+            "nyn": "Runyankole",
+            "eng": "English",
         }
-        self.system_message = (
-            "You are Sunflower, a multilingual assistant for Ugandan languages made by Sunbird AI. You specialise in accurate translations, explanations, summaries and other cross-lingual tasks."
-        )
+        self.system_message = "You are Sunflower, a multilingual assistant for Ugandan languages made by Sunbird AI. You specialise in accurate translations, explanations, summaries and other cross-lingual tasks."
 
     async def process_message(
-        self, 
-        payload: Dict, 
-        from_number: str, 
+        self,
+        payload: Dict,
+        from_number: str,
         sender_name: str,
         target_language: str,
-        phone_number_id: str
+        phone_number_id: str,
     ) -> ProcessingResult:
         """Fast message processing with optimized paths"""
         start_time = time.time()
-        
+
         try:
             message_id = self._get_message_id(payload)
-            
+
             # Quick duplicate check
             if message_id in processed_messages:
-                return ProcessingResult("", ResponseType.SKIP, processing_time=time.time() - start_time)
-            
+                return ProcessingResult(
+                    "", ResponseType.SKIP, processing_time=time.time() - start_time
+                )
+
             processed_messages.add(message_id)
-            
+
             # Determine message type quickly
             message_type = self._determine_message_type(payload)
-            
+
             # Route to appropriate handler
             if message_type == MessageType.REACTION:
                 result = self._handle_reaction(payload)
@@ -104,17 +115,19 @@ class OptimizedMessageProcessor:
                     payload, target_language, from_number, sender_name, phone_number_id
                 )
             else:  # TEXT
-                result = await self._handle_text_optimized(payload, target_language, from_number, sender_name)
-            
+                result = await self._handle_text_optimized(
+                    payload, target_language, from_number, sender_name
+                )
+
             result.processing_time = time.time() - start_time
             return result
-            
+
         except Exception as e:
             logging.error(f"Error processing message: {str(e)}")
             return ProcessingResult(
                 f"Sorry {sender_name}, I encountered an error. Please try again.",
                 ResponseType.TEXT,
-                processing_time=time.time() - start_time
+                processing_time=time.time() - start_time,
             )
 
     def _determine_message_type(self, payload: Dict) -> MessageType:
@@ -122,14 +135,16 @@ class OptimizedMessageProcessor:
         try:
             messages = payload["entry"][0]["changes"][0]["value"]["messages"]
             message = messages[0]
-            
+
             if "reaction" in message:
                 return MessageType.REACTION
             elif "interactive" in message:
                 return MessageType.INTERACTIVE
             elif "audio" in message:
                 return MessageType.AUDIO
-            elif any(key in message for key in ["image", "video", "document", "location"]):
+            elif any(
+                key in message for key in ["image", "video", "document", "location"]
+            ):
                 return MessageType.UNSUPPORTED
             else:
                 return MessageType.TEXT
@@ -145,28 +160,39 @@ class OptimizedMessageProcessor:
                 emoji = reaction["emoji"]
                 # Save feedback with context
                 asyncio.create_task(self._save_reaction_feedback_async(mess_id, emoji))
-                return ProcessingResult("", ResponseType.TEMPLATE, template_name="custom_feedback", should_save=False)
+                return ProcessingResult(
+                    "",
+                    ResponseType.TEMPLATE,
+                    template_name="custom_feedback",
+                    should_save=False,
+                )
         except Exception as e:
             logging.error(f"Error handling reaction: {e}")
         return ProcessingResult("", ResponseType.SKIP)
 
-    def _handle_interactive(self, payload: Dict, sender_name: str, from_number: str) -> ProcessingResult:
+    def _handle_interactive(
+        self, payload: Dict, sender_name: str, from_number: str
+    ) -> ProcessingResult:
         """Handle interactive button responses"""
         try:
             interactive_response = self._get_interactive_response(payload)
             if interactive_response:
                 # Handle different types of button responses
                 if "list_reply" in interactive_response:
-                    return self._handle_list_reply(interactive_response["list_reply"], from_number, sender_name)
+                    return self._handle_list_reply(
+                        interactive_response["list_reply"], from_number, sender_name
+                    )
                 elif "button_reply" in interactive_response:
-                    return self._handle_button_reply(interactive_response["button_reply"], sender_name)
+                    return self._handle_button_reply(
+                        interactive_response["button_reply"], sender_name
+                    )
         except Exception as e:
             logging.error(f"Error handling interactive response: {e}")
-        
+
         return ProcessingResult(
             f"Dear {sender_name}, Thanks for that response.",
             ResponseType.TEXT,
-            should_save=False
+            should_save=False,
         )
 
     def _handle_unsupported(self, sender_name: str) -> ProcessingResult:
@@ -174,27 +200,29 @@ class OptimizedMessageProcessor:
         return ProcessingResult(
             f"Dear {sender_name}, I currently only support text and audio messages. \n\n Please try again with text or voice.",
             ResponseType.TEXT,
-            should_save=False
+            should_save=False,
         )
 
     async def _handle_audio_immediate_response(
-        self, 
-        payload: Dict, 
-        target_language: str, 
-        from_number: str, 
+        self,
+        payload: Dict,
+        target_language: str,
+        from_number: str,
         sender_name: str,
-        phone_number_id: str
+        phone_number_id: str,
     ) -> ProcessingResult:
         """Handle audio - return immediate response and process in background"""
         # Start background processing immediately
-        asyncio.create_task(self._handle_audio_with_ug40_background(
-            payload, target_language, from_number, sender_name, phone_number_id
-        ))
-        
+        asyncio.create_task(
+            self._handle_audio_with_ug40_background(
+                payload, target_language, from_number, sender_name, phone_number_id
+            )
+        )
+
         return ProcessingResult(
             f"Audio message received. Processing...",
             ResponseType.TEXT,
-            should_save=False
+            should_save=False,
         )
 
     async def _handle_audio_with_ug40_background(
@@ -210,7 +238,7 @@ class OptimizedMessageProcessor:
                 "Failed to process audio message.",
                 WHATSAPP_TOKEN,
                 from_number,
-                phone_number_id
+                phone_number_id,
             )
             return
 
@@ -233,7 +261,7 @@ class OptimizedMessageProcessor:
                     "Failed to retrieve audio file. Please try sending the audio again.",
                     WHATSAPP_TOKEN,
                     from_number,
-                    phone_number_id
+                    phone_number_id,
                 )
                 return
 
@@ -244,7 +272,7 @@ class OptimizedMessageProcessor:
                 from_number,
                 phone_number_id,
             )
-            
+
             local_audio_path = whatsapp_service.download_whatsapp_audio(
                 audio_url, WHATSAPP_TOKEN
             )
@@ -254,7 +282,7 @@ class OptimizedMessageProcessor:
                     "Failed to download audio file. Please check your internet connection and try again.",
                     WHATSAPP_TOKEN,
                     from_number,
-                    phone_number_id
+                    phone_number_id,
                 )
                 return
 
@@ -263,19 +291,23 @@ class OptimizedMessageProcessor:
                 audio_segment = AudioSegment.from_file(local_audio_path)
                 duration_minutes = len(audio_segment) / (1000 * 60)
                 file_size_mb = os.path.getsize(local_audio_path) / (1024 * 1024)
-                
-                logging.info(f"Audio validated - Duration: {duration_minutes:.1f}min, Size: {file_size_mb:.1f}MB")
-                
+
+                logging.info(
+                    f"Audio validated - Duration: {duration_minutes:.1f}min, Size: {file_size_mb:.1f}MB"
+                )
+
                 if duration_minutes > 10:
-                    logging.info(f"Long audio file detected: {duration_minutes:.1f} minutes")
-                    
+                    logging.info(
+                        f"Long audio file detected: {duration_minutes:.1f} minutes"
+                    )
+
             except CouldntDecodeError:
                 logging.error("Downloaded audio file is corrupted")
                 whatsapp_service.send_message(
                     "Audio file appears to be corrupted. Please try sending again.",
                     WHATSAPP_TOKEN,
                     from_number,
-                    phone_number_id
+                    phone_number_id,
                 )
                 return
 
@@ -291,7 +323,7 @@ class OptimizedMessageProcessor:
                     "Failed to upload audio. \n\n Please try again.",
                     WHATSAPP_TOKEN,
                     from_number,
-                    phone_number_id
+                    phone_number_id,
                 )
                 return
 
@@ -323,7 +355,7 @@ class OptimizedMessageProcessor:
                     "An error occurred during transcription. \n\n Please try again later.",
                     WHATSAPP_TOKEN,
                     from_number,
-                    phone_number_id
+                    phone_number_id,
                 )
                 return
 
@@ -334,12 +366,12 @@ class OptimizedMessageProcessor:
                     "*No speech detected*. \n\n Please ensure you're speaking clearly and try again.",
                     WHATSAPP_TOKEN,
                     from_number,
-                    phone_number_id
+                    phone_number_id,
                 )
                 return
 
             whatsapp_service.send_message(
-                f"*You said*: \"{transcribed_text}\"",
+                f'*You said*: "{transcribed_text}"',
                 WHATSAPP_TOKEN,
                 from_number,
                 phone_number_id,
@@ -358,10 +390,10 @@ class OptimizedMessageProcessor:
                     logging.info(f"Sending to UG40 for processing: {transcribed_text}")
                     # Build messages for audio transcription
                     messages = [
-                        {"role": "system","content": self.system_message},
-                        {"role": "user","content": transcribed_text}
+                        {"role": "system", "content": self.system_message},
+                        {"role": "user", "content": transcribed_text},
                     ]
-                    
+
                     logging.info(f"UG40 Messages: {messages}")
                     # Call UG40 model with timeout
                     response = await self._call_ug40_optimized(messages)
@@ -369,29 +401,28 @@ class OptimizedMessageProcessor:
                     logging.info(f"Final UG40 Response: {final_response}")
                     if final_response:
                         whatsapp_service.send_message(
-                            final_response,
-                            WHATSAPP_TOKEN,
-                            from_number,
-                            phone_number_id
+                            final_response, WHATSAPP_TOKEN, from_number, phone_number_id
                         )
                         # Save the audio transcription and response
-                        save_response(from_number, f"[AUDIO]: {transcribed_text}", final_response)
+                        save_response(
+                            from_number, f"[AUDIO]: {transcribed_text}", final_response
+                        )
                     else:
                         # Fallback to just showing transcription
                         whatsapp_service.send_message(
-                            f"Audio Transcription: \"{transcribed_text}\"\n\nYour message has been transcribed successfully!",
+                            f'Audio Transcription: "{transcribed_text}"\n\nYour message has been transcribed successfully!',
                             WHATSAPP_TOKEN,
                             from_number,
-                            phone_number_id
+                            phone_number_id,
                         )
-                        
+
                 except Exception as ug40_error:
                     logging.error(f"UG40 processing error: {str(ug40_error)}")
                     whatsapp_service.send_message(
-                        f"Audio Transcription: \"{transcribed_text}\"\n\nYour message has been transcribed successfully!",
+                        f'Audio Transcription: "{transcribed_text}"\n\nYour message has been transcribed successfully!',
                         WHATSAPP_TOKEN,
                         from_number,
-                        phone_number_id
+                        phone_number_id,
                     )
 
         except Exception as e:
@@ -400,7 +431,7 @@ class OptimizedMessageProcessor:
                 "An unexpected error occurred while processing your audio. \n\n Please try again.",
                 WHATSAPP_TOKEN,
                 from_number,
-                phone_number_id
+                phone_number_id,
             )
         finally:
             # Cleanup
@@ -412,124 +443,151 @@ class OptimizedMessageProcessor:
                     logging.warning(f"Could not clean up: {cleanup_error}")
 
     async def _handle_text_optimized(
-        self, 
-        payload: Dict, 
-        target_language: str, 
-        from_number: str, 
-        sender_name: str
+        self, payload: Dict, target_language: str, from_number: str, sender_name: str
     ) -> ProcessingResult:
         """Optimized text processing without caching"""
         try:
             input_text = self._get_message_text(payload)
             message_id = self._get_message_id(payload)
-            
+
             # Save message in background
             asyncio.create_task(self._save_message_async(from_number, input_text))
 
             # Quick command check first (most performance gain)
-            command_result = self._handle_quick_commands(input_text, target_language, sender_name)
+            command_result = self._handle_quick_commands(
+                input_text, target_language, sender_name
+            )
             if command_result:
                 return command_result
 
             # Check if new user using preference lookup (faster than conversation history)
             user_preference = get_user_preference(from_number)
             is_new_user = user_preference is None
-            
+
             if is_new_user:
                 # Save initial user interaction and set default preference to mark them as no longer new
                 asyncio.create_task(self._save_message_async(from_number, input_text))
                 asyncio.create_task(self._set_default_preference_async(from_number))
-                return ProcessingResult("", ResponseType.TEMPLATE, template_name="welcome_message", should_save=False)
+                return ProcessingResult(
+                    "",
+                    ResponseType.TEMPLATE,
+                    template_name="welcome_message",
+                    should_save=False,
+                )
 
             # Get conversation context for existing users
             conversation_pairs = get_user_last_five_conversation_pairs(from_number)
-            
+
             # Build optimized prompt (limit context for speed)
-            messages = self._build_optimized_prompt(input_text, conversation_pairs[-2:])  # Only last 2
-            
+            messages = self._build_optimized_prompt(
+                input_text, conversation_pairs[-2:]
+            )  # Only last 2
+
             # Call UG40 model with timeout
             response = await self._call_ug40_optimized(messages)
             response_content = self._clean_response(response)
-            
+
             # Save response in background only if not a technical error
-            if response_content != "I'm having technical difficulties. \n\n Please try again.":
-                asyncio.create_task(self._save_response_async(from_number, input_text, response_content, message_id))
-            
+            if (
+                response_content
+                != "I'm having technical difficulties. \n\n Please try again."
+            ):
+                asyncio.create_task(
+                    self._save_response_async(
+                        from_number, input_text, response_content, message_id
+                    )
+                )
+
             return ProcessingResult(response_content, ResponseType.TEXT)
-            
+
         except Exception as e:
             logging.error(f"Error in text processing: {str(e)}")
             return ProcessingResult(
-                "I'm experiencing issues. Please try again.",
-                ResponseType.TEXT
+                "I'm experiencing issues. Please try again.", ResponseType.TEXT
             )
 
-    def _handle_quick_commands(self, input_text: str, target_language: str, sender_name: str) -> Optional[ProcessingResult]:
+    def _handle_quick_commands(
+        self, input_text: str, target_language: str, sender_name: str
+    ) -> Optional[ProcessingResult]:
         """Handle most common commands quickly"""
         text_lower = input_text.lower().strip()
-        
+
         # Greeting messages - show welcome template
-        if text_lower in ['hello', 'hi', 'hey', 'hola', 'greetings']:
-            return ProcessingResult("", ResponseType.TEMPLATE, template_name="welcome_message", should_save=False)
-        
+        if text_lower in ["hello", "hi", "hey", "hola", "greetings"]:
+            return ProcessingResult(
+                "",
+                ResponseType.TEMPLATE,
+                template_name="welcome_message",
+                should_save=False,
+            )
+
         # Most common commands - return immediately without UG40 calls
-        elif text_lower in ['help', 'commands']:
+        elif text_lower in ["help", "commands"]:
             return ProcessingResult(self._get_help_text(), ResponseType.TEXT)
-        elif text_lower == 'status':
-            return ProcessingResult(self._get_status_text(target_language, sender_name), ResponseType.TEXT)
-        elif text_lower in ['languages', 'language']:
+        elif text_lower == "status":
+            return ProcessingResult(
+                self._get_status_text(target_language, sender_name), ResponseType.TEXT
+            )
+        elif text_lower in ["languages", "language"]:
             return ProcessingResult(self._get_languages_text(), ResponseType.TEXT)
-        elif text_lower.startswith('set language'):
-            return ProcessingResult("", ResponseType.TEMPLATE, template_name="choose_language")
-        
+        elif text_lower.startswith("set language"):
+            return ProcessingResult(
+                "", ResponseType.TEMPLATE, template_name="choose_language"
+            )
+
         return None
-    
+
     def _build_optimized_prompt(self, input_text: str, context: list) -> list:
         """Build messages array with clear separation between context and current message"""
         messages = [
             {"role": "system", "content": self.system_message},
         ]
-        
+
         # Add conversation context
         for conv in context:
-            messages.append({"role": "user", "content": conv['user_message']})
-            messages.append({"role": "assistant", "content": conv['bot_response']})
-        
+            messages.append({"role": "user", "content": conv["user_message"]})
+            messages.append({"role": "assistant", "content": conv["bot_response"]})
+
         # Add current message
         messages.append({"role": "user", "content": input_text})
-        
+
         return messages
 
     async def _call_ug40_optimized(self, messages: list) -> Dict:
         """Optimized UG40 call with shorter timeout"""
         try:
-            logging.info(f"Calling UG40 model with optimized settings. Messages: {messages}")
-            response = run_inference(
-                messages=messages,
-                model_type="qwen"
+            logging.info(
+                f"Calling UG40 model with optimized settings. Messages: {messages}"
             )
+            response = run_inference(messages=messages, model_type="qwen")
             return response
         except asyncio.TimeoutError:
             logging.error("UG40 call timed out")
-            return {"content": "I'm running a bit slow right now. \n\n Please try again."}
+            return {
+                "content": "I'm running a bit slow right now. \n\n Please try again."
+            }
         except Exception as e:
             logging.error(f"UG40 call error: {e}")
-            return {"content": "I'm having technical difficulties. \n\n Please try again."}
+            return {
+                "content": "I'm having technical difficulties. \n\n Please try again."
+            }
 
     def _clean_response(self, ug40_response: Dict) -> str:
         """Clean and validate response"""
         content = ug40_response.get("content", "").strip()
-        
+
         if not content:
             return "I'm having trouble understanding. Could you please rephrase?"
-        
+
         return content
-    
+
     async def _set_default_preference_async(self, from_number: str):
         """Set default user preference asynchronously to mark user as no longer new"""
         try:
             loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, save_user_preference, from_number, "English", "eng")  # Default to English
+            await loop.run_in_executor(
+                None, save_user_preference, from_number, "English", "eng"
+            )  # Default to English
             logging.info(f"Default preference set for new user: {from_number}")
         except Exception as e:
             logging.error(f"Error setting default preference: {e}")
@@ -543,11 +601,15 @@ class OptimizedMessageProcessor:
         except Exception as e:
             logging.error(f"Error saving message: {e}")
 
-    async def _save_response_async(self, from_number: str, user_message: str, response: str, message_id: str):
+    async def _save_response_async(
+        self, from_number: str, user_message: str, response: str, message_id: str
+    ):
         """Save response asynchronously"""
         try:
             loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, save_response, from_number, user_message, response, message_id)
+            await loop.run_in_executor(
+                None, save_response, from_number, user_message, response, message_id
+            )
         except Exception as e:
             logging.error(f"Error saving response: {e}")
 
@@ -568,7 +630,9 @@ class OptimizedMessageProcessor:
 
     def _get_message_text(self, payload: Dict) -> str:
         try:
-            return payload["entry"][0]["changes"][0]["value"]["messages"][0]["text"]["body"]
+            return payload["entry"][0]["changes"][0]["value"]["messages"][0]["text"][
+                "body"
+            ]
         except (KeyError, IndexError):
             return ""
 
@@ -578,7 +642,7 @@ class OptimizedMessageProcessor:
             return message.get("reaction")
         except (KeyError, IndexError):
             return None
-        
+
     def _get_interactive_response(self, payload: Dict) -> Optional[Dict]:
         """Extract interactive response from payload"""
         try:
@@ -591,13 +655,18 @@ class OptimizedMessageProcessor:
         try:
             message = payload["entry"][0]["changes"][0]["value"]["messages"][0]
             if "audio" in message:
-                return {"id": message["audio"]["id"], "mime_type": message["audio"]["mime_type"]}
+                return {
+                    "id": message["audio"]["id"],
+                    "mime_type": message["audio"]["mime_type"],
+                }
         except (KeyError, IndexError):
             pass
         return None
 
     # Response generators
-    def _handle_interactive(self, payload: Dict, sender_name: str, from_number: str) -> ProcessingResult:
+    def _handle_interactive(
+        self, payload: Dict, sender_name: str, from_number: str
+    ) -> ProcessingResult:
         """Handle interactive button responses with improved feedback and language management"""
         try:
             interactive_response = self._get_interactive_response(payload)
@@ -605,88 +674,111 @@ class OptimizedMessageProcessor:
                 return ProcessingResult(
                     f"Dear {sender_name}, I didn't receive your selection properly. \n\n Please try again.",
                     ResponseType.TEXT,
-                    should_save=False
+                    should_save=False,
                 )
 
             # Handle different types of interactive responses
             if "list_reply" in interactive_response:
-                return self._handle_list_reply(interactive_response["list_reply"], from_number, sender_name)
+                return self._handle_list_reply(
+                    interactive_response["list_reply"], from_number, sender_name
+                )
             elif "button_reply" in interactive_response:
-                return self._handle_button_reply(interactive_response["button_reply"], from_number, sender_name)
+                return self._handle_button_reply(
+                    interactive_response["button_reply"], from_number, sender_name
+                )
             else:
-                logging.warning(f"Unknown interactive response type: {interactive_response}")
+                logging.warning(
+                    f"Unknown interactive response type: {interactive_response}"
+                )
                 return ProcessingResult(
                     f"Dear {sender_name}, I received your response but couldn't process it. \n\n Please try again.",
                     ResponseType.TEXT,
-                    should_save=False
+                    should_save=False,
                 )
-                
+
         except Exception as e:
             logging.error(f"Error handling interactive response: {e}")
             return ProcessingResult(
                 f"Dear {sender_name}, I encountered an error processing your selection. Please try again.",
                 ResponseType.TEXT,
-                should_save=False
+                should_save=False,
             )
 
-    def _handle_list_reply(self, list_reply: Dict, from_number: str, sender_name: str) -> ProcessingResult:
+    def _handle_list_reply(
+        self, list_reply: Dict, from_number: str, sender_name: str
+    ) -> ProcessingResult:
         """Handle list selection responses with comprehensive error handling"""
         try:
             selected_id = list_reply.get("id", "")
             selected_title = list_reply.get("title", "")
-            
+
             if not selected_id:
                 return ProcessingResult(
                     f"Dear {sender_name}, I didn't receive your selection properly. Please try again.",
                     ResponseType.TEXT,
-                    should_save=False
+                    should_save=False,
                 )
 
             # Map row IDs to specific actions based on context
             # Welcome button responses
             if selected_id == "row 1" and selected_title == "Get Help":
-                return ProcessingResult(self._get_help_text(), ResponseType.TEXT, should_save=True)
-            
+                return ProcessingResult(
+                    self._get_help_text(), ResponseType.TEXT, should_save=True
+                )
+
             elif selected_id == "row 2" and selected_title == "Set Language":
-                return ProcessingResult("", ResponseType.TEMPLATE, template_name="choose_language", should_save=False)
-            
+                return ProcessingResult(
+                    "",
+                    ResponseType.TEMPLATE,
+                    template_name="choose_language",
+                    should_save=False,
+                )
+
             elif selected_id == "row 3" and selected_title == "Start Chatting":
                 return ProcessingResult(
                     f"Perfect {sender_name}! 🌻 I'm ready to help you with:\n\n"
                     f"• Translations between Ugandan languages and English\n"
-                    f"• Audio transcription in local languages\n" 
+                    f"• Audio transcription in local languages\n"
                     f"• Language learning support\n\n"
                     f"Just send me a message or audio to get started!",
                     ResponseType.TEXT,
-                    should_save=True
+                    should_save=True,
                 )
-            
+
             # Language selection responses
             elif selected_title in self.language_mapping.values():
-                return self._handle_language_selection_by_name(selected_title, from_number, sender_name)
-            
-            # Feedback responses  
+                return self._handle_language_selection_by_name(
+                    selected_title, from_number, sender_name
+                )
+
+            # Feedback responses
             elif selected_title in ["Excellent", "Good", "Fair", "Poor"]:
-                return self._handle_feedback_by_title(selected_title, from_number, sender_name)
-            
+                return self._handle_feedback_by_title(
+                    selected_title, from_number, sender_name
+                )
+
             # Unknown selection - fallback
             else:
-                logging.warning(f"Unknown list selection: {selected_id} - {selected_title}")
+                logging.warning(
+                    f"Unknown list selection: {selected_id} - {selected_title}"
+                )
                 return ProcessingResult(
                     f"Thanks {sender_name}! I received your selection. How can I help you further?",
                     ResponseType.TEXT,
-                    should_save=True
+                    should_save=True,
                 )
-                
+
         except Exception as e:
             logging.error(f"Error handling list reply: {e}")
             return ProcessingResult(
                 f"Dear {sender_name}, I encountered an error processing your selection. Please try again.",
                 ResponseType.TEXT,
-                should_save=False
+                should_save=False,
             )
 
-    def _handle_language_selection_by_name(self, language_name: str, from_number: str, sender_name: str) -> ProcessingResult:
+    def _handle_language_selection_by_name(
+        self, language_name: str, from_number: str, sender_name: str
+    ) -> ProcessingResult:
         """Handle language selection by language name"""
         try:
             # Find the language code for the selected name
@@ -695,19 +787,23 @@ class OptimizedMessageProcessor:
                 if name == language_name:
                     language_code = code
                     break
-            
+
             if not language_code:
                 return ProcessingResult(
                     f"Sorry {sender_name}, I couldn't find that language. Please try again.",
                     ResponseType.TEXT,
-                    should_save=False
+                    should_save=False,
                 )
-            
+
             # Save the language preference
             try:
-                save_user_preference(from_number, "English", language_code)  # Default source to English
-                logging.info(f"Language preference saved for {from_number}: {language_code}")
-                
+                save_user_preference(
+                    from_number, "English", language_code
+                )  # Default source to English
+                logging.info(
+                    f"Language preference saved for {from_number}: {language_code}"
+                )
+
                 return ProcessingResult(
                     f"✅ Perfect! Language set to {language_name}!\n\n"
                     f"You can now:\n"
@@ -716,9 +812,9 @@ class OptimizedMessageProcessor:
                     f"• Send audio in {language_name} for transcription\n\n"
                     f"Just start typing or send an audio message! 🎤📝",
                     ResponseType.TEXT,
-                    should_save=True
+                    should_save=True,
                 )
-                
+
             except Exception as db_error:
                 logging.error(f"Database error saving language preference: {db_error}")
                 return ProcessingResult(
@@ -726,18 +822,20 @@ class OptimizedMessageProcessor:
                     f"You can now send messages or audio in {language_name}. "
                     f"How can I help you today?",
                     ResponseType.TEXT,
-                    should_save=True
+                    should_save=True,
                 )
-                
+
         except Exception as e:
             logging.error(f"Error handling language selection by name: {e}")
             return ProcessingResult(
                 f"I've received your language preference. How can I help you today?",
                 ResponseType.TEXT,
-                should_save=True
+                should_save=True,
             )
 
-    def _handle_feedback_by_title(self, feedback_title: str, from_number: str, sender_name: str) -> ProcessingResult:
+    def _handle_feedback_by_title(
+        self, feedback_title: str, from_number: str, sender_name: str
+    ) -> ProcessingResult:
         """Handle feedback by title with personalized responses"""
         try:
             feedback_responses = {
@@ -761,25 +859,31 @@ class OptimizedMessageProcessor:
                     f"🤔 Thank you {sender_name} for the feedback.\n\n"
                     f"I apologize the response wasn't *helpful*.\n"
                     f"Please try *rephrasing your question* - I'll do my best to give you a *better answer*!"
-                )
+                ),
             }
-            
+
             response_message = feedback_responses.get(
                 feedback_title,
-                f"Thank you {sender_name} for your feedback! It helps me improve."
+                f"Thank you {sender_name} for your feedback! It helps me improve.",
             )
-            
+
             # Save detailed feedback with context
-            asyncio.create_task(self._save_detailed_feedback_async(from_number, feedback_title, sender_name))
-            
-            return ProcessingResult(response_message, ResponseType.TEXT, should_save=True)
-                
+            asyncio.create_task(
+                self._save_detailed_feedback_async(
+                    from_number, feedback_title, sender_name
+                )
+            )
+
+            return ProcessingResult(
+                response_message, ResponseType.TEXT, should_save=True
+            )
+
         except Exception as e:
             logging.error(f"Error handling feedback by title: {e}")
             return ProcessingResult(
                 f"Thank you {sender_name} for the feedback! How can I help you next?",
                 ResponseType.TEXT,
-                should_save=True
+                should_save=True,
             )
 
     # Add new async methods for better feedback handling
@@ -787,7 +891,9 @@ class OptimizedMessageProcessor:
         """Save reaction feedback with context"""
         try:
             loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, self._save_reaction_feedback_sync, message_id, emoji)
+            await loop.run_in_executor(
+                None, self._save_reaction_feedback_sync, message_id, emoji
+            )
         except Exception as e:
             logging.error(f"Error saving reaction feedback: {e}")
 
@@ -795,23 +901,36 @@ class OptimizedMessageProcessor:
         """Synchronous method to save reaction feedback with full context"""
         try:
             from app.inference_services.user_preference import save_detailed_feedback
+
             save_detailed_feedback(message_id, emoji, feedback_type="reaction")
             logging.info(f"Reaction feedback saved: {message_id} - {emoji}")
         except Exception as e:
             logging.error(f"Error in sync reaction feedback save: {e}")
 
-    async def _save_detailed_feedback_async(self, from_number: str, feedback_title: str, sender_name: str):
+    async def _save_detailed_feedback_async(
+        self, from_number: str, feedback_title: str, sender_name: str
+    ):
         """Save detailed feedback for button selections"""
         try:
             loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, self._save_detailed_feedback_sync, from_number, feedback_title, sender_name)
+            await loop.run_in_executor(
+                None,
+                self._save_detailed_feedback_sync,
+                from_number,
+                feedback_title,
+                sender_name,
+            )
         except Exception as e:
             logging.error(f"Error saving detailed feedback: {e}")
 
-    def _save_detailed_feedback_sync(self, from_number: str, feedback_title: str, sender_name: str):
+    def _save_detailed_feedback_sync(
+        self, from_number: str, feedback_title: str, sender_name: str
+    ):
         """Save detailed feedback with the most recent conversation context"""
         try:
-            save_feedback_with_context(from_number, feedback_title, sender_name, feedback_type="button")
+            save_feedback_with_context(
+                from_number, feedback_title, sender_name, feedback_type="button"
+            )
             logging.info(f"Detailed feedback saved: {from_number} - {feedback_title}")
         except Exception as e:
             logging.error(f"Error in sync detailed feedback save: {e}")
@@ -823,26 +942,23 @@ class OptimizedMessageProcessor:
         language_rows = []
         i = 1
         for code, name in self.language_mapping.items():
-            language_rows.append({
-                "id": f"row {i}",
-                "title": name,  # This will be matched in _handle_list_reply
-                "description": f"Set your preferred language to {name}"
-            })
+            language_rows.append(
+                {
+                    "id": f"row {i}",
+                    "title": name,  # This will be matched in _handle_list_reply
+                    "description": f"Set your preferred language to {name}",
+                }
+            )
             i += 1
-        
+
         return {
             "header": "🌐 Language Selection",
             "body": "Please select your preferred language for your audio commands:",
             "footer": "Powered by Sunbird AI 🌻",
             "action": {
                 "button": "Select Language",
-                "sections": [
-                    {
-                        "title": "Available Languages", 
-                        "rows": language_rows
-                    }
-                ]
-            }
+                "sections": [{"title": "Available Languages", "rows": language_rows}],
+            },
         }
 
     def create_feedback_button(self) -> Dict:
@@ -860,27 +976,27 @@ class OptimizedMessageProcessor:
                             {
                                 "id": "row 1",
                                 "title": "Excellent",  # This will be matched
-                                "description": "🌟 Very helpful response!"
+                                "description": "🌟 Very helpful response!",
                             },
                             {
-                                "id": "row 2", 
+                                "id": "row 2",
                                 "title": "Good",
-                                "description": "😊 Helpful response"
+                                "description": "😊 Helpful response",
                             },
                             {
                                 "id": "row 3",
                                 "title": "Fair",
-                                "description": "👌 Somewhat helpful"
+                                "description": "👌 Somewhat helpful",
                             },
                             {
                                 "id": "row 4",
-                                "title": "Poor", 
-                                "description": "👎 Not helpful"
-                            }
-                        ]
+                                "title": "Poor",
+                                "description": "👎 Not helpful",
+                            },
+                        ],
                     }
-                ]
-            }
+                ],
+            },
         }
 
     def create_welcome_button(self) -> Dict:
@@ -898,24 +1014,24 @@ class OptimizedMessageProcessor:
                             {
                                 "id": "row 1",
                                 "title": "Get Help",
-                                "description": "📚 Learn what I can do for you"
+                                "description": "📚 Learn what I can do for you",
                             },
                             {
                                 "id": "row 2",
                                 "title": "Set Language",
-                                "description": "🌐 Choose language in which your audio commands will be sent"
+                                "description": "🌐 Choose language in which your audio commands will be sent",
                             },
                             {
                                 "id": "row 3",
                                 "title": "Start Chatting",
-                                "description": "💬 Begin our conversation"
-                            }
-                        ]
+                                "description": "💬 Begin our conversation",
+                            },
+                        ],
                     }
-                ]
-            }
+                ],
+            },
         }
-    
+
     def _get_help_text(self) -> str:
         return (
             "*🌻 Sunflower Assistant Commands*\n\n"
@@ -943,7 +1059,10 @@ class OptimizedMessageProcessor:
         )
 
     def _get_languages_text(self) -> str:
-        languages_list = [f"• *{name}* ({code})" for code, name in sorted(self.language_mapping.items())]
+        languages_list = [
+            f"• *{name}* ({code})"
+            for code, name in sorted(self.language_mapping.items())
+        ]
         return (
             "*🌐 Supported Languages*\n\n"
             f"{chr(10).join(languages_list)}\n\n"
@@ -951,4 +1070,3 @@ class OptimizedMessageProcessor:
             "*set language [name]* or *set language [code]*\n\n"
             "Example: *set language english*"
         )
-

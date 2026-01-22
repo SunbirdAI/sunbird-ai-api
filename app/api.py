@@ -25,6 +25,7 @@ from app.middleware.monitoring_middleware import log_request
 from app.routers.auth import router as auth_router
 from app.routers.frontend import router as frontend_router
 from app.routers.tasks import router as tasks_router
+from app.routers.tts import router as modal_tts_router
 from app.utils.exception_utils import validation_exception_handler
 
 load_dotenv()
@@ -108,6 +109,9 @@ app = FastAPI(
     title="Sunbird AI API",
     description=description,
     openapi_tags=tags_metadata,
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
     lifespan=lifespan,
 )
 
@@ -145,5 +149,6 @@ app.add_exception_handler(RequestValidationError, validation_exception_handler)
 
 
 app.include_router(tasks_router, prefix="/tasks", tags=["AI Tasks"])
+app.include_router(modal_tts_router, prefix="/tasks/modal", tags=["TTS Tasks"])
 app.include_router(auth_router, prefix="/auth", tags=["Authentication Endpoints"])
 app.include_router(frontend_router, prefix="", tags=["Frontend Routes"])

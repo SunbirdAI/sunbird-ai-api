@@ -1455,20 +1455,13 @@ class WhatsAppService:
 
             # Build messages for audio transcription
             messages = [
-                {
-                    "role": "system",
-                    "content": self.system_message
-                },
-                {
-                    "role": "user",
-                    "content": transcribed_text
-                }
+                {"role": "system", "content": self.system_message},
+                {"role": "user", "content": transcribed_text},
             ]
 
             try:
                 ug40_response = run_inference(
-                    messages=messages, 
-                    custom_system_message=ug40_system_message
+                    messages=messages, custom_system_message=ug40_system_message
                 )
 
                 return ug40_response.get("content", "")
@@ -1558,8 +1551,10 @@ class WhatsAppService:
                     {"role": "system", "content": self.system_message},
                 ]
                 for i, conv in enumerate(conversation_pairs, 1):
-                    messages.append({"role": "user", "content": conv['user_message']})
-                    messages.append({"role": "assistant", "content": conv['bot_response']})
+                    messages.append({"role": "user", "content": conv["user_message"]})
+                    messages.append(
+                        {"role": "assistant", "content": conv["bot_response"]}
+                    )
 
             # Call UG40 model with enhanced system message
             ug40_response = run_inference(
