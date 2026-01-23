@@ -92,9 +92,7 @@ class TestBaseServiceLogging:
         with patch.object(service._logger, "warning") as mock_warning:
             service.log_warning("Test warning", extra={"alert": True})
 
-            mock_warning.assert_called_once_with(
-                "Test warning", extra={"alert": True}
-            )
+            mock_warning.assert_called_once_with("Test warning", extra={"alert": True})
 
     def test_log_error(self) -> None:
         """Test error logging."""

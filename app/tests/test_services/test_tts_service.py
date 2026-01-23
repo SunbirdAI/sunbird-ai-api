@@ -13,11 +13,7 @@ import pytest
 
 from app.core.exceptions import ExternalServiceError
 from app.models.enums import SpeakerID
-from app.services.tts_service import (
-    TTSService,
-    get_tts_service,
-    reset_tts_service,
-)
+from app.services.tts_service import TTSService, get_tts_service, reset_tts_service
 
 
 class TestTTSServiceInitialization:
@@ -229,9 +225,7 @@ class TestTTSServiceGenerateAudioStream:
             mock_client_class.return_value = mock_client
 
             received_chunks = []
-            async for chunk in service.generate_audio_stream(
-                text="Test", speaker_id=1
-            ):
+            async for chunk in service.generate_audio_stream(text="Test", speaker_id=1):
                 received_chunks.append(chunk)
 
             assert received_chunks == chunks

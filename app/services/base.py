@@ -122,9 +122,7 @@ class BaseService(ABC):
         """
         self._logger.info(message, extra=extra or {})
 
-    def log_warning(
-        self, message: str, extra: Optional[Dict[str, Any]] = None
-    ) -> None:
+    def log_warning(self, message: str, extra: Optional[Dict[str, Any]] = None) -> None:
         """Log a warning message.
 
         Args:
@@ -367,7 +365,9 @@ class ServiceMixin:
         if missing:
             raise ValidationError(
                 message=f"Missing required fields: {', '.join(missing)}",
-                errors=[{"field": field, "message": "field required"} for field in missing],
+                errors=[
+                    {"field": field, "message": "field required"} for field in missing
+                ],
             )
 
     def sanitize_string(self, value: str, max_length: int = 1000) -> str:
