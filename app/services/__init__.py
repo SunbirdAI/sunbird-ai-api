@@ -15,7 +15,7 @@ Architecture:
 
 Usage:
     from app.services.base import BaseService
-    from app.services.tts_service import TTSService
+    from app.services.tts_service import TTSService, get_tts_service
 
     # Services are typically injected via FastAPI dependencies
     @router.post("/tts")
@@ -27,6 +27,7 @@ Usage:
 
 Available Services:
     - BaseService: Abstract base class for all services
+    - TTSService: Text-to-Speech service for audio generation
 
 Note:
     All services should inherit from BaseService to ensure
@@ -34,5 +35,6 @@ Note:
 """
 
 from app.services.base import BaseService
+from app.services.tts_service import TTSService, get_tts_service
 
-__all__ = ["BaseService"]
+__all__ = ["BaseService", "TTSService", "get_tts_service"]

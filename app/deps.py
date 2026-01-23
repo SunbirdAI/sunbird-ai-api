@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud.users import get_user_by_username
 from app.database.db import async_session_maker
-from app.inference_services.tts import TTSService, get_tts_service
+from app.services.tts_service import TTSService, get_tts_service
 from app.schemas.users import TokenData, User
 from app.utils.auth_utils import get_username_from_token
 from app.utils.storage import GCPStorageService, get_storage_service
