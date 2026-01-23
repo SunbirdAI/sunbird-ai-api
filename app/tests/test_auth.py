@@ -119,17 +119,10 @@ class TestUserRegistration:
         assert response.status_code == 422  # Validation error
 
     @pytest.mark.asyncio
-    @pytest.mark.skip(
-        reason="Known bug in exception_utils.py: ValidationErrorDetail.input expects str but receives dict. Fix planned in Step 2."
-    )
     async def test_register_missing_required_fields(
         self, async_client: AsyncClient, test_db
     ) -> None:
         """Test registration fails when required fields are missing.
-
-        Note: There is a known bug in the custom validation error handler
-        (ValidationErrorDetail expects str for input but receives dict).
-        This test is skipped until the bug is fixed in Step 2 of the refactoring.
 
         Args:
             async_client: The async HTTP client fixture.

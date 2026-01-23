@@ -962,7 +962,7 @@ def function_name(param1: str, param2: int) -> dict:
 | Step | Description | Status | Date |
 |------|-------------|--------|------|
 | 1 | Set Up Test Infrastructure | ✅ Complete | 2026-01-23 |
-| 2 | Create Base Schemas and Exceptions | ⬜ Pending | |
+| 2 | Create Base Schemas and Exceptions | ✅ Complete | 2026-01-23 |
 | 3 | Create Service Layer Base | ⬜ Pending | |
 | 4 | Refactor TTS Service | ⬜ Pending | |
 | 5 | Create Integrations Module | ⬜ Pending | |
@@ -995,8 +995,9 @@ def function_name(param1: str, param2: int) -> dict:
 
 ## Known Issues Discovered
 
-### Bug: ValidationErrorDetail.input type mismatch (Found in Step 1)
+### Bug: ValidationErrorDetail.input type mismatch (Found in Step 1) - ✅ RESOLVED
 **Location:** `app/schemas/errors.py` and `app/utils/exception_utils.py`
 **Issue:** The `ValidationErrorDetail.input` field is typed as `Optional[str]` but the actual input from Pydantic validation errors is a `dict`.
 **Impact:** Custom validation error handler crashes when validation errors occur with body data.
-**Fix:** Update `ValidationErrorDetail.input` to accept `Any` type instead of `str`. This will be addressed in Step 2 when creating base schemas and exceptions.
+**Fix:** Updated `ValidationErrorDetail.input` to accept `Optional[Any]` type instead of `Optional[str]`.
+**Resolved:** Step 2 (2026-01-23)

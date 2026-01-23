@@ -52,9 +52,7 @@ class TestAppStartup:
         assert schema["info"]["title"] == "Sunbird AI API"
 
     @pytest.mark.asyncio
-    async def test_redoc_available(
-        self, async_client: AsyncClient, test_db
-    ) -> None:
+    async def test_redoc_available(self, async_client: AsyncClient, test_db) -> None:
         """Test that ReDoc documentation is accessible.
 
         Args:
@@ -138,7 +136,11 @@ class TestRouterRegistration:
         # Check health endpoint which doesn't require auth
         response = await async_client.get("/tasks/modal/health")
         # Health endpoint should be accessible
-        assert response.status_code in [200, 500, 503]  # May fail if TTS service unavailable
+        assert response.status_code in [
+            200,
+            500,
+            503,
+        ]  # May fail if TTS service unavailable
 
     @pytest.mark.asyncio
     async def test_frontend_router_registered(
@@ -174,9 +176,7 @@ class TestAPIMetadata:
         assert schema["info"]["title"] == "Sunbird AI API"
 
     @pytest.mark.asyncio
-    async def test_api_tags_in_schema(
-        self, async_client: AsyncClient, test_db
-    ) -> None:
+    async def test_api_tags_in_schema(self, async_client: AsyncClient, test_db) -> None:
         """Test that API tags are present in schema.
 
         Args:
@@ -231,9 +231,7 @@ class TestErrorHandling:
         assert "detail" in error_response
 
     @pytest.mark.asyncio
-    async def test_method_not_allowed(
-        self, async_client: AsyncClient, test_db
-    ) -> None:
+    async def test_method_not_allowed(self, async_client: AsyncClient, test_db) -> None:
         """Test that wrong HTTP methods return 405.
 
         Args:
