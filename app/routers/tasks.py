@@ -42,10 +42,6 @@ from werkzeug.utils import secure_filename
 from app.crud.audio_transcription import create_audio_transcription
 from app.crud.monitoring import log_endpoint
 from app.deps import get_current_user, get_db
-from app.inference_services.runpod_helpers import (
-    normalize_runpod_response,
-    run_job_and_get_output,
-)
 from app.inference_services.user_preference import get_user_preference
 from app.inference_services.whatsapp_service import WhatsAppService
 from app.schemas.tasks import (
@@ -54,14 +50,11 @@ from app.schemas.tasks import (
     ChatResponse,
     LanguageIdRequest,
     LanguageIdResponse,
-    NllbLanguage,
-    NllbTranslationRequest,
     SummarisationRequest,
     SummarisationResponse,
     TTSRequest,
     UploadRequest,
     UploadResponse,
-    WorkerTranslationResponse,
 )
 from app.services.inference_service import (
     ModelLoadingError,
@@ -583,78 +576,6 @@ async def generate_upload_url(request: UploadRequest):
         raise HTTPException(
             status_code=500, detail=f"Error generating upload URL: {str(e)}"
         )
-
-
-# Route for the nllb translation endpoint
-@router.post(
-    "/nllb_translate",
-    response_model=WorkerTranslationResponse,
-)
-@limiter.limit(get_account_type_limit)
-async def nllb_translate(
-    request: Request,
-    translation_request: NllbTranslationRequest,
-    db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user),
-):
-    """
-    Source and Target Language can be one of: ach(Acholi), teo(Ateso), eng(English),
-    lug(Luganda), lgg(Lugbara), or nyn(Runyankole).We currently only support English to Local
-    languages and Local to English languages, so when the source language is one of the
-    languages listed, the target can be any of the other languages.
-    """
-    endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
-    user = current_user
-
-    text = translation_request.text
-    # Data to be sent in the request body
-    # Build payload compatible with `sb_api._run_job_and_get_output`
-    payload = {
-        "task": "translate",
-        "source_language": translation_request.source_language,
-        "target_language": translation_request.target_language,
-        "text": text.strip(),
-    }
-
-    start_time = time.time()
-    try:
-        raw_resp, job_details = await run_job_and_get_output(payload)
-        logging.info(f"Raw response: {raw_resp}")
-        logging.info(f"Job details: {job_details}")
-    except TimeoutError as e:
-        logging.error(f"Job timed out: {str(e)}")
-        raise HTTPException(
-            status_code=503, detail="Service unavailable due to timeout."
-        )
-    except ConnectionError as e:
-        logging.error(f"Connection lost: {str(e)}")
-        raise HTTPException(
-            status_code=503, detail="Service unavailable due to connection error."
-        )
-    except Exception as e:
-        logging.error(f"Error calling worker: {str(e)}")
-        raise HTTPException(status_code=500, detail="Internal server error")
-
-    end_time = time.time()
-    # Log endpoint in database
-    await log_endpoint(db, user, request, start_time, end_time)
-
-    # Calculate the elapsed time
-    elapsed_time = end_time - start_time
-    logging.info(f"Elapsed time: {elapsed_time} seconds")
-
-    # Normalize and validate the response to the `WorkerTranslationResponse` shape
-    normalized = normalize_runpod_response(
-        job_details if job_details is not None else raw_resp
-    )
-    try:
-        # Use the pydantic model imported at module top
-        worker_resp = WorkerTranslationResponse.model_validate(normalized)
-    except Exception as e:
-        logging.error(f"Failed to validate worker response: {e}")
-        raise HTTPException(status_code=500, detail="Invalid response from worker")
-
-    return worker_resp.model_dump()
 
 
 # Route for the text-to-speech endpoint

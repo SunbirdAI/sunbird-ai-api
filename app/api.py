@@ -26,6 +26,7 @@ from app.routers.auth import router as auth_router
 from app.routers.frontend import router as frontend_router
 from app.routers.stt import router as stt_router
 from app.routers.tasks import router as tasks_router
+from app.routers.translation import router as translation_router
 from app.routers.tts import router as modal_tts_router
 from app.utils.exception_utils import validation_exception_handler
 
@@ -151,6 +152,7 @@ app.add_exception_handler(RequestValidationError, validation_exception_handler)
 
 app.include_router(tasks_router, prefix="/tasks", tags=["AI Tasks"])
 app.include_router(stt_router, prefix="/tasks", tags=["Speech-to-Text"])
+app.include_router(translation_router, prefix="/tasks", tags=["Translation"])
 app.include_router(modal_tts_router, prefix="/tasks/modal", tags=["TTS Tasks"])
 app.include_router(auth_router, prefix="/auth", tags=["Authentication Endpoints"])
 app.include_router(frontend_router, prefix="", tags=["Frontend Routes"])

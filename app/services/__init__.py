@@ -29,6 +29,7 @@ Available Services:
     - BaseService: Abstract base class for all services
     - TTSService: Text-to-Speech service for audio generation
     - STTService: Speech-to-Text service for audio transcription
+    - TranslationService: Text translation service for NLLB translation
     - WhatsAppBusinessService: WhatsApp messaging business logic
     - OptimizedMessageProcessor: WhatsApp message processing service
     - InferenceService: Language model inference service
@@ -66,6 +67,16 @@ from app.services.stt_service import (
     TranscriptionResult,
     get_stt_service,
     reset_stt_service,
+)
+from app.services.translation_service import (
+    TranslationConnectionError,
+    TranslationError,
+    TranslationResult,
+    TranslationService,
+    TranslationTimeoutError,
+    TranslationValidationError,
+    get_translation_service,
+    reset_translation_service,
 )
 from app.services.tts_service import TTSService, get_tts_service
 from app.services.whatsapp_service import (
@@ -105,4 +116,12 @@ __all__ = [
     "SunflowerChatRequest",
     "SunflowerUsageStats",
     "SunflowerChatResponse",
+    "TranslationService",
+    "get_translation_service",
+    "reset_translation_service",
+    "TranslationResult",
+    "TranslationError",
+    "TranslationTimeoutError",
+    "TranslationConnectionError",
+    "TranslationValidationError",
 ]
