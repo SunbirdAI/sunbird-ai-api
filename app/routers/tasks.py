@@ -45,10 +45,6 @@ from werkzeug.utils import secure_filename
 from app.crud.audio_transcription import create_audio_transcription
 from app.crud.monitoring import log_endpoint
 from app.deps import get_current_user, get_db
-from app.inference_services.OptimizedMessageProcessor import (
-    OptimizedMessageProcessor,
-    ResponseType,
-)
 from app.inference_services.runpod_helpers import (
     normalize_runpod_response,
     run_job_and_get_output,
@@ -80,6 +76,7 @@ from app.schemas.tasks import (
     UploadResponse,
     WorkerTranslationResponse,
 )
+from app.services.message_processor import OptimizedMessageProcessor, ResponseType
 from app.utils.auth_utils import ALGORITHM, SECRET_KEY
 from app.utils.upload_audio_file_gcp import upload_audio_file, upload_file_to_bucket
 

@@ -35,6 +35,7 @@ Usage:
 Available Clients:
     - RunPodClient: Client for RunPod serverless API
     - OpenAIClient: Client for OpenAI chat completions API
+    - WhatsAppAPIClient: Client for WhatsApp Cloud API
 
 Note:
     All clients should handle their own error cases and raise
@@ -47,6 +48,11 @@ from app.integrations.runpod import (
     get_runpod_client,
     normalize_runpod_response,
 )
+from app.integrations.whatsapp_api import (
+    WhatsAppAPIClient,
+    get_whatsapp_api_client,
+    reset_whatsapp_api_client,
+)
 
 __all__ = [
     "RunPodClient",
@@ -54,4 +60,7 @@ __all__ = [
     "normalize_runpod_response",
     "OpenAIClient",
     "get_openai_client",
+    "WhatsAppAPIClient",
+    "get_whatsapp_api_client",
+    "reset_whatsapp_api_client",
 ]

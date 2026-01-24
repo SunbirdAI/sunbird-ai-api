@@ -28,6 +28,8 @@ Usage:
 Available Services:
     - BaseService: Abstract base class for all services
     - TTSService: Text-to-Speech service for audio generation
+    - WhatsAppBusinessService: WhatsApp messaging business logic
+    - OptimizedMessageProcessor: WhatsApp message processing service
 
 Note:
     All services should inherit from BaseService to ensure
@@ -35,6 +37,32 @@ Note:
 """
 
 from app.services.base import BaseService
+from app.services.message_processor import (
+    MessageType,
+    OptimizedMessageProcessor,
+    ProcessingResult,
+    ResponseType,
+    clear_processed_messages,
+)
 from app.services.tts_service import TTSService, get_tts_service
+from app.services.whatsapp_service import (
+    InteractiveButtonBuilder,
+    WebhookParser,
+    WhatsAppBusinessService,
+    get_whatsapp_service,
+)
 
-__all__ = ["BaseService", "TTSService", "get_tts_service"]
+__all__ = [
+    "BaseService",
+    "TTSService",
+    "get_tts_service",
+    "WhatsAppBusinessService",
+    "get_whatsapp_service",
+    "WebhookParser",
+    "InteractiveButtonBuilder",
+    "OptimizedMessageProcessor",
+    "MessageType",
+    "ResponseType",
+    "ProcessingResult",
+    "clear_processed_messages",
+]
