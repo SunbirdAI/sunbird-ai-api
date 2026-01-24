@@ -22,7 +22,6 @@ from app.inference_services.openai_script import (
     get_guide_based_on_classification,
     is_json,
 )
-from app.inference_services.ug40_inference import run_inference
 from app.inference_services.user_preference import (
     get_user_last_five_conversation_pairs,
     get_user_last_five_messages,
@@ -32,6 +31,7 @@ from app.inference_services.user_preference import (
     save_user_preference,
     update_feedback,
 )
+from app.services.inference_service import run_inference
 from app.utils.upload_audio_file_gcp import upload_audio_file
 
 # Load environment variables

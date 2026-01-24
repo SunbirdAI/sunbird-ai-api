@@ -49,14 +49,6 @@ from app.inference_services.runpod_helpers import (
     normalize_runpod_response,
     run_job_and_get_output,
 )
-from app.inference_services.ug40_inference import (
-    ModelLoadingError,
-    SunflowerChatMessage,
-    SunflowerChatRequest,
-    SunflowerChatResponse,
-    SunflowerUsageStats,
-    run_inference,
-)
 from app.inference_services.user_preference import get_user_preference
 from app.inference_services.whatsapp_service import WhatsAppService
 from app.schemas.tasks import (
@@ -75,6 +67,14 @@ from app.schemas.tasks import (
     UploadRequest,
     UploadResponse,
     WorkerTranslationResponse,
+)
+from app.services.inference_service import (
+    ModelLoadingError,
+    SunflowerChatMessage,
+    SunflowerChatRequest,
+    SunflowerChatResponse,
+    SunflowerUsageStats,
+    run_inference,
 )
 from app.services.message_processor import OptimizedMessageProcessor, ResponseType
 from app.utils.auth_utils import ALGORITHM, SECRET_KEY

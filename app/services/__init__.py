@@ -30,6 +30,7 @@ Available Services:
     - TTSService: Text-to-Speech service for audio generation
     - WhatsAppBusinessService: WhatsApp messaging business logic
     - OptimizedMessageProcessor: WhatsApp message processing service
+    - InferenceService: Language model inference service
 
 Note:
     All services should inherit from BaseService to ensure
@@ -37,6 +38,18 @@ Note:
 """
 
 from app.services.base import BaseService
+from app.services.inference_service import (
+    InferenceService,
+    InferenceTimeoutError,
+    ModelLoadingError,
+    SunflowerChatMessage,
+    SunflowerChatRequest,
+    SunflowerChatResponse,
+    SunflowerUsageStats,
+    get_inference_service,
+    reset_inference_service,
+    run_inference,
+)
 from app.services.message_processor import (
     MessageType,
     OptimizedMessageProcessor,
@@ -65,4 +78,14 @@ __all__ = [
     "ResponseType",
     "ProcessingResult",
     "clear_processed_messages",
+    "InferenceService",
+    "get_inference_service",
+    "reset_inference_service",
+    "run_inference",
+    "ModelLoadingError",
+    "InferenceTimeoutError",
+    "SunflowerChatMessage",
+    "SunflowerChatRequest",
+    "SunflowerUsageStats",
+    "SunflowerChatResponse",
 ]

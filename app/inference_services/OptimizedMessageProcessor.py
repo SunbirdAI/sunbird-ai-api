@@ -11,7 +11,6 @@ from dotenv import load_dotenv
 from pydub import AudioSegment
 from pydub.exceptions import CouldntDecodeError
 
-from app.inference_services.ug40_inference import run_inference
 from app.inference_services.user_preference import (
     get_user_last_five_conversation_pairs,
     get_user_preference,
@@ -22,6 +21,7 @@ from app.inference_services.user_preference import (
     update_feedback,
 )
 from app.inference_services.whatsapp_service import WhatsAppService
+from app.services.inference_service import run_inference
 from app.utils.upload_audio_file_gcp import upload_audio_file
 
 load_dotenv()
