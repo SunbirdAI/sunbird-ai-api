@@ -28,6 +28,7 @@ Usage:
 Available Services:
     - BaseService: Abstract base class for all services
     - TTSService: Text-to-Speech service for audio generation
+    - STTService: Speech-to-Text service for audio transcription
     - WhatsAppBusinessService: WhatsApp messaging business logic
     - OptimizedMessageProcessor: WhatsApp message processing service
     - InferenceService: Language model inference service
@@ -57,6 +58,15 @@ from app.services.message_processor import (
     ResponseType,
     clear_processed_messages,
 )
+from app.services.stt_service import (
+    AudioProcessingError,
+    AudioValidationError,
+    STTService,
+    TranscriptionError,
+    TranscriptionResult,
+    get_stt_service,
+    reset_stt_service,
+)
 from app.services.tts_service import TTSService, get_tts_service
 from app.services.whatsapp_service import (
     InteractiveButtonBuilder,
@@ -69,6 +79,13 @@ __all__ = [
     "BaseService",
     "TTSService",
     "get_tts_service",
+    "STTService",
+    "get_stt_service",
+    "reset_stt_service",
+    "TranscriptionResult",
+    "AudioValidationError",
+    "AudioProcessingError",
+    "TranscriptionError",
     "WhatsAppBusinessService",
     "get_whatsapp_service",
     "WebhookParser",
