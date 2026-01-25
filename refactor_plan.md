@@ -971,8 +971,8 @@ def function_name(param1: str, param2: int) -> dict:
 | 8 | Create STT Router | ✅ Complete | 2026-01-24 |
 | 9 | Create Translation Router | ✅ Complete | 2026-01-24 |
 | 10 | Create Language Router | ✅ Complete | 2026-01-25 |
-| 11 | Create Summarization Router | ⬜ Pending | |
-| 12 | Create Inference Router | ⬜ Pending | |
+| 11 | Create Summarization Router | ⏭️ Skipped | 2026-01-25 |
+| 12 | Create Inference Router | ✅ Complete | 2026-01-25 |
 | 13 | Create Upload Router | ⬜ Pending | |
 | 14 | Create Webhooks Router | ⬜ Pending | |
 | 15 | Reorganize Utils Module | ⬜ Pending | |
@@ -990,6 +990,28 @@ def function_name(param1: str, param2: int) -> dict:
 - Document any deviations from this plan
 - Update imports immediately after moving files
 - Keep the API running and test manually during development
+
+---
+
+## Step Completion Notes
+
+### Step 11: Create Summarization Router - ⏭️ SKIPPED (2026-01-25)
+**Reason:** The summarization endpoint (`/summarise`) is deprecated and its functionality is now handled by the Sunflower inference router. The endpoint remains in tasks.py for backward compatibility but is not actively used.
+
+### Step 12: Create Inference Router - ✅ COMPLETE (2026-01-25)
+**Files Created:**
+- `app/schemas/inference.py` - Re-exports models from inference_service for backward compatibility
+- `app/routers/inference.py` - Inference router with Sunflower endpoints
+- `app/utils/feedback.py` - Shared feedback utility for saving inference records
+- `app/tests/test_routers/test_inference.py` - 22 tests for the inference router
+
+**Changes Made:**
+- Extracted `sunflower_inference` and `sunflower_simple` endpoints from tasks.py to inference.py
+- Added inference router to api.py
+- Removed unused imports from tasks.py (Form, ModelLoadingError, SunflowerChatRequest, etc.)
+- Removed unused constants (INFERENCE_SUNFLOWER_CHAT, INFERENCE_SUNFLOWER_SIMPLE)
+
+**Test Results:** 461 tests pass (up from 435)
 
 ---
 

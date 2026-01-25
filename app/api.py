@@ -24,6 +24,7 @@ from app.docs import description, tags_metadata
 from app.middleware.monitoring_middleware import log_request
 from app.routers.auth import router as auth_router
 from app.routers.frontend import router as frontend_router
+from app.routers.inference import router as inference_router
 from app.routers.language import router as language_router
 from app.routers.stt import router as stt_router
 from app.routers.tasks import router as tasks_router
@@ -155,6 +156,7 @@ app.include_router(tasks_router, prefix="/tasks", tags=["AI Tasks"])
 app.include_router(stt_router, prefix="/tasks", tags=["Speech-to-Text"])
 app.include_router(translation_router, prefix="/tasks", tags=["Translation"])
 app.include_router(language_router, prefix="/tasks", tags=["Language"])
+app.include_router(inference_router, prefix="/tasks", tags=["Inference"])
 app.include_router(modal_tts_router, prefix="/tasks/modal", tags=["TTS Tasks"])
 app.include_router(auth_router, prefix="/auth", tags=["Authentication Endpoints"])
 app.include_router(frontend_router, prefix="", tags=["Frontend Routes"])
