@@ -5,7 +5,6 @@ import json
 import logging
 import mimetypes
 import os
-import shutil
 import tempfile
 import time
 import uuid
@@ -20,12 +19,10 @@ from fastapi import (
     APIRouter,
     BackgroundTasks,
     Depends,
-    File,
     Form,
     HTTPException,
     Request,
     Response,
-    UploadFile,
 )
 from google.cloud import storage
 from jose import jwt
@@ -37,7 +34,6 @@ from tenacity import (
     stop_after_attempt,
     wait_exponential,
 )
-from werkzeug.utils import secure_filename
 
 from app.crud.audio_transcription import create_audio_transcription
 from app.crud.monitoring import log_endpoint
@@ -45,11 +41,8 @@ from app.deps import get_current_user, get_db
 from app.inference_services.user_preference import get_user_preference
 from app.inference_services.whatsapp_service import WhatsAppService
 from app.schemas.tasks import (
-    AudioDetectedLanguageResponse,
     ChatRequest,
     ChatResponse,
-    LanguageIdRequest,
-    LanguageIdResponse,
     SummarisationRequest,
     SummarisationResponse,
     TTSRequest,
@@ -66,7 +59,7 @@ from app.services.inference_service import (
 )
 from app.services.message_processor import OptimizedMessageProcessor, ResponseType
 from app.utils.auth_utils import ALGORITHM, SECRET_KEY
-from app.utils.upload_audio_file_gcp import upload_audio_file, upload_file_to_bucket
+from app.utils.upload_audio_file_gcp import upload_file_to_bucket
 
 router = APIRouter()
 
@@ -303,124 +296,6 @@ async def call_endpoint_with_retry(endpoint, data):
     return endpoint.run_sync(data, timeout=600)  # Timeout in seconds
 
 
-# Route for the Language identification endpoint
-@router.post(
-    "/language_id",
-    response_model=LanguageIdResponse,
-)
-async def language_id(
-    languageId_request: LanguageIdRequest, current_user=Depends(get_current_user)
-):
-    """
-    This endpoint identifies the language of a given text. It supports a limited
-    set of local languages including Acholi (ach), Ateso (teo), English (eng),
-    Luganda (lug), Lugbara (lgg), and Runyankole (nyn).
-    """
-
-    endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
-    request_response = {}
-
-    try:
-        request_response = endpoint.run_sync(
-            {
-                "input": {
-                    "task": "auto_detect_language",
-                    "text": languageId_request.text,
-                }
-            },
-            timeout=60,  # Timeout in seconds.
-        )
-
-        # Log the request for debugging purposes
-        logging.info(f"Request response: {request_response}")
-
-    except TimeoutError:
-        # Handle timeout error and return a meaningful message to the user
-        logging.error("Job timed out.")
-        raise HTTPException(
-            status_code=408,
-            detail="The language identification job timed out. Please try again later.",
-        )
-
-    return request_response
-
-
-# Route for the Language identification endpoint
-@router.post(
-    "/classify_language",
-    response_model=LanguageIdResponse,
-)
-async def classify_language(
-    languageId_request: LanguageIdRequest, current_user=Depends(get_current_user)
-):
-    """
-    This endpoint identifies the language of a given text. It supports a limited
-    set of local languages including Acholi (ach), Ateso (teo), English (eng),
-    Luganda (lug), Lugbara (lgg), and Runyankole (nyn).
-    """
-
-    endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
-    request_response = {}
-    text = languageId_request.text.lower()
-
-    try:
-        request_response = endpoint.run_sync(
-            {
-                "input": {
-                    "task": "language_classify",
-                    "text": text,
-                }
-            },
-            timeout=60,  # Timeout in seconds.
-        )
-
-        # Log the request for debugging purposes
-        logging.info(f"Request response: {request_response}")
-
-    except TimeoutError:
-        # Handle timeout error and return a meaningful message to the user
-        logging.error("Job timed out.")
-        raise HTTPException(
-            status_code=408,
-            detail="The language identification job timed out. Please try again later.",
-        )
-
-    except Exception as e:
-        # Handle any other exceptions and log them
-        logging.error(f"An error occurred: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail="An error occurred while processing the language identification request.",
-        )
-
-    # Extract predictions from the response
-    if isinstance(request_response, dict) and "predictions" in request_response:
-        predictions = request_response["predictions"]
-
-        # Find the language with the highest probability above the threshold
-        threshold = 0.9
-        detected_language = "language not detected"
-        highest_prob = 0.0
-
-        for language, probability in predictions.items():
-            if probability > highest_prob:
-                highest_prob = probability
-                detected_language = language
-
-        if highest_prob < threshold:
-            detected_language = "language not detected"
-
-    else:
-        # Handle case where response format is unexpected
-        logging.error(f"Unexpected response format: {request_response}")
-        raise HTTPException(
-            status_code=500,
-            detail="Unexpected response format from the language identification service.",
-        )
-
-    return {"language": detected_language}
-
-
 @router.post(
     "/summarise",
     response_model=SummarisationResponse,
@@ -467,68 +342,6 @@ async def summarise(
 
     # Log endpoint in database
     await log_endpoint(db, user, request, start_time, end_time)
-
-    # Calculate the elapsed time
-    elapsed_time = end_time - start_time
-    logging.info(f"Elapsed time: {elapsed_time} seconds")
-
-    return request_response
-
-
-@router.post(
-    "/auto_detect_audio_language",
-    response_model=AudioDetectedLanguageResponse,
-)
-@limiter.limit(get_account_type_limit)
-async def auto_detect_audio_language(
-    request: Request,
-    audio: UploadFile(...) = File(...),  # type: ignore
-    db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user),
-):
-    """
-    Upload an audio file and get the language of the audio
-    """
-    endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
-    _ = current_user
-
-    filename = secure_filename(audio.filename)
-    # Add a timestamp to the file name
-    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    unique_file_name = f"{timestamp}_{filename}"
-    file_path = os.path.join("/tmp", unique_file_name)
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(audio.file, buffer)
-
-    blob_name, blob_url = upload_audio_file(file_path=file_path)
-    audio_file = blob_name
-    os.remove(file_path)
-    request_response = {}
-
-    data = {
-        "input": {
-            "task": "auto_detect_audio_language",
-            "audio_file": audio_file,
-        }
-    }
-
-    start_time = time.time()
-
-    try:
-        request_response = await call_endpoint_with_retry(endpoint, data)
-    except TimeoutError as e:
-        logging.error(f"Job timed out: {str(e)}")
-        raise HTTPException(
-            status_code=503, detail="Service unavailable due to timeout."
-        )
-    except ConnectionError as e:
-        logging.error(f"Connection lost: {str(e)}")
-        raise HTTPException(
-            status_code=503, detail="Service unavailable due to connection error."
-        )
-
-    end_time = time.time()
-    logging.info(f"Response: {request_response}")
 
     # Calculate the elapsed time
     elapsed_time = end_time - start_time

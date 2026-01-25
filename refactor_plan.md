@@ -970,7 +970,7 @@ def function_name(param1: str, param2: int) -> dict:
 | 7 | Create Inference Service | ✅ Complete | 2026-01-24 |
 | 8 | Create STT Router | ✅ Complete | 2026-01-24 |
 | 9 | Create Translation Router | ✅ Complete | 2026-01-24 |
-| 10 | Create Language Router | ⬜ Pending | |
+| 10 | Create Language Router | ✅ Complete | 2026-01-25 |
 | 11 | Create Summarization Router | ⬜ Pending | |
 | 12 | Create Inference Router | ⬜ Pending | |
 | 13 | Create Upload Router | ⬜ Pending | |

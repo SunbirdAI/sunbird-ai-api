@@ -30,6 +30,7 @@ Available Services:
     - TTSService: Text-to-Speech service for audio generation
     - STTService: Speech-to-Text service for audio transcription
     - TranslationService: Text translation service for NLLB translation
+    - LanguageService: Language identification and classification service
     - WhatsAppBusinessService: WhatsApp messaging business logic
     - OptimizedMessageProcessor: WhatsApp message processing service
     - InferenceService: Language model inference service
@@ -51,6 +52,18 @@ from app.services.inference_service import (
     get_inference_service,
     reset_inference_service,
     run_inference,
+)
+from app.services.language_service import (
+    AudioLanguageResult,
+    LanguageClassificationResult,
+    LanguageConnectionError,
+    LanguageDetectionError,
+    LanguageError,
+    LanguageIdentificationResult,
+    LanguageService,
+    LanguageTimeoutError,
+    get_language_service,
+    reset_language_service,
 )
 from app.services.message_processor import (
     MessageType,
@@ -124,4 +137,14 @@ __all__ = [
     "TranslationTimeoutError",
     "TranslationConnectionError",
     "TranslationValidationError",
+    "LanguageService",
+    "get_language_service",
+    "reset_language_service",
+    "LanguageIdentificationResult",
+    "LanguageClassificationResult",
+    "AudioLanguageResult",
+    "LanguageError",
+    "LanguageTimeoutError",
+    "LanguageConnectionError",
+    "LanguageDetectionError",
 ]
