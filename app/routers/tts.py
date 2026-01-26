@@ -9,11 +9,12 @@ import json
 from io import BytesIO
 
 import httpx
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.deps import StorageServiceDep, TTSServiceDep
+from app.deps import StorageServiceDep, TTSServiceDep, get_current_user, get_db
 from app.models.enums import SpeakerID, TTSResponseMode, get_all_speakers
 from app.schemas.tts import (
     ErrorResponse,
@@ -58,7 +59,10 @@ async def health_check():
     summary="List Available Speakers",
     description="Get all available speaker voices for TTS generation.",
 )
-async def list_speakers():
+async def list_speakers(
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     """Return a list of all available speaker voices."""
     speakers = [SpeakerInfo(**speaker_data) for speaker_data in get_all_speakers()]
     return SpeakersListResponse(speakers=speakers)
@@ -85,6 +89,8 @@ async def generate_tts(
     request: TTSRequest,
     storage_service: StorageServiceDep,
     tts_service: TTSServiceDep,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
     """
     Generate TTS audio from text.
@@ -148,6 +154,8 @@ async def generate_tts(
 async def stream_tts(
     request: TTSRequest,
     tts_service: TTSServiceDep,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
     """Stream audio directly without storing in GCP."""
     return await _stream_audio(request, tts_service)
@@ -163,6 +171,8 @@ async def stream_tts_with_url(
     request: TTSRequest,
     storage_service: StorageServiceDep,
     tts_service: TTSServiceDep,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
     """Stream audio and provide a URL for the complete file at the end."""
     return await _stream_audio_with_url(request, storage_service, tts_service)
@@ -178,6 +188,8 @@ async def stream_tts_with_url(
 async def refresh_signed_url(
     storage_service: StorageServiceDep,
     file_name: str = Query(..., description="The file name in GCP Storage"),
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
     """Generate a fresh signed URL for an existing audio file."""
     try:

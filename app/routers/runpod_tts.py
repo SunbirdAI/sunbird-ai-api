@@ -1,16 +1,23 @@
+"""
+RunPod Text-to-Speech Router.
+
+This module provides TTS endpoints using the RunPod inference server.
+Handles text-to-speech conversion with various speaker voices for Ugandan languages.
+
+Endpoints:
+    POST /tasks/runpod/tts - Convert text to speech audio
+"""
+
 import asyncio
 import datetime
 import hashlib
 import json
 import logging
-import mimetypes
 import os
-import tempfile
 import time
 from typing import Any, Dict, Optional
 
 import aiohttp
-import requests
 import runpod
 from dotenv import load_dotenv
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
@@ -24,18 +31,10 @@ from tenacity import (
     wait_exponential,
 )
 
-from app.crud.audio_transcription import create_audio_transcription
 from app.crud.monitoring import log_endpoint
 from app.deps import get_current_user, get_db
-from app.schemas.tasks import (
-    ChatRequest,
-    ChatResponse,
-    SummarisationRequest,
-    SummarisationResponse,
-    TTSRequest,
-)
+from app.schemas.tasks import TTSRequest
 from app.utils.auth import ALGORITHM, SECRET_KEY
-from app.utils.upload_audio_file_gcp import upload_file_to_bucket
 
 router = APIRouter()
 
@@ -50,9 +49,7 @@ runpod.api_key = os.getenv("RUNPOD_API_KEY")
 # Get feedback URL from environment
 FEEDBACK_URL = os.getenv("FEEDBACK_URL")
 
-# Inference type constants — use these when scheduling feedback saves so
-# downstream systems can easily classify events.
-INFERENCE_CHAT = "chat"
+# Inference type constant
 INFERENCE_TTS = "tts"
 
 
@@ -62,7 +59,7 @@ async def save_api_inference(
     username: Any,
     model_type: Optional[str] = None,
     processing_time: Optional[float] = None,
-    inference_type: str = INFERENCE_CHAT,
+    inference_type: str = INFERENCE_TTS,
     job_details: Optional[Dict[str, Any]] = None,
 ) -> bool:
     """
@@ -216,19 +213,6 @@ def get_account_type_limit(key: str) -> str:
 limiter = Limiter(key_func=custom_key_func)
 
 
-def get_endpoint_details(endpoint_id: str):
-    url = f"https://rest.runpod.io/v1/endpoints/{endpoint_id}"
-    headers = {"Authorization": f"Bearer {os.getenv('RUNPOD_API_KEY')}"}
-    response = requests.get(url, headers=headers)
-    details = response.json()
-
-    return details
-
-
-endpoint_details = get_endpoint_details(RUNPOD_ENDPOINT_ID)
-logging.info(f"Endpoint details: {endpoint_details}")
-
-
 @retry(
     stop=stop_after_attempt(3),  # Retry up to 3 times
     wait=wait_exponential(
@@ -244,63 +228,7 @@ async def call_endpoint_with_retry(endpoint, data):
 
 
 @router.post(
-    "/summarise",
-    response_model=SummarisationResponse,
-)
-@limiter.limit(get_account_type_limit)
-async def summarise(
-    request: Request,
-    input_text: SummarisationRequest,
-    db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user),
-):
-    """
-    This endpoint does anonymised summarisation of a given text. The text languages
-    supported for now are English (eng) and Luganda (lug).
-    """
-
-    endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
-    request_response = {}
-    user = current_user
-    data = {
-        "input": {
-            "task": "summarise",
-            "text": input_text.text,
-        }
-    }
-
-    start_time = time.time()
-
-    try:
-        request_response = await call_endpoint_with_retry(endpoint, data)
-        logging.info(f"Response: {request_response}")
-    except TimeoutError as e:
-        logging.error(f"Job timed out: {str(e)}")
-        raise HTTPException(
-            status_code=503, detail="Service unavailable due to timeout."
-        )
-    except ConnectionError as e:
-        logging.error(f"Connection lost: {str(e)}")
-        raise HTTPException(
-            status_code=503, detail="Service unavailable due to connection error."
-        )
-
-    end_time = time.time()
-
-    # Log endpoint in database
-    await log_endpoint(db, user, request, start_time, end_time)
-
-    # Calculate the elapsed time
-    elapsed_time = end_time - start_time
-    logging.info(f"Elapsed time: {elapsed_time} seconds")
-
-    return request_response
-
-
-# Route for the text-to-speech endpoint
-@router.post(
     "/tts",
-    deprecated=True,
 )
 @limiter.limit(get_account_type_limit)
 async def text_to_speech(
@@ -311,25 +239,25 @@ async def text_to_speech(
     current_user=Depends(get_current_user),
 ):
     """
-    **DEPRECATED**: This endpoint is maintained for backward compatibility only.
-
-    Please use the new endpoint at `/tasks/runpod/tts` instead.
-
-    Legacy RunPod text-to-speech endpoint.
+    RunPod Text-to-Speech endpoint.
     Converts input text to speech audio using a specified speaker voice.
+
+    This endpoint uses the RunPod inference server for TTS generation.
 
     Args:
         request (Request): The incoming HTTP request object.
         tts_request (TTSRequest): The request body containing text, speaker ID, and synthesis parameters.
-        db (AsyncSession, optional): Database session dependency.
-        current_user (User, optional): The authenticated user making the request.
+        background_tasks (BackgroundTasks): FastAPI background tasks for logging.
+        db (AsyncSession): Database session dependency.
+        current_user (User): The authenticated user making the request.
 
     Returns:
         dict: A dictionary containing the generated speech audio with signed URL and metadata.
 
     Raises:
+        HTTPException: Returns 400 for invalid input parameters.
         HTTPException: Returns 503 if the service is unavailable due to timeout or connection error.
-        HTTPException: Returns 500 for any other internal server errors.
+        HTTPException: Returns 502 for worker errors.
 
     Speaker IDs:
         241: Acholi (female)
@@ -348,11 +276,6 @@ async def text_to_speech(
             }
         }
     """
-    # Log deprecation warning
-    logging.warning(
-        "DEPRECATED: /tasks/tts endpoint called. Please migrate to /tasks/runpod/tts"
-    )
-
     endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
     user = current_user
 
