@@ -21,6 +21,8 @@ from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field
 
+from app.utils.audio import AUDIO_MIME_TYPES
+
 
 class SttbLanguage(str, Enum):
     """Supported languages for Speech-to-Text transcription.
@@ -170,11 +172,5 @@ MAX_AUDIO_FILE_SIZE_MB = 10  # 10MB limit
 MAX_AUDIO_DURATION_MINUTES = 10  # 10 minutes limit
 CHUNK_SIZE = 1024 * 1024  # 1MB chunks for streaming
 
-ALLOWED_AUDIO_TYPES = {
-    "audio/mpeg": [".mp3"],
-    "audio/wav": [".wav"],
-    "audio/x-wav": [".wav"],
-    "audio/ogg": [".ogg"],
-    "audio/x-m4a": [".m4a"],
-    "audio/aac": [".aac"],
-}
+# Use centralized audio MIME types from audio utils
+ALLOWED_AUDIO_TYPES = AUDIO_MIME_TYPES

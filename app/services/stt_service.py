@@ -50,6 +50,7 @@ from app.schemas.stt import (
     SttbLanguage,
 )
 from app.services.base import BaseService
+from app.utils.audio import get_audio_extension
 from app.utils.upload_audio_file_gcp import upload_audio_file
 
 load_dotenv()
@@ -405,7 +406,7 @@ class STTService(BaseService):
             raise AudioProcessingError(f"GCS blob {gcs_blob_name} does not exist.")
 
         # Download to temp file
-        file_extension = os.path.splitext(gcs_blob_name)[1].lower() or ".mp3"
+        file_extension = get_audio_extension(gcs_blob_name) or ".mp3"
         with tempfile.NamedTemporaryFile(
             delete=False, suffix=file_extension
         ) as temp_file:

@@ -976,7 +976,7 @@ def function_name(param1: str, param2: int) -> dict:
 | 13 | Create Upload Router | ✅ Complete | 2026-01-25 |
 | 14 | Create Webhooks Router | ✅ Complete | 2026-01-26 |
 | 15 | Reorganize Utils Module | ✅ Complete | 2026-01-26 |
-| 16 | Create Audio Utils | ⬜ Pending | |
+| 16 | Create Audio Utils | ✅ Complete | 2026-01-26 |
 | 17 | Clean Up Deprecated Files | ⬜ Pending | |
 | 18 | Update Dependencies Module | ⬜ Pending | |
 | 19 | Final Documentation and Cleanup | ⬜ Pending | |
@@ -1079,6 +1079,58 @@ def function_name(param1: str, param2: int) -> dict:
 - `utils/storage.py` - Legacy GCPStorageService for TTS functionality
 - `services/storage_service.py` - New StorageService for signed URL generation
 - `utils/upload_audio_file_gcp.py` - Simple upload helpers used by multiple services
+
+### Step 16: Create Audio Utils - ✅ COMPLETE (2026-01-26)
+**Files Created:**
+- `app/utils/audio.py` - Centralized audio processing utilities module
+- `app/tests/test_utils/test_audio.py` - Comprehensive test suite with 44 tests
+
+**Audio Utilities Created:**
+- **Constants:** `AUDIO_MIME_TYPES` (8 MIME types), `EXTENSION_TO_MIME` (7 extensions)
+- **Functions:**
+  - `get_audio_extension()` - Extract file extension from filename
+  - `validate_audio_mime_type()` - Check if MIME type is supported
+  - `get_content_type_from_extension()` - Get MIME type from extension
+  - `get_supported_extensions()` - List all supported audio extensions
+  - `get_supported_mime_types()` - List all supported MIME types
+  - `estimate_speech_duration()` - Estimate TTS audio duration from text
+  - `format_duration()` - Format seconds to human-readable string (e.g., "1:30", "1:01:05")
+  - `is_audio_file()` - Check if filename has supported audio extension
+  - `sanitize_filename()` - Remove unsafe characters from filenames
+
+**Supported Audio Formats:**
+- MP3 (audio/mpeg)
+- WAV (audio/wav, audio/x-wav)
+- OGG (audio/ogg)
+- M4A (audio/x-m4a, audio/mp4)
+- AAC (audio/aac)
+- WebM (audio/webm)
+
+**Test Coverage:**
+- 9 test classes covering all utility functions
+- 44 total tests with edge cases and error conditions
+- Tests for extension extraction, MIME type validation, duration estimation, filename sanitization
+
+**Changes Made:**
+- Created comprehensive audio utilities with Google-style docstrings
+- Centralized common audio processing functions used across services
+- All functions include usage examples in docstrings
+- Service-specific audio processing remains in respective service files (stt_service.py, tts_service.py)
+
+**Import Updates Across Codebase:**
+- Updated `app/services/tts_service.py` to use `estimate_speech_duration()` from audio utils instead of duplicating the implementation
+- Updated `app/schemas/stt.py` to use `AUDIO_MIME_TYPES` from audio utils instead of duplicating the constant as `ALLOWED_AUDIO_TYPES`
+- Updated `app/routers/stt.py` to use `get_audio_extension()` instead of `os.path.splitext()` for consistent extension extraction
+- Updated `app/services/stt_service.py` to use `get_audio_extension()` instead of `os.path.splitext()` for GCS blob name extension extraction
+- All changes eliminate code duplication and ensure consistent audio format handling across the application
+
+**Test Results:** 531 tests pass (44 audio utils + 487 existing)
+
+**Note:** The audio utilities provide common functions for:
+- File extension and MIME type handling
+- Audio file validation
+- Speech duration estimation for TTS
+- Filename sanitization for safe storage
 
 ---
 

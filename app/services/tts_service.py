@@ -44,6 +44,7 @@ from app.core.config import settings
 from app.core.exceptions import ExternalServiceError
 from app.models.enums import SpeakerID
 from app.services.base import BaseService
+from app.utils.audio import estimate_speech_duration
 
 
 class TTSService(BaseService):
@@ -381,8 +382,7 @@ class TTSService(BaseService):
             >>> TTSService.estimate_duration("A longer sentence with more words")
             2.8
         """
-        word_count = len(text.split())
-        return (word_count / words_per_minute) * 60
+        return estimate_speech_duration(text, words_per_minute)
 
 
 # -----------------------------------------------------------------------------

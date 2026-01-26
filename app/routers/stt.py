@@ -65,6 +65,7 @@ from app.services.stt_service import (
     TranscriptionError,
     get_stt_service,
 )
+from app.utils.audio import get_audio_extension
 from app.utils.auth import ALGORITHM, SECRET_KEY
 
 load_dotenv()
@@ -282,7 +283,7 @@ async def speech_to_text(
     try:
         # Validate file type
         content_type = audio.content_type
-        file_extension = os.path.splitext(audio.filename)[1].lower()
+        file_extension = get_audio_extension(audio.filename)
 
         try:
             service.validate_audio_file(content_type, file_extension)
