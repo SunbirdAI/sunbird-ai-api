@@ -42,7 +42,7 @@ from google.cloud import storage
 from pydub import AudioSegment
 from pydub.exceptions import CouldntDecodeError
 
-from app.inference_services.runpod_helpers import run_job_and_get_output
+from app.integrations.runpod import run_job_and_get_output
 from app.schemas.stt import (
     ALLOWED_AUDIO_TYPES,
     CHUNK_SIZE,

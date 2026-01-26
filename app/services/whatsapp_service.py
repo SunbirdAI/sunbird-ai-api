@@ -1108,7 +1108,7 @@ class WhatsAppBusinessService(BaseService):
         """
         try:
             # Import here to avoid circular imports
-            from app.inference_services.user_preference import update_feedback
+            from app.integrations.firebase import update_feedback
 
             loop = asyncio.get_event_loop()
             await loop.run_in_executor(None, update_feedback, message_id, emoji)
@@ -1126,7 +1126,7 @@ class WhatsAppBusinessService(BaseService):
             language_code: Selected language code.
         """
         try:
-            from app.inference_services.user_preference import save_user_preference
+            from app.integrations.firebase import save_user_preference
 
             loop = asyncio.get_event_loop()
             await loop.run_in_executor(
@@ -1147,9 +1147,7 @@ class WhatsAppBusinessService(BaseService):
             sender_name: User's name.
         """
         try:
-            from app.inference_services.user_preference import (
-                save_feedback_with_context,
-            )
+            from app.integrations.firebase import save_feedback_with_context
 
             loop = asyncio.get_event_loop()
             await loop.run_in_executor(
@@ -1337,9 +1335,13 @@ def clear_processed_messages() -> None:
     _processed_messages.clear()
 
 
+# Backward compatibility alias
+WhatsAppService = WhatsAppBusinessService
+
 __all__ = [
     # Main service
     "WhatsAppBusinessService",
+    "WhatsAppService",  # Backward compatibility alias
     "get_whatsapp_service",
     "reset_whatsapp_service",
     # Helper classes

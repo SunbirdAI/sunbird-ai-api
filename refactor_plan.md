@@ -977,7 +977,7 @@ def function_name(param1: str, param2: int) -> dict:
 | 14 | Create Webhooks Router | ✅ Complete | 2026-01-26 |
 | 15 | Reorganize Utils Module | ✅ Complete | 2026-01-26 |
 | 16 | Create Audio Utils | ✅ Complete | 2026-01-26 |
-| 17 | Clean Up Deprecated Files | ⬜ Pending | |
+| 17 | Clean Up Deprecated Files | ✅ Complete | 2026-01-26 |
 | 18 | Update Dependencies Module | ⬜ Pending | |
 | 19 | Final Documentation and Cleanup | ⬜ Pending | |
 
@@ -1131,6 +1131,39 @@ def function_name(param1: str, param2: int) -> dict:
 - Audio file validation
 - Speech duration estimation for TTS
 - Filename sanitization for safe storage
+
+### Step 17: Clean Up Deprecated Files - ✅ COMPLETE (2026-01-26)
+**Files Deleted:**
+- `app/inference_services/` - Entire directory removed (12 deprecated files)
+
+**Migrations Completed:**
+- **RunPod Integration:** Updated imports in `translation_service.py` and `stt_service.py` to use `app.integrations.runpod` instead of `app.inference_services.runpod_helpers`
+- **Firebase Integration:** Created `app/integrations/firebase.py` with 11 Firebase/Firestore functions migrated from `user_preference.py`
+  - Functions include: user preferences, feedback operations, message storage, conversation retrieval
+  - Updated imports in 6 files: webhooks router, message processor, and WhatsApp service
+- **WhatsApp Service:** Ensured proper service usage with singleton pattern
+  - Added backward compatibility alias: `WhatsAppService = WhatsAppBusinessService`
+  - Updated initialization in webhooks.py and message_processor.py to use `get_whatsapp_service()`
+
+**Changes Made:**
+- Updated `app/integrations/__init__.py` to export all Firebase functions
+- Fixed import errors and initialization mismatches during cleanup
+- Removed unused `normalize_runpod_response` import from translation router
+- Changed WhatsApp service initialization from constructor with token/phone_number_id to singleton pattern
+
+**Files Migrated:**
+- `inference_services/runpod_helpers.py` → `integrations/runpod.py` (already existed, just updated imports)
+- `inference_services/user_preference.py` → `integrations/firebase.py` (new file created)
+- `inference_services/whatsapp_service.py` → `services/whatsapp_service.py` (already migrated in Step 6)
+
+**Test Results:** 527 tests pass
+
+**Errors Fixed During Cleanup:**
+1. Removed unused `normalize_runpod_response` import from translation router
+2. Added `WhatsAppService` backward compatibility alias in `services/whatsapp_service.py`
+3. Updated WhatsApp service initialization to use `get_whatsapp_service()` singleton instead of direct constructor calls
+
+**Note:** All functionality from `inference_services/` successfully migrated to proper locations (`services/` and `integrations/`). The codebase now follows the target architecture with clear separation between business logic (services) and external API clients (integrations).
 
 ---
 

@@ -37,10 +37,7 @@ from typing import Any, Dict, Optional
 import runpod
 from dotenv import load_dotenv
 
-from app.inference_services.runpod_helpers import (
-    normalize_runpod_response,
-    run_job_and_get_output,
-)
+from app.integrations.runpod import normalize_runpod_response, run_job_and_get_output
 from app.schemas.translation import (
     NllbLanguage,
     WorkerTranslationOutput,

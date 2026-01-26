@@ -31,7 +31,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud.monitoring import log_endpoint
 from app.deps import get_current_user, get_db
-from app.inference_services.runpod_helpers import normalize_runpod_response
 from app.schemas.translation import NllbTranslationRequest, WorkerTranslationResponse
 from app.services.translation_service import (
     TranslationConnectionError,

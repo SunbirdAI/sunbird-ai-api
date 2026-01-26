@@ -43,7 +43,7 @@ from dotenv import load_dotenv
 from pydub import AudioSegment
 from pydub.exceptions import CouldntDecodeError
 
-from app.inference_services.user_preference import (
+from app.integrations.firebase import (
     get_user_last_five_conversation_pairs,
     get_user_preference,
     save_feedback_with_context,
@@ -52,8 +52,8 @@ from app.inference_services.user_preference import (
     save_user_preference,
     update_feedback,
 )
-from app.inference_services.whatsapp_service import WhatsAppService
 from app.services.inference_service import run_inference
+from app.services.whatsapp_service import get_whatsapp_service
 from app.utils.upload_audio_file_gcp import upload_audio_file
 
 load_dotenv()
@@ -65,9 +65,7 @@ PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID")
 RUNPOD_ENDPOINT_ID = os.getenv("RUNPOD_ENDPOINT_ID")
 
 # Initialize services
-whatsapp_service = WhatsAppService(
-    token=WHATSAPP_TOKEN, phone_number_id=PHONE_NUMBER_ID
-)
+whatsapp_service = get_whatsapp_service()
 processed_messages: Set[str] = set()
 
 
@@ -1216,7 +1214,7 @@ class OptimizedMessageProcessor:
             emoji: The emoji reaction.
         """
         try:
-            from app.inference_services.user_preference import save_detailed_feedback
+            from app.integrations.firebase import save_detailed_feedback
 
             save_detailed_feedback(message_id, emoji, feedback_type="reaction")
             logging.info(f"Reaction feedback saved: {message_id} - {emoji}")

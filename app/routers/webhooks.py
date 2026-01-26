@@ -27,10 +27,10 @@ import time
 from dotenv import load_dotenv
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, Response
 
-from app.inference_services.user_preference import get_user_preference
-from app.inference_services.whatsapp_service import WhatsAppService
+from app.integrations.firebase import get_user_preference
 from app.schemas.webhooks import WebhookResponse
 from app.services.message_processor import OptimizedMessageProcessor, ResponseType
+from app.services.whatsapp_service import get_whatsapp_service
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
@@ -41,9 +41,8 @@ router = APIRouter()
 whatsapp_token = os.getenv("WHATSAPP_TOKEN")
 verify_token = os.getenv("VERIFY_TOKEN")
 
-whatsapp_service = WhatsAppService(
-    token=whatsapp_token, phone_number_id=os.getenv("PHONE_NUMBER_ID")
-)
+# Initialize WhatsApp service using singleton
+whatsapp_service = get_whatsapp_service()
 
 # Initialize processor
 processor = OptimizedMessageProcessor()
