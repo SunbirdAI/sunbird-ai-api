@@ -973,7 +973,7 @@ def function_name(param1: str, param2: int) -> dict:
 | 10 | Create Language Router | ✅ Complete | 2026-01-25 |
 | 11 | Create Summarization Router | ⏭️ Skipped | 2026-01-25 |
 | 12 | Create Inference Router | ✅ Complete | 2026-01-25 |
-| 13 | Create Upload Router | ⬜ Pending | |
+| 13 | Create Upload Router | ✅ Complete | 2026-01-25 |
 | 14 | Create Webhooks Router | ⬜ Pending | |
 | 15 | Reorganize Utils Module | ⬜ Pending | |
 | 16 | Create Audio Utils | ⬜ Pending | |
@@ -1012,6 +1012,23 @@ def function_name(param1: str, param2: int) -> dict:
 - Removed unused constants (INFERENCE_SUNFLOWER_CHAT, INFERENCE_SUNFLOWER_SIMPLE)
 
 **Test Results:** 461 tests pass (up from 435)
+
+### Step 13: Create Upload Router - ✅ COMPLETE (2026-01-25)
+**Files Created:**
+- `app/services/storage_service.py` - Storage service for GCS operations
+- `app/schemas/upload.py` - Upload request/response models
+- `app/routers/upload.py` - Upload router with generate-upload-url endpoint
+- `app/tests/test_routers/test_upload.py` - 12 tests for the upload router
+
+**Changes Made:**
+- Extracted `generate-upload-url` endpoint from tasks.py to upload.py
+- Created StorageService extending BaseService for GCS interactions
+- Added upload router to api.py
+- Removed unused imports from tasks.py (storage, uuid, timedelta, UploadRequest, UploadResponse)
+- Implements signed URL generation for direct client uploads to GCS
+- Includes path traversal protection and input validation
+
+**Test Results:** 473 tests pass (up from 461)
 
 ---
 

@@ -7,8 +7,6 @@ import mimetypes
 import os
 import tempfile
 import time
-import uuid
-from datetime import timedelta
 from typing import Any, Dict, Optional
 
 import aiohttp
@@ -23,7 +21,6 @@ from fastapi import (
     Request,
     Response,
 )
-from google.cloud import storage
 from jose import jwt
 from slowapi import Limiter
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -45,8 +42,6 @@ from app.schemas.tasks import (
     SummarisationRequest,
     SummarisationResponse,
     TTSRequest,
-    UploadRequest,
-    UploadResponse,
 )
 from app.services.message_processor import OptimizedMessageProcessor, ResponseType
 from app.utils.auth_utils import ALGORITHM, SECRET_KEY
@@ -337,47 +332,6 @@ async def summarise(
     logging.info(f"Elapsed time: {elapsed_time} seconds")
 
     return request_response
-
-
-@router.post("/generate-upload-url", response_model=UploadResponse)
-async def generate_upload_url(request: UploadRequest):
-    """
-    Generate a signed URL for direct upload to Google Cloud Storage.
-    This bypasses the Cloud Run request size limits.
-    """
-    try:
-        # Initialize the storage client
-        storage_client = storage.Client()
-
-        # Get the bucket - use the same bucket you mentioned in your config
-        bucket = storage_client.bucket("sb-asr-audio-content-sb-gcp-project-01")
-
-        # Generate a unique file ID
-        file_id = str(uuid.uuid4())
-
-        # Create a blob with the unique ID as prefix
-        blob_name = f"uploads/{file_id}/{request.file_name}"
-        blob = bucket.blob(blob_name)
-
-        # Generate a signed URL for uploading
-        expires_at = datetime.utcnow() + timedelta(minutes=10)
-
-        # Create the signed URL with PUT method
-        signed_url = blob.generate_signed_url(
-            version="v4",
-            expiration=timedelta(minutes=10),
-            method="PUT",
-            content_type=request.content_type,
-        )
-
-        return UploadResponse(
-            upload_url=signed_url, file_id=file_id, expires_at=expires_at
-        )
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error generating upload URL: {str(e)}"
-        )
 
 
 # Route for the text-to-speech endpoint
