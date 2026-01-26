@@ -7,6 +7,10 @@ fastapi==0.111.0
 fastapi-mail==1.4.1
 fastapi-limiter==0.1.6
 firebase-admin==6.5.0
+# Google Cloud packages
+google-cloud-storage==2.18.2
+# HTTP client for async requests
+httpx==0.28.1
 newrelic
 passlib[bcrypt]==1.7.4
 bcrypt==4.3.0
