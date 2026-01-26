@@ -7,6 +7,8 @@ Welcome to the Sunbird AI API documentation. The Sunbird AI API provides access 
 ## Getting Started
 You can checkout the [usage guide](https://salt.sunbird.ai/API/) for a full tutorial.
 
+For quickstart tutorials, visit our [GitHub repository](https://github.com/SunbirdAI/sunbird-ai-api/blob/main/tutorial.md)
+
 ### Authentication
 
 #### Signing Up
