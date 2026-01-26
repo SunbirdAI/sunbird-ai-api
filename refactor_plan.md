@@ -974,7 +974,7 @@ def function_name(param1: str, param2: int) -> dict:
 | 11 | Create Summarization Router | ⏭️ Skipped | 2026-01-25 |
 | 12 | Create Inference Router | ✅ Complete | 2026-01-25 |
 | 13 | Create Upload Router | ✅ Complete | 2026-01-25 |
-| 14 | Create Webhooks Router | ⬜ Pending | |
+| 14 | Create Webhooks Router | ✅ Complete | 2026-01-26 |
 | 15 | Reorganize Utils Module | ⬜ Pending | |
 | 16 | Create Audio Utils | ⬜ Pending | |
 | 17 | Clean Up Deprecated Files | ⬜ Pending | |
@@ -1029,6 +1029,27 @@ def function_name(param1: str, param2: int) -> dict:
 - Includes path traversal protection and input validation
 
 **Test Results:** 473 tests pass (up from 461)
+
+### Step 14: Create Webhooks Router - ✅ COMPLETE (2026-01-26)
+**Files Created:**
+- `app/schemas/webhooks.py` - Webhook request/response models (WebhookResponse, WebhookVerificationParams)
+- `app/routers/webhooks.py` - Webhooks router with WhatsApp Business API endpoints
+- `app/tests/test_routers/test_webhooks.py` - 14 tests for the webhooks router
+
+**Changes Made:**
+- Extracted `/webhook` POST and GET endpoints from tasks.py to webhooks.py
+- Extracted `send_template_response` helper function to webhooks.py
+- Added webhooks router to api.py with `/tasks` prefix for backward compatibility
+- Removed webhook endpoints and unused imports from tasks.py
+- Cleaned up orphaned webhook-related variables (whatsapp_token, verify_token, whatsapp_service, processor, processed_messages, languages_obj)
+- Reduced tasks.py from 707 lines to 499 lines
+- Implements WhatsApp webhook verification flow (hub.mode, hub.challenge, hub.verify_token)
+- Supports fast text responses (2-4s) with background processing for heavy operations
+- Includes duplicate message detection and language preference support
+
+**Test Results:** 14 tests pass (3 test classes: TestWebhookHandler with 8 tests, TestWebhookVerification with 5 tests, TestWebhookIntegration with 2 tests)
+
+**Note:** Tasks.py still contains `/summarise` and `/tts` endpoints which weren't moved. The `/summarise` endpoint is deprecated (Step 11 skipped), and `/tts` endpoint may need separate handling.
 
 ---
 

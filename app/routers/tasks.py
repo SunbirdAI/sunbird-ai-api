@@ -13,14 +13,7 @@ import aiohttp
 import requests
 import runpod
 from dotenv import load_dotenv
-from fastapi import (
-    APIRouter,
-    BackgroundTasks,
-    Depends,
-    HTTPException,
-    Request,
-    Response,
-)
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from jose import jwt
 from slowapi import Limiter
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -34,8 +27,6 @@ from tenacity import (
 from app.crud.audio_transcription import create_audio_transcription
 from app.crud.monitoring import log_endpoint
 from app.deps import get_current_user, get_db
-from app.inference_services.user_preference import get_user_preference
-from app.inference_services.whatsapp_service import WhatsAppService
 from app.schemas.tasks import (
     ChatRequest,
     ChatResponse,
@@ -43,7 +34,6 @@ from app.schemas.tasks import (
     SummarisationResponse,
     TTSRequest,
 )
-from app.services.message_processor import OptimizedMessageProcessor, ResponseType
 from app.utils.auth_utils import ALGORITHM, SECRET_KEY
 from app.utils.upload_audio_file_gcp import upload_file_to_bucket
 
@@ -56,33 +46,6 @@ PER_MINUTE_RATE_LIMIT = os.getenv("PER_MINUTE_RATE_LIMIT", 10)
 RUNPOD_ENDPOINT_ID = os.getenv("RUNPOD_ENDPOINT_ID")
 # Set RunPod API Key
 runpod.api_key = os.getenv("RUNPOD_API_KEY")
-
-# Access token for your app
-whatsapp_token = os.getenv("WHATSAPP_TOKEN")
-verify_token = os.getenv("VERIFY_TOKEN")
-
-whatsapp_service = WhatsAppService(
-    token=whatsapp_token, phone_number_id=os.getenv("PHONE_NUMBER_ID")
-)
-
-# Initialize processor
-processor = OptimizedMessageProcessor()
-
-processed_messages = set()
-
-languages_obj = {
-    "1": "lug",
-    "2": "ach",
-    "3": "teo",
-    "4": "lgg",
-    "5": "nyn",
-    "6": "eng",
-    "7": "lug",
-    "8": "ach",
-    "9": "teo",
-    "10": "lgg",
-    "11": "nyn",
-}
 
 # Get feedback URL from environment
 FEEDBACK_URL = os.getenv("FEEDBACK_URL")
@@ -528,180 +491,3 @@ async def text_to_speech(
         logging.warning(f"Failed to schedule TTS feedback save task: {e}")
 
     return response
-
-
-# Webhook handlers
-@router.post("/webhook")
-@router.post("/webhook/")
-async def webhook(payload: dict, background_tasks: BackgroundTasks):
-    """
-    Optimized webhook handler for WhatsApp
-    - Fast text responses (2-4 seconds)
-    - Background processing for heavy operations
-    - No external caching dependencies
-    """
-    start_time = time.time()
-
-    try:
-        # Quick validation
-        if not whatsapp_service.valid_payload(payload):
-            logging.info("Invalid payload received")
-            return {"status": "ignored"}
-
-        messages = whatsapp_service.get_messages_from_payload(payload)
-        if not messages:
-            return {"status": "no_messages"}
-
-        # Extract message details
-        try:
-            phone_number_id = payload["entry"][0]["changes"][0]["value"]["metadata"][
-                "phone_number_id"
-            ]
-            from_number = payload["entry"][0]["changes"][0]["value"]["messages"][0][
-                "from"
-            ]
-            sender_name = payload["entry"][0]["changes"][0]["value"]["contacts"][0][
-                "profile"
-            ]["name"]
-        except (KeyError, IndexError) as e:
-            logging.error(f"Error extracting message details: {e}")
-            return {"status": "invalid_message_format"}
-
-        # Get user preference
-        target_language = get_user_preference(from_number)
-
-        if not target_language:
-            target_language = "eng"  # Default to English if no preference set
-
-        # Process message
-        result = await processor.process_message(
-            payload, from_number, sender_name, target_language, phone_number_id
-        )
-
-        # Handle response
-        if result.response_type == ResponseType.SKIP:
-            pass
-        elif result.response_type == ResponseType.TEMPLATE:
-            background_tasks.add_task(
-                send_template_response,
-                result.template_name,
-                phone_number_id,
-                from_number,
-                sender_name,
-            )
-        elif result.response_type == ResponseType.BUTTON and result.button_data:
-            try:
-                whatsapp_service.send_button(
-                    button=result.button_data,
-                    phone_number_id=phone_number_id,
-                    recipient_id=from_number,
-                )
-            except Exception as e:
-                logging.error(f"Error sending button: {e}")
-                # Fallback to text message
-                whatsapp_service.send_message(
-                    result.message
-                    or "I'm having trouble with interactive buttons. Please try typing your request.",
-                    whatsapp_token,
-                    from_number,
-                    phone_number_id,
-                )
-        elif result.response_type == ResponseType.TEXT and result.message:
-            try:
-                whatsapp_service.send_message(
-                    result.message, whatsapp_token, from_number, phone_number_id
-                )
-            except Exception as e:
-                logging.error(f"Error sending message: {e}")
-
-        # Log performance
-        total_time = time.time() - start_time
-        logging.info(
-            f"Webhook processed in {total_time:.3f}s (processing: {result.processing_time:.3f}s)"
-        )
-
-        return {"status": "success", "processing_time": total_time}
-
-    except Exception as error:
-        total_time = time.time() - start_time
-        logging.error(f"Webhook error after {total_time:.3f}s: {str(error)}")
-
-        # Try to send error message
-        try:
-            if "from_number" in locals() and "phone_number_id" in locals():
-                whatsapp_service.send_message(
-                    "I'm experiencing technical difficulties. Please try again.",
-                    whatsapp_token,
-                    from_number,
-                    phone_number_id,
-                )
-        except:
-            pass
-
-        return {"status": "error", "processing_time": total_time}
-
-
-async def send_template_response(
-    template_name: str, phone_number_id: str, from_number: str, sender_name: str
-):
-    """Send template responses"""
-    try:
-        if template_name == "custom_feedback":
-            whatsapp_service.send_button(
-                button=processor.create_feedback_button(),
-                phone_number_id=phone_number_id,
-                recipient_id=from_number,
-            )
-
-        elif template_name == "welcome_message":
-            whatsapp_service.send_button(
-                button=processor.create_welcome_button(),
-                phone_number_id=phone_number_id,
-                recipient_id=from_number,
-            )
-
-        elif template_name == "choose_language":
-            whatsapp_service.send_button(
-                button=processor.create_language_selection_button(),
-                phone_number_id=phone_number_id,
-                recipient_id=from_number,
-            )
-
-    except Exception as e:
-        logging.error(f"Error sending template {template_name}: {e}")
-
-
-@router.get("/webhook")
-@router.get("/webhook/")
-async def verify_webhook(
-    request: Request,
-    hub_mode: str = None,
-    hub_challenge: str = None,
-    hub_verify_token: str = None,
-):
-    """
-    Webhook verification endpoint for WhatsApp
-    WhatsApp sends: hub.mode, hub.challenge, hub.verify_token
-    """
-    # Extract query parameters - WhatsApp uses hub.mode, hub.challenge, hub.verify_token
-    mode = request.query_params.get("hub.mode")
-    challenge = request.query_params.get("hub.challenge")
-    token = request.query_params.get("hub.verify_token")
-
-    logging.info(
-        f"Webhook verification request - Mode: {mode}, Challenge: {challenge}, Token: {token}"
-    )
-
-    if mode and token and challenge:
-        if mode != "subscribe" or token != os.getenv("VERIFY_TOKEN"):
-            logging.error(
-                f"Webhook verification failed - Expected token: {os.getenv('VERIFY_TOKEN')}, Received: {token}"
-            )
-            raise HTTPException(status_code=403, detail="Forbidden")
-
-        logging.info("WEBHOOK_VERIFIED")
-        # WhatsApp expects a plain text response with just the challenge value
-        return Response(content=challenge, media_type="text/plain")
-
-    logging.error("Missing required parameters for webhook verification")
-    raise HTTPException(status_code=400, detail="Bad Request")

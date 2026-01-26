@@ -31,6 +31,7 @@ from app.routers.tasks import router as tasks_router
 from app.routers.translation import router as translation_router
 from app.routers.tts import router as modal_tts_router
 from app.routers.upload import router as upload_router
+from app.routers.webhooks import router as webhooks_router
 from app.utils.exception_utils import validation_exception_handler
 
 load_dotenv()
@@ -159,6 +160,7 @@ app.include_router(translation_router, prefix="/tasks", tags=["Translation"])
 app.include_router(language_router, prefix="/tasks", tags=["Language"])
 app.include_router(inference_router, prefix="/tasks", tags=["Inference"])
 app.include_router(upload_router, prefix="/tasks", tags=["Upload"])
+app.include_router(webhooks_router, prefix="/tasks", tags=["Webhooks"])
 app.include_router(modal_tts_router, prefix="/tasks/modal", tags=["TTS Tasks"])
 app.include_router(auth_router, prefix="/auth", tags=["Authentication Endpoints"])
 app.include_router(frontend_router, prefix="", tags=["Frontend Routes"])
