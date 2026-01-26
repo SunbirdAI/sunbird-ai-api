@@ -975,7 +975,7 @@ def function_name(param1: str, param2: int) -> dict:
 | 12 | Create Inference Router | ✅ Complete | 2026-01-25 |
 | 13 | Create Upload Router | ✅ Complete | 2026-01-25 |
 | 14 | Create Webhooks Router | ✅ Complete | 2026-01-26 |
-| 15 | Reorganize Utils Module | ⬜ Pending | |
+| 15 | Reorganize Utils Module | ✅ Complete | 2026-01-26 |
 | 16 | Create Audio Utils | ⬜ Pending | |
 | 17 | Clean Up Deprecated Files | ⬜ Pending | |
 | 18 | Update Dependencies Module | ⬜ Pending | |
@@ -1050,6 +1050,35 @@ def function_name(param1: str, param2: int) -> dict:
 **Test Results:** 14 tests pass (3 test classes: TestWebhookHandler with 8 tests, TestWebhookVerification with 5 tests, TestWebhookIntegration with 2 tests)
 
 **Note:** Tasks.py still contains `/summarise` and `/tts` endpoints which weren't moved. The `/summarise` endpoint is deprecated (Step 11 skipped), and `/tts` endpoint may need separate handling.
+
+### Step 15: Reorganize Utils Module - ✅ COMPLETE (2026-01-26)
+**Files Renamed:**
+- `app/utils/auth_utils.py` → `app/utils/auth.py`
+- `app/utils/email_utils.py` → `app/utils/email.py`
+- `app/utils/helper_utils.py` → `app/utils/helpers.py`
+
+**Files Merged:**
+- `app/utils/exception_utils.py` merged into `app/core/exceptions.py` (then removed)
+  - Added `validation_exception_handler` function to core/exceptions.py
+  - Updated import in api.py to use new location
+
+**Files Retained:**
+- `app/utils/storage.py` - Contains `GCPStorageService` still used by TTS router
+- `app/utils/upload_audio_file_gcp.py` - Contains helper functions used by multiple services
+- `app/utils/monitoring_utils.py` - Used by frontend and middleware
+- `app/utils/feedback.py` - Shared feedback utility for inference
+
+**Changes Made:**
+- Updated all imports across the codebase (11+ files updated)
+- Added validation exception handler to core/exceptions.py with proper docstrings
+- Maintained backward compatibility - all functionality preserved
+
+**Test Results:** 483 tests pass (all tests passing)
+
+**Note:** `storage.py` and `upload_audio_file_gcp.py` remain in utils as they serve different purposes than `services/storage_service.py`:
+- `utils/storage.py` - Legacy GCPStorageService for TTS functionality
+- `services/storage_service.py` - New StorageService for signed URL generation
+- `utils/upload_audio_file_gcp.py` - Simple upload helpers used by multiple services
 
 ---
 

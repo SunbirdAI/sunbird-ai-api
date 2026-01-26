@@ -41,7 +41,7 @@ from app.services.translation_service import (
     TranslationValidationError,
     get_translation_service,
 )
-from app.utils.auth_utils import ALGORITHM, SECRET_KEY
+from app.utils.auth import ALGORITHM, SECRET_KEY
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)

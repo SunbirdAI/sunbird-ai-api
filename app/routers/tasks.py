@@ -34,7 +34,7 @@ from app.schemas.tasks import (
     SummarisationResponse,
     TTSRequest,
 )
-from app.utils.auth_utils import ALGORITHM, SECRET_KEY
+from app.utils.auth import ALGORITHM, SECRET_KEY
 from app.utils.upload_audio_file_gcp import upload_file_to_bucket
 
 router = APIRouter()

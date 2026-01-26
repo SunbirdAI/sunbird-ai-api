@@ -65,7 +65,7 @@ from app.services.stt_service import (
     TranscriptionError,
     get_stt_service,
 )
-from app.utils.auth_utils import ALGORITHM, SECRET_KEY
+from app.utils.auth import ALGORITHM, SECRET_KEY
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)

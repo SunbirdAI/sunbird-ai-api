@@ -34,7 +34,7 @@ from app.deps import get_current_user, get_db
 # from app.routers.auth import get_current_user
 from app.schemas.audio_transcription import AudioTranscriptionBase, ItemQueryParams
 from app.schemas.users import User, UserCreate, UserInDB
-from app.utils.auth_utils import (
+from app.utils.auth import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
     OAuth2PasswordBearerWithCookie,
     authenticate_user,

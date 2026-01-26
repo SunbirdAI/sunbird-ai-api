@@ -20,6 +20,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from tenacity import RetryError, retry, stop_after_attempt, wait_exponential
 
+from app.core.exceptions import validation_exception_handler
 from app.docs import description, tags_metadata
 from app.middleware.monitoring_middleware import log_request
 from app.routers.auth import router as auth_router
@@ -32,7 +33,6 @@ from app.routers.translation import router as translation_router
 from app.routers.tts import router as modal_tts_router
 from app.routers.upload import router as upload_router
 from app.routers.webhooks import router as webhooks_router
-from app.utils.exception_utils import validation_exception_handler
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)

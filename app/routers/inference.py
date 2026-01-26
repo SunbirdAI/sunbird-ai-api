@@ -46,7 +46,7 @@ from app.services.inference_service import (
     get_inference_service,
     run_inference,
 )
-from app.utils.auth_utils import ALGORITHM, SECRET_KEY
+from app.utils.auth import ALGORITHM, SECRET_KEY
 from app.utils.feedback import INFERENCE_TYPES, save_api_inference
 
 load_dotenv()

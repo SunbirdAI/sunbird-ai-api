@@ -10,7 +10,7 @@ from app.crud.monitoring import create_endpoint_log
 from app.crud.users import get_user_by_username
 from app.deps import get_db
 from app.schemas.monitoring import EndpointLog
-from app.utils.auth_utils import ALGORITHM, SECRET_KEY
+from app.utils.auth import ALGORITHM, SECRET_KEY
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

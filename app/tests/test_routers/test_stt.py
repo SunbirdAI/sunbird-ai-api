@@ -549,7 +549,7 @@ class TestRateLimiting:
         from datetime import timedelta
 
         from app.routers.stt import custom_key_func
-        from app.utils.auth_utils import create_access_token
+        from app.utils.auth import create_access_token
 
         # Create a token with account_type
         token = create_access_token(

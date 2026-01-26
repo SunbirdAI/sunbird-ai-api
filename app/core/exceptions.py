@@ -1,7 +1,7 @@
 """
 Custom Exceptions Module.
 
-This module provides custom exception classes for the Sunbird AI API.
+This module provides custom exception classes and exception handlers for the Sunbird AI API.
 All custom exceptions inherit from APIException base class and are designed
 to be caught by FastAPI exception handlers to return consistent error responses.
 
@@ -11,6 +11,10 @@ Usage:
     # In a route handler
     if not user:
         raise NotFoundError(resource="User", resource_id=user_id)
+
+    # In app setup
+    from app.core.exceptions import validation_exception_handler
+    app.add_exception_handler(RequestValidationError, validation_exception_handler)
 
 Exception Hierarchy:
     APIException (base)
@@ -25,7 +29,10 @@ Exception Hierarchy:
 
 from typing import Any, Dict, List, Optional
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException, Request, status
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from starlette.status import HTTP_422_UNPROCESSABLE_ENTITY
 
 
 class APIException(HTTPException):
@@ -436,3 +443,51 @@ class BadRequestError(APIException):
             message=message,
             details=details,
         )
+
+
+# Exception Handlers
+
+
+async def validation_exception_handler(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
+    """Handle Pydantic validation errors with custom formatting.
+
+    This handler converts Pydantic validation errors into a consistent
+    format that matches the app's error response schema.
+
+    Args:
+        request: The incoming HTTP request.
+        exc: The RequestValidationError raised by Pydantic.
+
+    Returns:
+        JSONResponse with formatted validation errors.
+
+    Example Response:
+        {
+            "errors": [
+                {
+                    "loc": ["body", "email"],
+                    "msg": "field required",
+                    "input": null
+                }
+            ]
+        }
+    """
+    from app.schemas.errors import ValidationErrorDetail, ValidationErrorResponse
+
+    errors = exc.errors()
+
+    # Format the errors to match the custom model
+    formatted_errors = [
+        ValidationErrorDetail(
+            loc=error["loc"], msg=error["msg"], input=error.get("input")
+        )
+        for error in errors
+    ]
+
+    error_response = ValidationErrorResponse(errors=formatted_errors)
+
+    return JSONResponse(
+        status_code=HTTP_422_UNPROCESSABLE_ENTITY, content=error_response.model_dump()
+    )

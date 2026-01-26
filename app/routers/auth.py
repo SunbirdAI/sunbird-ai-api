@@ -30,14 +30,14 @@ from app.schemas.users import (
     UserGoogle,
     UserInDB,
 )
-from app.utils.auth_utils import (
+from app.utils.auth import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
     authenticate_user,
     create_access_token,
     get_password_hash,
     verify_password,
 )
-from app.utils.email_utils import send_password_reset_email
+from app.utils.email import send_password_reset_email
 
 router = APIRouter()
 oauth = OAuth()

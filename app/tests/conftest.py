@@ -38,7 +38,7 @@ from app.api import app
 from app.database.db import Base
 from app.deps import get_db
 from app.schemas.users import AccountType, User
-from app.utils.auth_utils import create_access_token, get_password_hash
+from app.utils.auth import create_access_token, get_password_hash
 
 # ---------------------------------------------------------------------------
 # Database Configuration
