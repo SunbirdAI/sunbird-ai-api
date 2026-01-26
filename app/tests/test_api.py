@@ -120,7 +120,7 @@ class TestRouterRegistration:
         """
         # Check that a tasks endpoint exists
         # Should return 401 (unauthorized) or 422 not 404
-        response = await async_client.post("/tasks/nllb_translate", json={})
+        response = await async_client.post("/tasks/translate", json={})
         assert response.status_code in [401, 422]
 
     @pytest.mark.asyncio

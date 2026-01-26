@@ -6,7 +6,7 @@ It provides endpoints for translating text between supported languages
 using the NLLB model.
 
 Endpoints:
-    - POST /nllb_translate: Translate text between languages
+    - POST /translate: Translate text between languages
 
 Architecture:
     Routes → TranslationService → RunPod API
@@ -102,11 +102,11 @@ def get_service() -> TranslationService:
 
 
 @router.post(
-    "/nllb_translate",
+    "/translate",
     response_model=WorkerTranslationResponse,
 )
 @limiter.limit(get_account_type_limit)
-async def nllb_translate(
+async def translate(
     request: Request,
     translation_request: NllbTranslationRequest,
     db: AsyncSession = Depends(get_db),

@@ -23,8 +23,8 @@ from app.services.translation_service import (
 )
 
 
-class TestNllbTranslateEndpoint:
-    """Tests for POST /tasks/nllb_translate endpoint."""
+class TestTranslateEndpoint:
+    """Tests for POST /tasks/translate endpoint."""
 
     @pytest.fixture
     def mock_translation_service(self) -> MagicMock:
@@ -95,7 +95,7 @@ class TestNllbTranslateEndpoint:
 
         try:
             response = await async_client.post(
-                "/tasks/nllb_translate",
+                "/tasks/translate",
                 json={
                     "source_language": "eng",
                     "target_language": "lug",
@@ -123,7 +123,7 @@ class TestNllbTranslateEndpoint:
     ) -> None:
         """Test that translation requires authentication."""
         response = await async_client.post(
-            "/tasks/nllb_translate",
+            "/tasks/translate",
             json={
                 "source_language": "eng",
                 "target_language": "lug",
@@ -141,7 +141,7 @@ class TestNllbTranslateEndpoint:
     ) -> None:
         """Test that invalid source language returns 422."""
         response = await async_client.post(
-            "/tasks/nllb_translate",
+            "/tasks/translate",
             json={
                 "source_language": "invalid",
                 "target_language": "lug",
@@ -160,7 +160,7 @@ class TestNllbTranslateEndpoint:
     ) -> None:
         """Test that invalid target language returns 422."""
         response = await async_client.post(
-            "/tasks/nllb_translate",
+            "/tasks/translate",
             json={
                 "source_language": "eng",
                 "target_language": "invalid",
@@ -179,7 +179,7 @@ class TestNllbTranslateEndpoint:
     ) -> None:
         """Test that empty text returns 422."""
         response = await async_client.post(
-            "/tasks/nllb_translate",
+            "/tasks/translate",
             json={
                 "source_language": "eng",
                 "target_language": "lug",
@@ -198,7 +198,7 @@ class TestNllbTranslateEndpoint:
     ) -> None:
         """Test that whitespace-only text returns 422."""
         response = await async_client.post(
-            "/tasks/nllb_translate",
+            "/tasks/translate",
             json={
                 "source_language": "eng",
                 "target_language": "lug",
@@ -225,7 +225,7 @@ class TestNllbTranslateEndpoint:
 
         try:
             response = await async_client.post(
-                "/tasks/nllb_translate",
+                "/tasks/translate",
                 json={
                     "source_language": "eng",
                     "target_language": "lug",
@@ -255,7 +255,7 @@ class TestNllbTranslateEndpoint:
 
         try:
             response = await async_client.post(
-                "/tasks/nllb_translate",
+                "/tasks/translate",
                 json={
                     "source_language": "eng",
                     "target_language": "lug",
@@ -289,7 +289,7 @@ class TestNllbTranslateEndpoint:
 
         try:
             response = await async_client.post(
-                "/tasks/nllb_translate",
+                "/tasks/translate",
                 json={
                     "source_language": "eng",
                     "target_language": "lug",
@@ -319,7 +319,7 @@ class TestNllbTranslateEndpoint:
 
         try:
             response = await async_client.post(
-                "/tasks/nllb_translate",
+                "/tasks/translate",
                 json={
                     "source_language": "eng",
                     "target_language": "lug",
@@ -395,7 +395,7 @@ class TestSupportedLanguages:
 
         try:
             response = await async_client.post(
-                "/tasks/nllb_translate",
+                "/tasks/translate",
                 json={
                     "source_language": source_lang,
                     "target_language": target_lang,
@@ -442,7 +442,7 @@ class TestFallbackResponse:
 
         try:
             response = await async_client.post(
-                "/tasks/nllb_translate",
+                "/tasks/translate",
                 json={
                     "source_language": "eng",
                     "target_language": "lug",
