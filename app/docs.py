@@ -1,57 +1,103 @@
 description = """
-Welcome to the Sunbird AI API documentation. The Sunbird AI API provides you access to Sunbird's language models. The currently supported models are:  # noqa E501
-- **Translation (English to Multiple)**: translate from English to Acholi, Ateso, Luganda, Lugbara and Runyankole.
-- **Translation (Multiple to English)**: translate from the 5 local language above to English.
-- **Speech To Text**: Convert speech audio to text. Currently the supported languages are (**English**, **Acholi**, **Ateso**, **Luganda**, **Lugbara** and **Runyankole**)
+Welcome to the Sunbird AI API documentation. The Sunbird AI API provides access to Sunbird's language models and AI services for Ugandan languages.
 
-You can create an account and test the endpoints directly on this page.
+## Supported Languages
+**English**, **Acholi**, **Ateso**, **Luganda**, **Lugbara**, **Runyankole**, **Swahili** and **20+** more Ugandan languages supported via sunflower.
 
-## Getting started
+## Getting Started
 You can checkout the [usage guide](https://salt.sunbird.ai/API/) for a full tutorial.
 
-### Signing up
-If you don't already have an account, use the `/auth/register` endpoint to create one. (You can scroll down this page to try it out)
+### Authentication
 
-### Logging in and getting an access token.
+#### Signing Up
+If you don't already have an account, use the `/auth/register` endpoint to create one.
+
+#### Getting an Access Token
 Authentication is done via a Bearer token. Use the `/auth/token` endpoint to get your access token. This token lasts for 7 days.
 
 Use the `Authorize` button below to login and access the protected endpoints.
 
-### AI Tasks
-- Use the `/tasks/stt` endpoint for speech to text inference for one audio file.
-- Use the `tasks/nllb-translate` endpoint for translation of text input with the NLLB model.
-- Use the `/tasks/language_id` endpoint for auto language detection of text input. 
-This endpoint identifies the language of a given text. It supports a limited set 
-of local languages including Acholi (ach), Ateso (teo), English (eng),Luganda (lug), 
-Lugbara (lgg), and Runyankole (nyn).
-- Use the `/tasks/summarise` endpoint for anonymised summarization of text input. 
-This endpoint does anonymised summarisation of a given text. The text languages
-supported for now are English (eng) and Luganda (lug).
+## API Endpoints
 
-### TTS API with GCP Storage Integration
+### Speech-to-Text (STT)
+- **`POST /tasks/stt`** - Convert speech audio to text for supported languages
 
-A Text-to-Speech API that converts text to audio using multiple Ugandan language voices.
+### Translation
+- **`POST /tasks/nllb-translate`** - Translate text between English and local languages (Acholi, Ateso, Luganda, Lugbara, Runyankole)
 
-#### TTS Features
+### Language Detection
+- **`POST /tasks/language_id`** - Auto-detect the language of text input (supports Acholi, Ateso, English, Luganda, Lugbara, Runyankole)
 
-- **Multiple Languages**: Acholi, Ateso, Runyankore, Lugbara, Swahili, and Luganda
-- **Signed URLs**: Audio files are stored in GCP Storage with 30-minute expiring URLs
-- **Streaming Support**: Stream audio chunks for large text inputs
-- **Combined Mode**: Stream audio AND get a final signed URL
+### Text-to-Speech (TTS)
+- **`POST /tasks/modal/tts`** - Convert text to audio using Ugandan language voices
+  - **Multiple Languages**: Acholi, Ateso, Runyankore, Lugbara, Swahili, and Luganda
+  - **Signed URLs**: Audio files are stored in GCP Storage with 30-minute expiring URLs
+  - **Streaming Support**: Stream audio chunks for large text inputs
+  - **Response Modes**:
+    - `url` - Generate audio, upload to GCP, return signed URL
+    - `stream` - Stream raw audio chunks directly
+    - `both` - Stream audio AND get a final signed URL
 
-### Response Modes
+### Inference (Sunflower Chat)
+- **`POST /tasks/sunflower_inference`** - Conversational AI powered by Sunflower model with chat history
+- **`POST /tasks/sunflower_simple`** - Simple text generation without chat history
 
-| Mode | Description |
-|------|-------------|
-| `url` | Generate audio, upload to GCP, return signed URL |
-| `stream` | Stream raw audio chunks directly |
-| `both` | Stream audio + upload to GCP + return final URL |
+### File Upload
+- **`POST /tasks/generate-upload-url`** - Generate signed URLs for direct client uploads to GCP Storage
+  - Supports audio files, images, and other content types
+  - Includes path traversal protection and input validation
+  - Returns temporary signed URL valid for 30 minutes
+
+### WhatsApp Integration (Webhooks)
+- **`POST /tasks/webhook`** - Handle incoming WhatsApp Business API messages
+- **`GET /tasks/webhook`** - Verify webhook endpoint ownership for WhatsApp
+
+### Legacy Endpoints
+- **`POST /tasks/summarise`** - *(Deprecated)* Anonymized text summarization (use Sunflower inference instead)
+
+## Rate Limiting
+API endpoints are rate-limited to ensure fair usage. Authentication is required for most endpoints.
 """
 
 tags_metadata = [
-    {"name": "AI Tasks", "description": "Operations for AI inference."},
     {
         "name": "Authentication Endpoints",
-        "description": "Operations for Authentication, including Sign up and Login",
+        "description": "Operations for authentication, including user registration and login. Get access tokens to use protected endpoints.",
+    },
+    {
+        "name": "Speech-to-Text",
+        "description": "Convert speech audio to text. Supports English, Acholi, Ateso, Luganda, Lugbara, and Runyankole.",
+    },
+    {
+        "name": "Translation",
+        "description": "Translate text between English and local languages using the NLLB model. Supports bidirectional translation for Acholi, Ateso, Luganda, Lugbara, and Runyankole.",
+    },
+    {
+        "name": "Language",
+        "description": "Language identification and detection. Automatically detect the language of text input from supported languages.",
+    },
+    {
+        "name": "TTS Tasks",
+        "description": "Text-to-Speech services for Ugandan languages. Generate audio from text with support for streaming, signed URLs, and multiple language voices.",
+    },
+    {
+        "name": "Inference",
+        "description": "Conversational AI powered by the Sunflower model. Supports chat-based interactions with context and simple text generation.",
+    },
+    {
+        "name": "Upload",
+        "description": "File upload utilities. Generate signed URLs for direct client uploads to GCP Storage with security validation.",
+    },
+    {
+        "name": "Webhooks",
+        "description": "WhatsApp Business API webhook integration. Handle incoming messages and verify webhook endpoints for WhatsApp chatbot functionality.",
+    },
+    {
+        "name": "AI Tasks",
+        "description": "Legacy AI task endpoints. Contains deprecated endpoints maintained for backward compatibility.",
+    },
+    {
+        "name": "Frontend Routes",
+        "description": "Web interface routes for the Sunbird AI application.",
     },
 ]
