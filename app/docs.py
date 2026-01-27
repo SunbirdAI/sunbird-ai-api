@@ -31,7 +31,7 @@ Use the `Authorize` button below to login and access the protected endpoints.
 - **`POST /tasks/language_id`** - Auto-detect the language of text input (supports Acholi, Ateso, English, Luganda, Lugbara, Runyankole)
 
 ### Text-to-Speech (TTS)
-- **`POST /tasks/modal/tts`** - Convert text to audio using Ugandan language voices
+- **`POST /tasks/modal/tts`** - Modal-based TTS with streaming support
   - **Multiple Languages**: Acholi, Ateso, Runyankore, Lugbara, Swahili, and Luganda
   - **Signed URLs**: Audio files are stored in GCP Storage with 30-minute expiring URLs
   - **Streaming Support**: Stream audio chunks for large text inputs
@@ -39,6 +39,9 @@ Use the `Authorize` button below to login and access the protected endpoints.
     - `url` - Generate audio, upload to GCP, return signed URL
     - `stream` - Stream raw audio chunks directly
     - `both` - Stream audio AND get a final signed URL
+- **`POST /tasks/runpod/tts`** - RunPod-based TTS for Ugandan language voices
+  - Supports all major Ugandan languages
+  - Fast inference with RunPod serverless infrastructure
 
 ### Inference (Sunflower Chat)
 - **`POST /tasks/sunflower_inference`** - Conversational AI powered by Sunflower model with chat history
@@ -79,8 +82,12 @@ tags_metadata = [
         "description": "Language identification and detection. Automatically detect the language of text input from supported languages.",
     },
     {
-        "name": "TTS Tasks",
-        "description": "Text-to-Speech services for Ugandan languages. Generate audio from text with support for streaming, signed URLs, and multiple language voices.",
+        "name": "TTS (Modal)",
+        "description": "Modal-based Text-to-Speech services for Ugandan languages. Generate audio from text with support for streaming, signed URLs, and multiple language voices.",
+    },
+    {
+        "name": "TTS (RunPod)",
+        "description": "RunPod-based Text-to-Speech services for Ugandan languages. Fast inference using RunPod serverless infrastructure with support for multiple speaker voices.",
     },
     {
         "name": "Inference",
