@@ -51,7 +51,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Create non-root user for security
 RUN groupadd -r appuser && \
-    useradd -r -g appuser -u 1000 -m -s /bin/bash appuser
+    useradd -g appuser -u 1000 -m -s /bin/bash appuser
 
 # Set up application directory
 ENV APP_HOME=/app
