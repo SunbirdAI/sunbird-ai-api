@@ -14,7 +14,12 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.deps import StorageServiceDep, TTSServiceDep, get_current_user, get_db
+from app.deps import (
+    LegacyStorageServiceDep,
+    TTSServiceDep,
+    get_current_user,
+    get_db,
+)
 from app.models.enums import SpeakerID, TTSResponseMode, get_all_speakers
 from app.schemas.tts import (
     ErrorResponse,
@@ -87,7 +92,7 @@ async def list_speakers(
 )
 async def generate_tts(
     request: TTSRequest,
-    storage_service: StorageServiceDep,
+    storage_service: LegacyStorageServiceDep,
     tts_service: TTSServiceDep,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
@@ -169,7 +174,7 @@ async def stream_tts(
 )
 async def stream_tts_with_url(
     request: TTSRequest,
-    storage_service: StorageServiceDep,
+    storage_service: LegacyStorageServiceDep,
     tts_service: TTSServiceDep,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
@@ -186,7 +191,7 @@ async def stream_tts_with_url(
     description="Generate a new signed URL for an existing audio file.",
 )
 async def refresh_signed_url(
-    storage_service: StorageServiceDep,
+    storage_service: LegacyStorageServiceDep,
     file_name: str = Query(..., description="The file name in GCP Storage"),
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
@@ -239,7 +244,7 @@ async def _stream_audio(
 
 async def _stream_audio_with_url(
     request: TTSRequest,
-    storage_service: StorageServiceDep,
+    storage_service: LegacyStorageServiceDep,
     tts_service: TTSServiceDep,
 ) -> StreamingResponse:
     """
