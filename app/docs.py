@@ -90,7 +90,7 @@ tags_metadata = [
         "description": "RunPod-based Text-to-Speech services for Ugandan languages. Fast inference using RunPod serverless infrastructure with support for multiple speaker voices.",
     },
     {
-        "name": "Inference",
+        "name": "Sunflower",
         "description": "Conversational AI powered by the Sunflower model. Supports chat-based interactions with context and simple text generation.",
     },
     {
