@@ -978,7 +978,7 @@ def function_name(param1: str, param2: int) -> dict:
 | 15 | Reorganize Utils Module | ✅ Complete | 2026-01-26 |
 | 16 | Create Audio Utils | ✅ Complete | 2026-01-26 |
 | 17 | Clean Up Deprecated Files | ✅ Complete | 2026-01-26 |
-| 18 | Update Dependencies Module | ⬜ Pending | |
+| 18 | Update Dependencies Module | ✅ Complete | 2026-01-27 |
 | 19 | Final Documentation and Cleanup | ⬜ Pending | |
 
 ---
@@ -1164,6 +1164,52 @@ def function_name(param1: str, param2: int) -> dict:
 3. Updated WhatsApp service initialization to use `get_whatsapp_service()` singleton instead of direct constructor calls
 
 **Note:** All functionality from `inference_services/` successfully migrated to proper locations (`services/` and `integrations/`). The codebase now follows the target architecture with clear separation between business logic (services) and external API clients (integrations).
+
+### Step 18: Update Dependencies Module - ✅ COMPLETE (2026-01-27)
+**File Enhanced:**
+- `app/deps.py` - Comprehensive dependency injection module with all services and integrations
+
+**Test File Created:**
+- `app/tests/test_deps.py` - 31 comprehensive tests for dependency injection
+
+**Type Aliases Created:**
+- **Service Dependencies:** `STTServiceDep`, `TTSServiceDep`, `TranslationServiceDep`, `LanguageServiceDep`, `InferenceServiceDep`, `WhatsAppServiceDep`, `StorageServiceDep`
+- **Integration Dependencies:** `RunPodClientDep`, `OpenAIClientDep`, `WhatsAppAPIClientDep`
+- **Legacy Dependencies:** `LegacyStorageServiceDep` (for backward compatibility)
+
+**Imports Added:**
+- All 7 service classes with their getter functions
+- All 3 integration client classes with their getter functions
+- Proper type annotations including `AsyncGenerator` for `get_db()`
+- Comprehensive `__all__` export list with 30+ exports
+
+**Documentation Enhancements:**
+- Enhanced module-level docstring with usage examples
+- Added comprehensive docstrings to `get_db()` and `get_current_user()` functions
+- Organized imports and type aliases with clear section headers
+- Documented dependency categories (Core, Service, Integration)
+
+**Test Coverage (31 tests):**
+- **Database Dependency Tests (2):** Session creation and lifecycle
+- **Authentication Tests (5):** Valid token, invalid token, expired token, nonexistent user, missing username
+- **Service Dependency Tests (8):** Type alias validation for all 7 services + importability
+- **Integration Dependency Tests (4):** Type alias validation for all 3 integrations + importability
+- **OAuth2 Scheme Tests (2):** Configuration and token URL validation
+- **Type Hint Tests (2):** Return type annotations verification
+- **Module Exports Tests (6):** `__all__` list completeness validation
+- **Integration Tests (2):** Actual dependency injection in routes
+
+**Test Results:** 558 tests pass (31 new tests for deps.py + 527 existing)
+
+**Key Features:**
+- Singleton pattern support for all services and integrations
+- Backward compatibility with legacy storage service
+- Clear separation of concerns (Core/Service/Integration dependencies)
+- Type-safe dependency injection using `Annotated` types
+- Comprehensive exports for use across the application
+- All dependencies properly documented with usage examples
+
+**Note:** The enhanced deps.py module provides a centralized, well-documented dependency injection system that makes all services and integrations easily accessible throughout the API with proper type hints and singleton management.
 
 ---
 
