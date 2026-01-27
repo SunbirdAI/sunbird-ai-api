@@ -27,10 +27,8 @@ from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException, Request
 from jose import jwt
 from slowapi import Limiter
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.crud.monitoring import log_endpoint
-from app.deps import get_current_user, get_db
+from app.deps import get_current_user
 from app.schemas.translation import NllbTranslationRequest, WorkerTranslationResponse
 from app.services.translation_service import (
     TranslationConnectionError,
@@ -108,7 +106,6 @@ def get_service() -> TranslationService:
 async def translate(
     request: Request,
     translation_request: NllbTranslationRequest,
-    db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
     service: TranslationService = Depends(get_service),
 ) -> dict:
@@ -174,11 +171,7 @@ async def translate(
         elapsed_time = end_time - start_time
         logging.info(f"Translation completed in {elapsed_time:.2f} seconds")
 
-        # Log endpoint usage
-        try:
-            await log_endpoint(db, current_user, request, start_time, end_time)
-        except Exception as e:
-            logging.error(f"Failed to log endpoint usage: {str(e)}")
+        # Endpoint usage logging is handled automatically by MonitoringMiddleware
 
         # Validate and return response
         if result.raw_response:

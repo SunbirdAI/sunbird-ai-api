@@ -30,10 +30,8 @@ from dotenv import load_dotenv
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
 from jose import jwt
 from slowapi import Limiter
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.crud.monitoring import log_endpoint
-from app.deps import get_current_user, get_db
+from app.deps import get_current_user
 from app.schemas.inference import (
     SunflowerChatRequest,
     SunflowerChatResponse,
@@ -116,7 +114,6 @@ async def sunflower_inference(
     request: Request,
     chat_request: SunflowerChatRequest,
     background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
     service: InferenceService = Depends(get_service),
 ) -> SunflowerChatResponse:
@@ -136,11 +133,10 @@ async def sunflower_inference(
     - Message history management
 
     Args:
-        request: The FastAPI request object.
+        request: The FastAPI request object (required for rate limiting).
         chat_request: The chat request containing messages and parameters.
         background_tasks: FastAPI background tasks for async operations.
-        db: Database session.
-        current_user: The authenticated user.
+        current_user: The authenticated user (enforces authentication).
         service: The inference service instance.
 
     Returns:
@@ -298,12 +294,7 @@ async def sunflower_inference(
             message_count=len(messages_dict),
         )
 
-        # Log endpoint usage in database
-        try:
-            await log_endpoint(db, user, request, start_time, end_time)
-        except Exception as e:
-            logging.error(f"Failed to log endpoint usage: {e}")
-            # Don't fail the request due to logging issues
+        # Endpoint usage logging is handled automatically by MonitoringMiddleware
 
         logging.info(
             f"Sunflower inference completed in {total_time:.2f}s "
@@ -339,7 +330,6 @@ async def sunflower_simple_inference(
     model_type: str = Form("qwen", description="Model type (qwen or gemma)"),
     temperature: float = Form(0.3, ge=0.0, le=2.0, description="Sampling temperature"),
     system_message: str = Form(None, description="Custom system message"),
-    db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ) -> Dict[str, Any]:
     """Simple Sunflower inference endpoint for single instruction/response.
@@ -349,7 +339,7 @@ async def sunflower_simple_inference(
     integration with simple clients.
 
     Args:
-        request: The FastAPI request object.
+        request: The FastAPI request object (required for rate limiting).
         background_tasks: FastAPI background tasks for async operations.
         instruction: The question or instruction for the AI.
         model_type: Either 'qwen' (default) or 'gemma'.
@@ -449,11 +439,7 @@ async def sunflower_simple_inference(
         except Exception as e:
             logging.warning(f"Failed to schedule feedback save task: {e}")
 
-        # Log usage
-        try:
-            await log_endpoint(db, user, request, start_time, end_time)
-        except Exception as e:
-            logging.error(f"Failed to log endpoint usage: {e}")
+        # Endpoint usage logging is handled automatically by MonitoringMiddleware
 
         # Return simple response
         result = {

@@ -32,11 +32,9 @@ from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from jose import jwt
 from slowapi import Limiter
-from sqlalchemy.ext.asyncio import AsyncSession
 from werkzeug.utils import secure_filename
 
-from app.crud.monitoring import log_endpoint
-from app.deps import get_current_user, get_db
+from app.deps import get_current_user
 from app.schemas.language import (
     AudioDetectedLanguageResponse,
     LanguageIdRequest,
@@ -245,7 +243,6 @@ async def classify_language(
 async def auto_detect_audio_language(
     request: Request,
     audio: UploadFile = File(...),
-    db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
     service: LanguageService = Depends(get_service),
 ) -> dict:
@@ -255,9 +252,8 @@ async def auto_detect_audio_language(
     The audio file is uploaded to cloud storage for processing.
 
     Args:
-        request: The FastAPI request object.
+        request: The FastAPI request object (required for rate limiting).
         audio: The audio file to analyze.
-        db: Database session.
         current_user: The authenticated user.
         service: The language service instance.
 

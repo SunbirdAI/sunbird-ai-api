@@ -89,13 +89,12 @@ class TestSTTEndpoint:
             with patch(
                 "app.routers.stt.create_audio_transcription", new_callable=AsyncMock
             ):
-                with patch("app.routers.stt.log_endpoint", new_callable=AsyncMock):
-                    response = await async_client.post(
-                        "/tasks/stt",
-                        files=files,
-                        data=data,
-                        headers={"Authorization": f"Bearer {test_user['token']}"},
-                    )
+                response = await async_client.post(
+                    "/tasks/stt",
+                    files=files,
+                    data=data,
+                    headers={"Authorization": f"Bearer {test_user['token']}"},
+                )
 
             assert response.status_code == 200
             json_response = response.json()
@@ -256,13 +255,12 @@ class TestSTTEndpoint:
             with patch(
                 "app.routers.stt.create_audio_transcription", new_callable=AsyncMock
             ):
-                with patch("app.routers.stt.log_endpoint", new_callable=AsyncMock):
-                    response = await async_client.post(
-                        "/tasks/stt",
-                        files=files,
-                        data=data,
-                        headers={"Authorization": f"Bearer {test_user['token']}"},
-                    )
+                response = await async_client.post(
+                    "/tasks/stt",
+                    files=files,
+                    data=data,
+                    headers={"Authorization": f"Bearer {test_user['token']}"},
+                )
 
             assert response.status_code == 200
             json_response = response.json()
@@ -311,12 +309,11 @@ class TestSTTFromGCSEndpoint:
             with patch(
                 "app.routers.stt.create_audio_transcription", new_callable=AsyncMock
             ):
-                with patch("app.routers.stt.log_endpoint", new_callable=AsyncMock):
-                    response = await async_client.post(
-                        "/tasks/stt_from_gcs",
-                        data=data,
-                        headers={"Authorization": f"Bearer {test_user['token']}"},
-                    )
+                response = await async_client.post(
+                    "/tasks/stt_from_gcs",
+                    data=data,
+                    headers={"Authorization": f"Bearer {test_user['token']}"},
+                )
 
             assert response.status_code == 200
             json_response = response.json()
@@ -390,12 +387,11 @@ class TestSTTFromGCSEndpoint:
             with patch(
                 "app.routers.stt.create_audio_transcription", new_callable=AsyncMock
             ):
-                with patch("app.routers.stt.log_endpoint", new_callable=AsyncMock):
-                    response = await async_client.post(
-                        "/tasks/stt_from_gcs",
-                        data=data,
-                        headers={"Authorization": f"Bearer {test_user['token']}"},
-                    )
+                response = await async_client.post(
+                    "/tasks/stt_from_gcs",
+                    data=data,
+                    headers={"Authorization": f"Bearer {test_user['token']}"},
+                )
 
             assert response.status_code == 200
             json_response = response.json()
@@ -439,13 +435,12 @@ class TestOrgSTTEndpoint:
             files = {"audio": ("test.mp3", io.BytesIO(audio_content), "audio/mpeg")}
             data = {"recognise_speakers": "true"}
 
-            with patch("app.routers.stt.log_endpoint", new_callable=AsyncMock):
-                response = await async_client.post(
-                    "/tasks/org/stt",
-                    files=files,
-                    data=data,
-                    headers={"Authorization": f"Bearer {test_user['token']}"},
-                )
+            response = await async_client.post(
+                "/tasks/org/stt",
+                files=files,
+                data=data,
+                headers={"Authorization": f"Bearer {test_user['token']}"},
+            )
 
             assert response.status_code == 200
             json_response = response.json()
@@ -479,13 +474,12 @@ class TestOrgSTTEndpoint:
             files = {"audio": ("test.mp3", io.BytesIO(audio_content), "audio/mpeg")}
             data = {"recognise_speakers": "false"}
 
-            with patch("app.routers.stt.log_endpoint", new_callable=AsyncMock):
-                response = await async_client.post(
-                    "/tasks/org/stt",
-                    files=files,
-                    data=data,
-                    headers={"Authorization": f"Bearer {test_user['token']}"},
-                )
+            response = await async_client.post(
+                "/tasks/org/stt",
+                files=files,
+                data=data,
+                headers={"Authorization": f"Bearer {test_user['token']}"},
+            )
 
             assert response.status_code == 200
             json_response = response.json()

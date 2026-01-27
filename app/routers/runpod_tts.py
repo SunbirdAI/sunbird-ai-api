@@ -23,7 +23,6 @@ from dotenv import load_dotenv
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from jose import jwt
 from slowapi import Limiter
-from sqlalchemy.ext.asyncio import AsyncSession
 from tenacity import (
     retry,
     retry_if_exception_type,
@@ -31,8 +30,7 @@ from tenacity import (
     wait_exponential,
 )
 
-from app.crud.monitoring import log_endpoint
-from app.deps import get_current_user, get_db
+from app.deps import get_current_user
 from app.schemas.tasks import TTSRequest
 from app.utils.auth import ALGORITHM, SECRET_KEY
 
@@ -235,7 +233,6 @@ async def text_to_speech(
     request: Request,
     tts_request: TTSRequest,
     background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     """
@@ -245,10 +242,9 @@ async def text_to_speech(
     This endpoint uses the RunPod inference server for TTS generation.
 
     Args:
-        request (Request): The incoming HTTP request object.
+        request (Request): The incoming HTTP request object (required for rate limiting).
         tts_request (TTSRequest): The request body containing text, speaker ID, and synthesis parameters.
         background_tasks (BackgroundTasks): FastAPI background tasks for logging.
-        db (AsyncSession): Database session dependency.
         current_user (User): The authenticated user making the request.
 
     Returns:
@@ -362,8 +358,8 @@ async def text_to_speech(
         raise HTTPException(status_code=502, detail=f"TTS worker error: {str(e)}")
 
     end_time = time.time()
-    # Log endpoint in database
-    await log_endpoint(db, user, request, start_time, end_time)
+    # Endpoint usage logging is handled automatically by MonitoringMiddleware
+
     logging.info(f"Response: {request_response}")
 
     # Calculate the elapsed time

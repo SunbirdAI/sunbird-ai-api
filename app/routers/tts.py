@@ -14,12 +14,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.deps import (
-    LegacyStorageServiceDep,
-    TTSServiceDep,
-    get_current_user,
-    get_db,
-)
+from app.deps import LegacyStorageServiceDep, TTSServiceDep, get_current_user, get_db
 from app.models.enums import SpeakerID, TTSResponseMode, get_all_speakers
 from app.schemas.tts import (
     ErrorResponse,

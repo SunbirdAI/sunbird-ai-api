@@ -49,7 +49,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from werkzeug.utils import secure_filename
 
 from app.crud.audio_transcription import create_audio_transcription
-from app.crud.monitoring import log_endpoint
 from app.deps import get_current_user, get_db
 from app.schemas.stt import (
     ALLOWED_AUDIO_TYPES,
@@ -160,8 +159,6 @@ async def speech_to_text_from_gcs(
     Raises:
         HTTPException: If transcription fails.
     """
-    start_time = time.time()
-
     try:
         result = await service.transcribe_from_gcs(
             gcs_blob_name=gcs_blob_name,
@@ -170,8 +167,6 @@ async def speech_to_text_from_gcs(
             whisper=whisper,
             recognise_speakers=recognise_speakers,
         )
-
-        end_time = time.time()
 
         # Save transcription to DB if valid
         audio_transcription_id = None
@@ -192,11 +187,7 @@ async def speech_to_text_from_gcs(
             except Exception as e:
                 logging.error(f"Database error: {str(e)}")
 
-        # Log endpoint usage
-        try:
-            await log_endpoint(db, current_user, request, start_time, end_time)
-        except Exception as e:
-            logging.error(f"Failed to log endpoint usage: {str(e)}")
+        # Endpoint usage logging is handled automatically by MonitoringMiddleware
 
         response = STTTranscript(
             audio_transcription=result.transcription,
@@ -333,11 +324,7 @@ async def speech_to_text(
             except Exception as e:
                 logging.error(f"Database error: {str(e)}")
 
-        # Log the endpoint usage
-        try:
-            await log_endpoint(db, current_user, request, start_time, end_time)
-        except Exception as e:
-            logging.error(f"Failed to log endpoint usage: {str(e)}")
+        # Endpoint usage logging is handled automatically by MonitoringMiddleware
 
         response = STTTranscript(
             audio_transcription=result.transcription,
@@ -381,7 +368,6 @@ async def speech_to_text_org(
     request: Request,
     audio: UploadFile = File(...),
     recognise_speakers: bool = Form(False),
-    db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
     service: STTService = Depends(get_service),
 ) -> STTTranscript:
@@ -392,11 +378,10 @@ async def speech_to_text_org(
     speaker diarization.
 
     Args:
-        request: The FastAPI request object.
+        request: The FastAPI request object (required for rate limiting).
         audio: The uploaded audio file.
         recognise_speakers: Enable speaker diarization. Defaults to False.
-        db: Database session.
-        current_user: The authenticated user.
+        current_user: The authenticated user (enforces authentication).
         service: The STT service instance.
 
     Returns:
@@ -427,8 +412,7 @@ async def speech_to_text_org(
         elapsed_time = end_time - start_time
         logging.info(f"Org transcription completed in {elapsed_time:.2f} seconds")
 
-        # Log the endpoint usage
-        await log_endpoint(db, current_user, request, start_time, end_time)
+        # Endpoint usage logging is handled automatically by MonitoringMiddleware
 
         return STTTranscript(
             audio_transcription=result.transcription,

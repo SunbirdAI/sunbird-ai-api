@@ -22,7 +22,7 @@ from tenacity import RetryError, retry, stop_after_attempt, wait_exponential
 
 from app.core.exceptions import validation_exception_handler
 from app.docs import description, tags_metadata
-from app.middleware.monitoring_middleware import log_request
+from app.middleware import MonitoringMiddleware
 from app.routers.auth import router as auth_router
 from app.routers.frontend import router as frontend_router
 from app.routers.inference import router as inference_router
@@ -122,20 +122,42 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Add custom upload size middleware before other middleware
+# ============================================================================
+# Middleware Configuration
+# ============================================================================
+#
+# NOTE: Middleware executes in REVERSE order of registration (LIFO).
+# The last middleware added is the first to execute on incoming requests.
+#
+# Request Flow (outer → inner):
+# 1. SlowAPIMiddleware (rate limiting) ← Added last, executes first
+# 2. CORSMiddleware (CORS headers)
+# 3. MonitoringMiddleware (endpoint usage logging)
+# 4. SessionMiddleware (session management)
+# 5. LargeUploadMiddleware (file size validation) ← Added first, executes last
+# 6. Route Handler
+#
+# Response Flow (inner → outer):
+# Route Handler → LargeUpload → Session → Monitoring → CORS → RateLimit
+# ============================================================================
+
+# 1. LargeUploadMiddleware - Validates request size before processing
 app.add_middleware(LargeUploadMiddleware)
 
-# Add SessionMiddleware to enable session-based authentication
+# 2. SessionMiddleware - Manages user sessions (required for session-based auth)
 app.add_middleware(SessionMiddleware, secret_key=os.getenv("SECRET_KEY"))
 
+# Mount static files before monitoring middleware
 static_files_directory = Path(__file__).parent.absolute() / "static"
 app.mount("/static", StaticFiles(directory=static_files_directory), name="static")
 
-# logging_middleware = partial(log_request)
-# app.middleware("http")(logging_middleware)
+# 3. MonitoringMiddleware - Logs endpoint usage for analytics
+#    Automatically monitors all /tasks/* endpoints
+#    Tracks: username, organization, endpoint, request duration
+app.add_middleware(MonitoringMiddleware)
 
+# 4. CORSMiddleware - Handles Cross-Origin Resource Sharing
 origins = ["*"]
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -144,14 +166,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize the Limiter
+# 5. SlowAPIMiddleware - Rate limiting (executes first on incoming requests)
 limiter = Limiter(key_func=get_remote_address)
-
-# Add middleware and exception handler for rate limiting
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
-# Register the custom request validation exception handler
+
+# ============================================================================
+# Exception Handlers
+# ============================================================================
+
+# Custom validation error handler for consistent error responses
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
 
 

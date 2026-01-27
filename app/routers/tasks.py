@@ -16,7 +16,6 @@ from dotenv import load_dotenv
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from jose import jwt
 from slowapi import Limiter
-from sqlalchemy.ext.asyncio import AsyncSession
 from tenacity import (
     retry,
     retry_if_exception_type,
@@ -25,8 +24,7 @@ from tenacity import (
 )
 
 from app.crud.audio_transcription import create_audio_transcription
-from app.crud.monitoring import log_endpoint
-from app.deps import get_current_user, get_db
+from app.deps import get_current_user
 from app.schemas.tasks import (
     ChatRequest,
     ChatResponse,
@@ -251,7 +249,6 @@ async def call_endpoint_with_retry(endpoint, data):
 async def summarise(
     request: Request,
     input_text: SummarisationRequest,
-    db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     """
@@ -261,7 +258,6 @@ async def summarise(
 
     endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
     request_response = {}
-    user = current_user
     data = {
         "input": {
             "task": "summarise",
@@ -287,8 +283,7 @@ async def summarise(
 
     end_time = time.time()
 
-    # Log endpoint in database
-    await log_endpoint(db, user, request, start_time, end_time)
+    # Endpoint usage logging is handled automatically by MonitoringMiddleware
 
     # Calculate the elapsed time
     elapsed_time = end_time - start_time
@@ -307,7 +302,6 @@ async def text_to_speech(
     request: Request,
     tts_request: TTSRequest,
     background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     """
@@ -319,10 +313,10 @@ async def text_to_speech(
     Converts input text to speech audio using a specified speaker voice.
 
     Args:
-        request (Request): The incoming HTTP request object.
+        request (Request): The incoming HTTP request object (required for rate limiting).
         tts_request (TTSRequest): The request body containing text, speaker ID, and synthesis parameters.
-        db (AsyncSession, optional): Database session dependency.
-        current_user (User, optional): The authenticated user making the request.
+        background_tasks (BackgroundTasks): FastAPI background tasks for logging.
+        current_user (User): The authenticated user making the request.
 
     Returns:
         dict: A dictionary containing the generated speech audio with signed URL and metadata.
@@ -439,8 +433,8 @@ async def text_to_speech(
         raise HTTPException(status_code=502, detail=f"TTS worker error: {str(e)}")
 
     end_time = time.time()
-    # Log endpoint in database
-    await log_endpoint(db, user, request, start_time, end_time)
+    # Endpoint usage logging is handled automatically by MonitoringMiddleware
+
     logging.info(f"Response: {request_response}")
 
     # Calculate the elapsed time
