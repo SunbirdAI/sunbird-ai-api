@@ -299,10 +299,10 @@ clean-all: clean clean-build ## Remove all artifacts including build
 	@echo "$(GREEN)✓ Deep cleanup complete$(NC)"
 
 # ============================================================================
-# Docker (Optional)
+# Docker
 # ============================================================================
 
-.PHONY: docker-build docker-run docker-stop docker-logs docker-shell
+.PHONY: docker-build docker-run docker-stop docker-logs docker-shell docker-compose-up docker-compose-down
 
 docker-build: ## Build Docker image
 	@echo "$(BLUE)Building Docker image...$(NC)"
@@ -311,13 +311,13 @@ docker-build: ## Build Docker image
 
 docker-run: ## Run application in Docker
 	@echo "$(BLUE)Running Docker container...$(NC)"
-	docker run -d --name sunbird-api -p 8000:8000 --env-file .env sunbird-ai-api
-	@echo "$(GREEN)✓ Container started$(NC)"
+	docker run -d --name sunbird-api -p 8000:8080 --env-file .env sunbird-ai-api
+	@echo "$(GREEN)✓ Container started at http://localhost:8000$(NC)"
 
 docker-stop: ## Stop Docker container
 	@echo "$(BLUE)Stopping Docker container...$(NC)"
-	docker stop sunbird-api
-	docker rm sunbird-api
+	docker stop sunbird-api 2>/dev/null || true
+	docker rm sunbird-api 2>/dev/null || true
 	@echo "$(GREEN)✓ Container stopped$(NC)"
 
 docker-logs: ## View Docker container logs
@@ -325,6 +325,32 @@ docker-logs: ## View Docker container logs
 
 docker-shell: ## Open shell in Docker container
 	docker exec -it sunbird-api /bin/bash
+
+docker-compose-up: ## Start all services with docker-compose
+	@echo "$(BLUE)Starting services with docker-compose...$(NC)"
+	docker-compose up -d
+	@echo "$(GREEN)✓ Services started$(NC)"
+	@echo "$(YELLOW)API: http://localhost:8000$(NC)"
+	@echo "$(YELLOW)DB: postgresql://postgres:postgres@localhost:5432/sunbirdai$(NC)"
+
+docker-compose-down: ## Stop all docker-compose services
+	@echo "$(BLUE)Stopping docker-compose services...$(NC)"
+	docker-compose down
+	@echo "$(GREEN)✓ Services stopped$(NC)"
+
+docker-compose-logs: ## View docker-compose logs
+	docker-compose logs -f
+
+docker-push: ## Push Docker image to GCR (use: make docker-push PROJECT=your-project)
+	@if [ -z "$(PROJECT)" ]; then \
+		echo "$(RED)Error: Please provide PROJECT$(NC)"; \
+		echo "Usage: make docker-push PROJECT=your-gcp-project"; \
+		exit 1; \
+	fi
+	@echo "$(BLUE)Tagging and pushing image to GCR...$(NC)"
+	docker tag sunbird-ai-api gcr.io/$(PROJECT)/sunbird-ai-api
+	docker push gcr.io/$(PROJECT)/sunbird-ai-api
+	@echo "$(GREEN)✓ Image pushed to gcr.io/$(PROJECT)/sunbird-ai-api$(NC)"
 
 # ============================================================================
 # Utility Commands

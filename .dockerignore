@@ -1,12 +1,143 @@
-Dockerfile
-README.md
+# ============================================================================
+# Docker Ignore File
+# ============================================================================
+# Excludes files and directories from Docker build context
+# Reduces build time and image size
+# ============================================================================
+
+# Git
+.git/
+.gitignore
+.gitattributes
+.github/
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
 *.pyc
 *.pyo
 *.pyd
-__pycache__
-.pytest_cache
-venv/
-.env
+.Python
+
+# Virtual environments
 env/
-# Ignore generated credentials from google-github-actions/auth
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Testing and coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+.hypothesis/
+pytest.ini
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Documentation (keep README.md for reference if needed)
+*.md
+!README.md
+docs/
+*.rst
+MAKEFILE_GUIDE.md
+MAKEFILE_IMPROVEMENTS.md
+DATABASE_CONFIG_IMPROVEMENTS.md
+
+# Environment files (use secrets management instead)
+.env
+.env.*
+!.env.example
+
+# Development files
+Dockerfile
+Dockerfile.*
+docker-compose.yml
+docker-compose.*.yml
+Makefile
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Logs
+*.log
+logs/
+pip-log.txt
+
+# Database files (development)
+*.db
+*.sqlite
+*.sqlite3
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.backup
+*.bck
+*.old
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Test files (uncomment if you don't want tests in production image)
+# app/tests/
+# test_*.py
+# *_test.py
+
+# Development scripts
+scripts/dev/
+scripts/local/
+
+# Jupyter notebooks
+*.ipynb
+.ipynb_checkpoints/
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Lock files (keep requirements.txt)
+poetry.lock
+Pipfile.lock
+package-lock.json
+yarn.lock
+
+# Node modules (if any)
+node_modules/
+npm-debug.log*
+
+# GCP credentials (use Cloud Run's service account instead)
 gha-creds-*.json
+*-key.json
+service-account*.json
+
+# Large media files (examples, not actual data)
+*.mp4
+*.avi
+*.mov
+*.wmv
+
+# CI/CD
+.travis.yml
+azure-pipelines.yml
+.gitlab-ci.yml
