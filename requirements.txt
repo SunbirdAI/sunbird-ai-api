@@ -13,7 +13,7 @@ google-cloud-storage==2.18.2
 httpx==0.28.1
 newrelic
 passlib[bcrypt]==1.7.4
-bcrypt==4.3.0
+bcrypt==4.0.1
 psycopg2-binary==2.9.9
 python-jose==3.3.0
 python-dotenv==1.0.1
