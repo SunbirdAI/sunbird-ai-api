@@ -52,6 +52,10 @@ class Settings(BaseSettings):
     gcp_project_id: Optional[str] = Field(
         default=None, description="GCP Project ID (optional, uses default if not set)"
     )
+    gcp_service_account_email: Optional[str] = Field(
+        default=None,
+        description="GCP Service Account email for IAM-based signed URL generation (required for Cloud Run)",
+    )
     signed_url_expiry_minutes: int = Field(
         default=30, description="Expiry time for signed URLs in minutes"
     )

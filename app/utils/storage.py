@@ -31,7 +31,10 @@ class GCPStorageService:
     """
 
     def __init__(
-        self, bucket_name: Optional[str] = None, project_id: Optional[str] = None
+        self,
+        bucket_name: Optional[str] = None,
+        project_id: Optional[str] = None,
+        service_account_email: Optional[str] = None,
     ):
         """
         Initialize the GCP Storage service.
@@ -39,9 +42,13 @@ class GCPStorageService:
         Args:
             bucket_name: GCP bucket name (defaults to settings)
             project_id: GCP project ID (defaults to settings or ADC)
+            service_account_email: Service account email for IAM signing (defaults to settings)
         """
         self._bucket_name = bucket_name or settings.gcp_bucket_name
         self._project_id = project_id or settings.gcp_project_id
+        self._service_account_email = (
+            service_account_email or settings.gcp_service_account_email
+        )
         self._client: Optional[storage.Client] = None
         self._bucket: Optional[Bucket] = None
 
@@ -134,9 +141,18 @@ class GCPStorageService:
         expiry = expiry_minutes or settings.signed_url_expiry_minutes
         expires_at = datetime.now(UTC) + timedelta(minutes=expiry)
 
-        signed_url = blob.generate_signed_url(
-            version="v4", expiration=timedelta(minutes=expiry), method="GET"
-        )
+        # Generate signed URL with IAM-based signing for Cloud Run (no private key required)
+        signing_kwargs = {
+            "version": "v4",
+            "expiration": timedelta(minutes=expiry),
+            "method": "GET",
+        }
+
+        # Add service account email for IAM signing if available
+        if self._service_account_email:
+            signing_kwargs["service_account_email"] = self._service_account_email
+
+        signed_url = blob.generate_signed_url(**signing_kwargs)
 
         return signed_url, expires_at
 

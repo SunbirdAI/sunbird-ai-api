@@ -86,7 +86,9 @@ class StorageService(BaseService):
             "AUDIO_CONTENT_BUCKET_NAME", "sb-asr-audio-content-sb-gcp-project-01"
         )
         self._project_id = project_id or os.getenv("GCP_PROJECT_ID")
-        self._service_account_email = service_account_email or os.getenv("GCP_SERVICE_ACCOUNT_EMAIL")
+        self._service_account_email = service_account_email or os.getenv(
+            "GCP_SERVICE_ACCOUNT_EMAIL"
+        )
         self._client: Optional[storage.Client] = None
         self._bucket: Optional[Bucket] = None
 
