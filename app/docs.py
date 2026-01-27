@@ -25,7 +25,7 @@ Use the `Authorize` button below to login and access the protected endpoints.
 - **`POST /tasks/stt`** - Convert speech audio to text for supported languages
 
 ### Translation
-- **`POST /tasks/nllb-translate`** - Translate text between English and local languages (Acholi, Ateso, Luganda, Lugbara, Runyankole)
+- **`POST /tasks/translate`** - Translate text between English and local languages (Acholi, Ateso, Luganda, Lugbara, Runyankole)
 
 ### Language Detection
 - **`POST /tasks/language_id`** - Auto-detect the language of text input (supports Acholi, Ateso, English, Luganda, Lugbara, Runyankole)
