@@ -5,8 +5,8 @@
 
 This repository contains code for the publicly accessible Sunbird AI APIs.
 
-To get started using the API, [view the tutorial](tutorial.md).
-To get started with the sunflower model, [view the sunflower API docs](sunflower_api_docs.md).
+To get started using the API, [view the tutorial](docs/tutorial.md).
+To get started with the sunflower model, [view the sunflower API docs](docs/sunflower_api_docs.md).
 
 ## Getting started locally on Windows
 
@@ -192,4 +192,4 @@ For more details, see:
 ---
 ## Other docs
 - Checkout the [System design document](https://github.com/SunbirdAI/sunbird-docs/blob/main/06-design-docs/language/API_Framework.md) (you need to part of the Sunbird organization to view this).
-- Checkout the [Deployment Guide](https://github.com/SunbirdAI/sunbird-ai-api/blob/main/api-deployment-docs.md).
+- Checkout the [Deployment Guide](https://github.com/SunbirdAI/sunbird-ai-api/blob/main/docs/api-deployment-docs.md).
