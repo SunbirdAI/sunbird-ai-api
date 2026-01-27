@@ -71,6 +71,7 @@ class StorageService(BaseService):
         self,
         bucket_name: Optional[str] = None,
         project_id: Optional[str] = None,
+        service_account_email: Optional[str] = None,
     ) -> None:
         """
         Initialize the Storage service.
@@ -78,12 +79,14 @@ class StorageService(BaseService):
         Args:
             bucket_name: GCP bucket name (defaults to environment variable).
             project_id: GCP project ID (defaults to ADC).
+            service_account_email: Service account email for IAM signing (defaults to environment variable).
         """
         super().__init__()
         self._bucket_name = bucket_name or os.getenv(
             "AUDIO_CONTENT_BUCKET_NAME", "sb-asr-audio-content-sb-gcp-project-01"
         )
         self._project_id = project_id or os.getenv("GCP_PROJECT_ID")
+        self._service_account_email = service_account_email or os.getenv("GCP_SERVICE_ACCOUNT_EMAIL")
         self._client: Optional[storage.Client] = None
         self._bucket: Optional[Bucket] = None
 
@@ -147,12 +150,19 @@ class StorageService(BaseService):
             expires_at = datetime.now(timezone.utc) + timedelta(minutes=expiry_minutes)
 
             # Generate signed URL for PUT method
-            signed_url = blob.generate_signed_url(
-                version="v4",
-                expiration=timedelta(minutes=expiry_minutes),
-                method="PUT",
-                content_type=content_type,
-            )
+            # Use IAM-based signing for Cloud Run (no private key required)
+            signing_kwargs = {
+                "version": "v4",
+                "expiration": timedelta(minutes=expiry_minutes),
+                "method": "PUT",
+                "content_type": content_type,
+            }
+
+            # Add service account email for IAM signing if available
+            if self._service_account_email:
+                signing_kwargs["service_account_email"] = self._service_account_email
+
+            signed_url = blob.generate_signed_url(**signing_kwargs)
 
             self.log_info(f"Upload URL generated for file_id: {file_id}")
             return signed_url, file_id, expires_at
@@ -183,11 +193,19 @@ class StorageService(BaseService):
             blob = self.bucket.blob(blob_name)
             expires_at = datetime.now(timezone.utc) + timedelta(minutes=expiry_minutes)
 
-            signed_url = blob.generate_signed_url(
-                version="v4",
-                expiration=timedelta(minutes=expiry_minutes),
-                method="GET",
-            )
+            # Generate signed URL for GET method
+            # Use IAM-based signing for Cloud Run (no private key required)
+            signing_kwargs = {
+                "version": "v4",
+                "expiration": timedelta(minutes=expiry_minutes),
+                "method": "GET",
+            }
+
+            # Add service account email for IAM signing if available
+            if self._service_account_email:
+                signing_kwargs["service_account_email"] = self._service_account_email
+
+            signed_url = blob.generate_signed_url(**signing_kwargs)
 
             return signed_url, expires_at
 
