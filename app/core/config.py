@@ -61,10 +61,66 @@ class Settings(BaseSettings):
     port: int = Field(default=8000, description="Server port")
     workers: int = Field(default=1, description="Number of worker processes")
 
+    # Database Configuration
+    database_url: str = Field(
+        default="sqlite+aiosqlite:///./test.db",
+        description="Database connection URL",
+    )
+    environment: str = Field(
+        default="development",
+        description="Application environment (development, staging, production)",
+    )
+    db_echo: bool = Field(
+        default=False,
+        description="Enable SQLAlchemy query logging (auto-disabled in production)",
+    )
+    db_pool_size: int = Field(
+        default=50,
+        description="Database connection pool size (20 in production, 50 otherwise)",
+    )
+    db_max_overflow: int = Field(
+        default=0,
+        description="Maximum overflow connections (10 in production, 0 otherwise)",
+    )
+    db_pool_recycle: int = Field(
+        default=600,
+        description="Connection pool recycle time in seconds",
+    )
+    db_ssl_enabled: bool = Field(
+        default=False,
+        description="Enable SSL for database connections in production",
+    )
+
     @property
     def is_production(self) -> bool:
         """Check if running in production mode."""
-        return not self.debug
+        return self.environment.lower() == "production"
+
+    @property
+    def database_url_async(self) -> str:
+        """
+        Get the async-compatible database URL.
+
+        Converts 'postgres://' to 'postgresql+asyncpg://' for async support.
+        """
+        if self.database_url and self.database_url.startswith("postgres://"):
+            return self.database_url.replace("postgres://", "postgresql+asyncpg://", 1)
+        return self.database_url
+
+    @property
+    def effective_db_pool_size(self) -> int:
+        """Get pool size based on environment."""
+        return 20 if self.is_production else self.db_pool_size
+
+    @property
+    def effective_db_max_overflow(self) -> int:
+        """Get max overflow based on environment."""
+        return 10 if self.is_production else self.db_max_overflow
+
+    @property
+    def effective_db_echo(self) -> bool:
+        """Get echo setting - disabled in production."""
+        return self.db_echo and not self.is_production
 
 
 @lru_cache
