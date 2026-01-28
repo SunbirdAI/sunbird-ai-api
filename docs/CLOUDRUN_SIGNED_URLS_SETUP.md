@@ -41,6 +41,12 @@ gcloud iam service-accounts add-iam-policy-binding ${SERVICE_ACCOUNT} \
   --role="roles/iam.serviceAccountTokenCreator"
 ```
 
+# Check whether serviceAccountTokenCreator is bound
+```bash
+gcloud iam service-accounts get-iam-policy \
+  ${SERVICE_ACCOUNT}
+```
+
 #### Option B: Using Google Cloud Console
 
 1. Go to [IAM & Admin > Service Accounts](https://console.cloud.google.com/iam-admin/serviceaccounts)
