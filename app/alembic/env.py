@@ -1,22 +1,18 @@
 from logging.config import fileConfig
-import os
 
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import create_async_engine
 from alembic import context
-from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+# Import centralized settings
+from app.core.config import settings
 
 # Alembic Config object
 config = context.config
 
-# Update DATABASE_URL if needed and set it in Alembic config
-DATABASE_URL = os.getenv('DATABASE_URL')
-if DATABASE_URL and DATABASE_URL.startswith('postgres://'):
-    DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql+asyncpg://', 1)
-
+# Use database URL from centralized configuration
+# This ensures consistency with the application's database settings
+DATABASE_URL = settings.database_url_async
 config.set_main_option("sqlalchemy.url", DATABASE_URL)
 
 # Set up Python logging based on alembic.ini configuration

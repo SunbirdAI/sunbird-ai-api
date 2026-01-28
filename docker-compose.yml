@@ -1,0 +1,76 @@
+# ============================================================================
+# Docker Compose - Local Development
+# ============================================================================
+# For local development and testing with Docker
+# ============================================================================
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: sunbird-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sunbirdai
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Sunbird AI API
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sunbird-api
+    restart: unless-stopped
+    ports:
+      - "8000:8080"
+    environment:
+      # Database
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/sunbirdai
+      ENVIRONMENT: development
+
+      # Application
+      PORT: 8080
+      WORKERS: 2
+      DEBUG: "true"
+
+      # Database pool settings
+      DB_POOL_SIZE: 10
+      DB_MAX_OVERFLOW: 5
+      DB_ECHO: "false"
+
+      # Add other environment variables from your .env file
+      # Copy them from .env or use env_file directive
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      # Mount code for development (comment out for production-like testing)
+      - .:/app:ro
+      # Exclude virtual environment
+      - /app/env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  default:
+    name: sunbird-network

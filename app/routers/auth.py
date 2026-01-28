@@ -5,13 +5,20 @@ from datetime import timedelta
 
 from authlib.integrations.starlette_client import OAuth
 from dotenv import load_dotenv
-from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Form, Request, status
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from starlette.config import Config
 
+from app.core.exceptions import (
+    AuthenticationError,
+    BadRequestError,
+    ConflictError,
+    ExternalServiceError,
+    NotFoundError,
+)
 from app.crud.users import (  # update_user_organization,
     create_user,
     get_user_by_email,
@@ -30,14 +37,14 @@ from app.schemas.users import (
     UserGoogle,
     UserInDB,
 )
-from app.utils.auth_utils import (
+from app.utils.auth import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
     authenticate_user,
     create_access_token,
     get_password_hash,
     verify_password,
 )
-from app.utils.email_utils import send_password_reset_email
+from app.utils.email import send_password_reset_email
 
 router = APIRouter()
 oauth = OAuth()
@@ -65,12 +72,16 @@ async def register(user: UserCreate, db: AsyncSession = Depends(get_db)) -> User
     hashed_password = get_password_hash(user.password)
     db_user = await get_user_by_username(db, user.username)
     if db_user:
-        raise HTTPException(
-            status_code=400, detail="Username already taken, choose another username"
+        raise ConflictError(
+            message="Username already taken, choose another username",
+            resource="User",
+            conflict_field="username",
         )
     db_user = await get_user_by_email(db, user.email)
     if db_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
+        raise ConflictError(
+            message="Email already registered", resource="User", conflict_field="email"
+        )
     user_db = UserInDB(**user.model_dump(), hashed_password=hashed_password)
     user = await create_user(db, user_db)
     return user
@@ -82,11 +93,7 @@ async def login_for_access_token(
 ):
     user = await authenticate_user(db, form_data.username, form_data.password)
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise AuthenticationError(message="Incorrect username or password")
 
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
@@ -109,7 +116,7 @@ async def request_password_reset(
     try:
         user = await get_user_by_email(db, request.email)
         if not user or user.oauth_type != "Credentials":
-            raise HTTPException(status_code=404, detail="User not found")
+            raise NotFoundError(resource="User", message="User not found")
 
         reset_token = str(uuid.uuid4())
 
@@ -137,7 +144,7 @@ async def reset_password(request: ResetPassword, db: AsyncSession = Depends(get_
         user = result.scalars().first()
 
         if not user or user.oauth_type != "Credentials":
-            raise HTTPException(status_code=404, detail="Invalid reset token provided")
+            raise BadRequestError(message="Invalid reset token provided")
 
         user.hashed_password = get_password_hash(request.new_password)
         user.password_reset_token = None
@@ -162,7 +169,7 @@ async def change_password(
     user = await get_user_by_email(db, user.email)
     if user.oauth_type == "Credentials":
         if not verify_password(request.old_password, user.hashed_password):
-            raise HTTPException(status_code=400, detail="Wrong old password given")
+            raise AuthenticationError(message="Wrong old password given")
         user.hashed_password = get_password_hash(request.new_password)
         await db.commit()
 
@@ -195,9 +202,9 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
         # Get user info from Google
         user_info = token.get("userinfo")
         if not user_info:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Failed to get user info from Google",
+            raise ExternalServiceError(
+                service_name="Google OAuth",
+                message="Failed to get user info from Google",
             )
 
         # Extract user details
@@ -218,10 +225,7 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
             is_new_user = True
 
         if not db_user:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to create user in database",
-            )
+            raise BadRequestError(message="Failed to create user in database")
 
         # Create access token
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)

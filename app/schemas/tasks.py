@@ -95,7 +95,7 @@ class WorkerTranslationOutput(BaseModel):
     error: Optional[str] = Field(None, alias="Error")
 
     class Config:
-        allow_population_by_field_name = True
+        populate_by_name = True
         extra = "allow"
 
 
@@ -109,7 +109,7 @@ class WorkerTranslationResponse(BaseModel):
     workerId: Optional[str] = None
 
     class Config:
-        allow_population_by_field_name = True
+        populate_by_name = True
         extra = "allow"
 
 
