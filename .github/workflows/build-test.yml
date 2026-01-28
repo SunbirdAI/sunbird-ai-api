@@ -46,6 +46,7 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           TYPE: ${{ secrets.TYPE }}
           PROJECT_ID: ${{ secrets.PROJECT_ID }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
           PRIVATE_KEY_ID: ${{ secrets.PRIVATE_KEY_ID }}
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
           CLIENT_EMAIL: ${{ secrets.CLIENT_EMAIL }}
