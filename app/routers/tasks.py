@@ -215,16 +215,41 @@ limiter = Limiter(key_func=custom_key_func)
 
 
 def get_endpoint_details(endpoint_id: str):
+    """Fetch RunPod endpoint details from the API.
+
+    Args:
+        endpoint_id: The RunPod endpoint ID.
+
+    Returns:
+        dict: Endpoint details from the RunPod API.
+
+    Raises:
+        requests.exceptions.RequestException: If the API call fails.
+    """
     url = f"https://rest.runpod.io/v1/endpoints/{endpoint_id}"
     headers = {"Authorization": f"Bearer {os.getenv('RUNPOD_API_KEY')}"}
     response = requests.get(url, headers=headers)
+    response.raise_for_status()
     details = response.json()
 
     return details
 
 
-endpoint_details = get_endpoint_details(RUNPOD_ENDPOINT_ID)
-logging.info(f"Endpoint details: {endpoint_details}")
+# Try to fetch endpoint details for logging, but don't fail module import if it fails
+# This allows the application to start even if RunPod API is unavailable
+try:
+    if RUNPOD_ENDPOINT_ID and os.getenv("RUNPOD_API_KEY"):
+        endpoint_details = get_endpoint_details(RUNPOD_ENDPOINT_ID)
+        logging.info(f"RunPod endpoint details fetched: {endpoint_details}")
+    else:
+        logging.warning(
+            "RUNPOD_ENDPOINT_ID or RUNPOD_API_KEY not set - skipping endpoint details fetch"
+        )
+except Exception as e:
+    logging.warning(
+        f"Failed to fetch RunPod endpoint details: {e}. "
+        "This is not critical - the application will continue to function."
+    )
 
 
 @retry(
