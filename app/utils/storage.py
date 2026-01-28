@@ -10,6 +10,7 @@ Handles all interactions with Google Cloud Storage including:
 import asyncio
 import hashlib
 import uuid
+import logging
 from datetime import UTC, datetime, timedelta
 from typing import Optional
 
@@ -21,6 +22,9 @@ from app.core.config import settings
 from app.models.enums import SpeakerID
 
 load_dotenv()
+
+# Module-level logger
+logger = logging.getLogger(__name__)
 
 
 class GCPStorageService:
@@ -153,6 +157,8 @@ class GCPStorageService:
         # the library will automatically use the IAM signBlob API to sign the URL
         if self._service_account_email:
             signing_kwargs["service_account_email"] = self._service_account_email
+
+        logger.info(f"service_account_email: {self._service_account_email}")
 
         signed_url = blob.generate_signed_url(**signing_kwargs)
 
