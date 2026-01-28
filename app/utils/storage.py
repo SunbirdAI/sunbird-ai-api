@@ -158,7 +158,7 @@ class GCPStorageService:
         if self._service_account_email:
             signing_kwargs["service_account_email"] = self._service_account_email
 
-        logger.info(f"service_account_email: {self._service_account_email}")
+        logger.info(f"signing kwargs: {signing_kwargs}")
 
         signed_url = blob.generate_signed_url(**signing_kwargs)
 
