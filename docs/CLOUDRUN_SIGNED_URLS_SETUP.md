@@ -132,9 +132,12 @@ Cloud Run → Storage Client → IAM Service → ✅ Signed URL
 
 The storage service was updated to support IAM-based signing:
 
-### Updated: `app/services/storage_service.py`
+### Updated: `app/services/storage_service.py` and `app/utils/storage.py`
 
 ```python
+from google.auth import default
+from google.auth.transport.requests import Request
+
 # Constructor now accepts service_account_email
 def __init__(
     self,
@@ -145,7 +148,7 @@ def __init__(
     # ...
     self._service_account_email = service_account_email or os.getenv("GCP_SERVICE_ACCOUNT_EMAIL")
 
-# generate_upload_url and generate_download_url now use IAM signing
+# generate_upload_url and generate_download_url now use IAM signing with access token
 signing_kwargs = {
     "version": "v4",
     "expiration": timedelta(minutes=expiry_minutes),
@@ -153,12 +156,25 @@ signing_kwargs = {
     "content_type": content_type,
 }
 
-# Add service account email for IAM signing if available
+# Add service account email AND access token for IAM-based signing
+# The access token forces the library to use IAM signBlob API
 if self._service_account_email:
-    signing_kwargs["service_account_email"] = self._service_account_email
+    try:
+        # Get default credentials and refresh to get access token
+        credentials, _ = default()
+        if not credentials.valid:
+            credentials.refresh(Request())
+
+        signing_kwargs["service_account_email"] = self._service_account_email
+        signing_kwargs["access_token"] = credentials.token
+    except Exception as e:
+        # Fall back to service account email only
+        signing_kwargs["service_account_email"] = self._service_account_email
 
 signed_url = blob.generate_signed_url(**signing_kwargs)
 ```
+
+**Key Change**: We now pass both `service_account_email` AND `access_token` to force the library to use IAM signBlob API instead of trying to sign locally.
 
 ---
 

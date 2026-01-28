@@ -25,6 +25,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional, Tuple
 
 from dotenv import load_dotenv
+from google.auth import default
+from google.auth.transport.requests import Request
 from google.cloud import storage
 from google.cloud.storage import Blob, Bucket
 
@@ -160,11 +162,30 @@ class StorageService(BaseService):
                 "content_type": content_type,
             }
 
-            # Add service account email for IAM-based signing
-            # When running in Cloud Run with only the service account email (no private key),
-            # the library will automatically use the IAM signBlob API to sign the URL
+            # Add service account email and access token for IAM-based signing
+            # When running in Cloud Run, we need to explicitly provide an access token
+            # to force the library to use the IAM signBlob API instead of trying to sign locally
             if self._service_account_email:
-                signing_kwargs["service_account_email"] = self._service_account_email
+                try:
+                    # Get default credentials and refresh to get access token
+                    credentials, _ = default()
+                    if not credentials.valid:
+                        credentials.refresh(Request())
+
+                    signing_kwargs[
+                        "service_account_email"
+                    ] = self._service_account_email
+                    signing_kwargs["access_token"] = credentials.token
+
+                    self.log_info(
+                        f"Using IAM-based signing with service account: {self._service_account_email}"
+                    )
+                except Exception as e:
+                    self.log_warning(f"Failed to get access token for IAM signing: {e}")
+                    # Fall back to service account email only
+                    signing_kwargs[
+                        "service_account_email"
+                    ] = self._service_account_email
 
             signed_url = blob.generate_signed_url(**signing_kwargs)
 
@@ -205,11 +226,30 @@ class StorageService(BaseService):
                 "method": "GET",
             }
 
-            # Add service account email for IAM-based signing
-            # When running in Cloud Run with only the service account email (no private key),
-            # the library will automatically use the IAM signBlob API to sign the URL
+            # Add service account email and access token for IAM-based signing
+            # When running in Cloud Run, we need to explicitly provide an access token
+            # to force the library to use the IAM signBlob API instead of trying to sign locally
             if self._service_account_email:
-                signing_kwargs["service_account_email"] = self._service_account_email
+                try:
+                    # Get default credentials and refresh to get access token
+                    credentials, _ = default()
+                    if not credentials.valid:
+                        credentials.refresh(Request())
+
+                    signing_kwargs[
+                        "service_account_email"
+                    ] = self._service_account_email
+                    signing_kwargs["access_token"] = credentials.token
+
+                    self.log_info(
+                        f"Using IAM-based signing with service account: {self._service_account_email}"
+                    )
+                except Exception as e:
+                    self.log_warning(f"Failed to get access token for IAM signing: {e}")
+                    # Fall back to service account email only
+                    signing_kwargs[
+                        "service_account_email"
+                    ] = self._service_account_email
 
             signed_url = blob.generate_signed_url(**signing_kwargs)
 
