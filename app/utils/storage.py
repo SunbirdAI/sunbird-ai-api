@@ -14,9 +14,6 @@ from datetime import UTC, datetime, timedelta
 from typing import Optional
 
 from dotenv import load_dotenv
-from google.auth import default
-from google.auth.iam import Signer
-from google.auth.transport.requests import Request
 from google.cloud import storage
 from google.cloud.storage import Blob, Bucket
 
@@ -151,18 +148,11 @@ class GCPStorageService:
             "method": "GET",
         }
 
-        # Add service account email for IAM signing if available
-        if self._service_account_email and settings.is_production:
-            credentials, _ = default()
-            credentials.refresh(Request())
-
-            signer = Signer(
-                Request(),
-                credentials,
-                self._service_account_email,
-            )
+        # Add service account email for IAM-based signing
+        # When running in Cloud Run with only the service account email (no private key),
+        # the library will automatically use the IAM signBlob API to sign the URL
+        if self._service_account_email:
             signing_kwargs["service_account_email"] = self._service_account_email
-            signing_kwargs["signer"] = signer
 
         signed_url = blob.generate_signed_url(**signing_kwargs)
 
