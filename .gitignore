@@ -39,3 +39,6 @@ cloudsql_db_backups
 bin/set_aws_database_url.sh
 latest.dump
 wif_credentials.md
+
+# vscode
+.vscode/

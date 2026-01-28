@@ -20,12 +20,24 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from tenacity import RetryError, retry, stop_after_attempt, wait_exponential
 
+from app.core.exceptions import (
+    APIException,
+    api_exception_handler,
+    validation_exception_handler,
+)
 from app.docs import description, tags_metadata
-from app.middleware.monitoring_middleware import log_request
+from app.middleware import MonitoringMiddleware
 from app.routers.auth import router as auth_router
 from app.routers.frontend import router as frontend_router
+from app.routers.inference import router as inference_router
+from app.routers.language import router as language_router
+from app.routers.runpod_tts import router as runpod_tts_router
+from app.routers.stt import router as stt_router
 from app.routers.tasks import router as tasks_router
-from app.utils.exception_utils import validation_exception_handler
+from app.routers.translation import router as translation_router
+from app.routers.tts import router as modal_tts_router
+from app.routers.upload import router as upload_router
+from app.routers.webhooks import router as webhooks_router
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
@@ -108,23 +120,48 @@ app = FastAPI(
     title="Sunbird AI API",
     description=description,
     openapi_tags=tags_metadata,
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
     lifespan=lifespan,
 )
 
-# Add custom upload size middleware before other middleware
+# ============================================================================
+# Middleware Configuration
+# ============================================================================
+#
+# NOTE: Middleware executes in REVERSE order of registration (LIFO).
+# The last middleware added is the first to execute on incoming requests.
+#
+# Request Flow (outer → inner):
+# 1. SlowAPIMiddleware (rate limiting) ← Added last, executes first
+# 2. CORSMiddleware (CORS headers)
+# 3. MonitoringMiddleware (endpoint usage logging)
+# 4. SessionMiddleware (session management)
+# 5. LargeUploadMiddleware (file size validation) ← Added first, executes last
+# 6. Route Handler
+#
+# Response Flow (inner → outer):
+# Route Handler → LargeUpload → Session → Monitoring → CORS → RateLimit
+# ============================================================================
+
+# 1. LargeUploadMiddleware - Validates request size before processing
 app.add_middleware(LargeUploadMiddleware)
 
-# Add SessionMiddleware to enable session-based authentication
+# 2. SessionMiddleware - Manages user sessions (required for session-based auth)
 app.add_middleware(SessionMiddleware, secret_key=os.getenv("SECRET_KEY"))
 
+# Mount static files before monitoring middleware
 static_files_directory = Path(__file__).parent.absolute() / "static"
 app.mount("/static", StaticFiles(directory=static_files_directory), name="static")
 
-# logging_middleware = partial(log_request)
-# app.middleware("http")(logging_middleware)
+# 3. MonitoringMiddleware - Logs endpoint usage for analytics
+#    Automatically monitors all /tasks/* endpoints
+#    Tracks: username, organization, endpoint, request duration
+app.add_middleware(MonitoringMiddleware)
 
+# 4. CORSMiddleware - Handles Cross-Origin Resource Sharing
 origins = ["*"]
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -133,17 +170,37 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize the Limiter
+# 5. SlowAPIMiddleware - Rate limiting (executes first on incoming requests)
 limiter = Limiter(key_func=get_remote_address)
-
-# Add middleware and exception handler for rate limiting
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
-# Register the custom request validation exception handler
+
+# ============================================================================
+# Exception Handlers
+# ============================================================================
+
+# Custom exception handlers for consistent error responses
+app.add_exception_handler(APIException, api_exception_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
 
 
-app.include_router(tasks_router, prefix="/tasks", tags=["AI Tasks"])
+# API Routes
 app.include_router(auth_router, prefix="/auth", tags=["Authentication Endpoints"])
+
+# Task endpoints
+app.include_router(stt_router, prefix="/tasks", tags=["Speech-to-Text"])
+app.include_router(translation_router, prefix="/tasks", tags=["Translation"])
+app.include_router(language_router, prefix="/tasks", tags=["Language"])
+app.include_router(inference_router, prefix="/tasks", tags=["Sunflower"])
+app.include_router(upload_router, prefix="/tasks", tags=["Upload"])
+app.include_router(webhooks_router, prefix="/tasks", tags=["Webhooks"])
+app.include_router(tasks_router, prefix="/tasks", tags=["AI Tasks"])  # Legacy endpoints
+
+# TTS endpoints - organized by provider
+app.include_router(modal_tts_router, prefix="/tasks/modal", tags=["TTS (Modal)"])
+app.include_router(runpod_tts_router, prefix="/tasks/runpod", tags=["TTS (RunPod)"])
+# Note: Legacy /tasks/tts endpoint maintained in tasks_router for backward compatibility
+
+# Frontend routes
 app.include_router(frontend_router, prefix="", tags=["Frontend Routes"])

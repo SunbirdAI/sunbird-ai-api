@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.11]
+        python-version: ["3.12"]
 
     steps:
       - id: 'auth'
@@ -46,6 +46,7 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           TYPE: ${{ secrets.TYPE }}
           PROJECT_ID: ${{ secrets.PROJECT_ID }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
           PRIVATE_KEY_ID: ${{ secrets.PRIVATE_KEY_ID }}
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
           CLIENT_EMAIL: ${{ secrets.CLIENT_EMAIL }}
@@ -64,6 +65,8 @@ jobs:
           FRONTEND_LOCAL_URL: ${{ secrets.FRONTEND_LOCAL_URL }}
           FRONTEND_PRODUCTION_URL: ${{ secrets.FRONTEND_PRODUCTION_URL }}
           GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_ENDPOINT_ID: ${{ secrets.RUNPOD_ENDPOINT_ID }}
       - name: Coverage Badge
         uses: tj-actions/coverage-badge-py@v2
 
