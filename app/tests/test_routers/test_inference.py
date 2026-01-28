@@ -105,7 +105,7 @@ class TestSunflowerInferenceEndpoint:
         )
 
         assert response.status_code == 400
-        assert "message" in response.json()["detail"].lower()
+        assert "required" in response.json()["message"].lower()
 
     @pytest.mark.asyncio
     async def test_sunflower_inference_invalid_role(
@@ -113,7 +113,7 @@ class TestSunflowerInferenceEndpoint:
         async_client: AsyncClient,
         test_user: Dict,
     ) -> None:
-        """Test that invalid message role returns 400."""
+        """Test that invalid message role returns 422."""
         response = await async_client.post(
             "/tasks/sunflower_inference",
             json={
@@ -122,8 +122,8 @@ class TestSunflowerInferenceEndpoint:
             headers={"Authorization": f"Bearer {test_user['token']}"},
         )
 
-        assert response.status_code == 400
-        assert "role" in response.json()["detail"].lower()
+        assert response.status_code == 422
+        assert "role" in response.json()["message"].lower()
 
     @pytest.mark.asyncio
     async def test_sunflower_inference_empty_content(
@@ -131,7 +131,7 @@ class TestSunflowerInferenceEndpoint:
         async_client: AsyncClient,
         test_user: Dict,
     ) -> None:
-        """Test that empty message content returns 400."""
+        """Test that empty message content returns 422."""
         response = await async_client.post(
             "/tasks/sunflower_inference",
             json={
@@ -140,8 +140,8 @@ class TestSunflowerInferenceEndpoint:
             headers={"Authorization": f"Bearer {test_user['token']}"},
         )
 
-        assert response.status_code == 400
-        assert "empty" in response.json()["detail"].lower()
+        assert response.status_code == 422
+        assert "empty" in response.json()["message"].lower()
 
     @pytest.mark.asyncio
     async def test_sunflower_inference_model_loading_error(
@@ -163,7 +163,7 @@ class TestSunflowerInferenceEndpoint:
             )
 
             assert response.status_code == 503
-            assert "loading" in response.json()["detail"].lower()
+            assert "loading" in response.json()["message"].lower()
 
     @pytest.mark.asyncio
     async def test_sunflower_inference_timeout_error(
@@ -184,8 +184,8 @@ class TestSunflowerInferenceEndpoint:
                 headers={"Authorization": f"Bearer {test_user['token']}"},
             )
 
-            assert response.status_code == 504
-            assert "timed out" in response.json()["detail"].lower()
+            assert response.status_code == 503
+            assert "timed out" in response.json()["message"].lower()
 
     @pytest.mark.asyncio
     async def test_sunflower_inference_empty_response(
@@ -207,7 +207,7 @@ class TestSunflowerInferenceEndpoint:
             )
 
             assert response.status_code == 502
-            assert "empty" in response.json()["detail"].lower()
+            assert "empty" in response.json()["message"].lower()
 
     @pytest.mark.asyncio
     async def test_sunflower_inference_with_system_message(
@@ -338,7 +338,7 @@ class TestSunflowerSimpleEndpoint:
         )
 
         assert response.status_code == 400
-        assert "empty" in response.json()["detail"].lower()
+        assert "empty" in response.json()["message"].lower()
 
     @pytest.mark.asyncio
     async def test_simple_inference_instruction_too_long(
@@ -354,7 +354,7 @@ class TestSunflowerSimpleEndpoint:
         )
 
         assert response.status_code == 400
-        assert "long" in response.json()["detail"].lower()
+        assert "long" in response.json()["message"].lower()
 
     @pytest.mark.asyncio
     async def test_simple_inference_invalid_model_type(
@@ -362,7 +362,7 @@ class TestSunflowerSimpleEndpoint:
         async_client: AsyncClient,
         test_user: Dict,
     ) -> None:
-        """Test that invalid model type returns 400."""
+        """Test that invalid model type returns 422."""
         response = await async_client.post(
             "/tasks/sunflower_simple",
             data={
@@ -372,8 +372,8 @@ class TestSunflowerSimpleEndpoint:
             headers={"Authorization": f"Bearer {test_user['token']}"},
         )
 
-        assert response.status_code == 400
-        assert "model type" in response.json()["detail"].lower()
+        assert response.status_code == 422
+        assert "model type" in response.json()["message"].lower()
 
     @pytest.mark.asyncio
     async def test_simple_inference_model_loading_error(
@@ -393,7 +393,7 @@ class TestSunflowerSimpleEndpoint:
             )
 
             assert response.status_code == 503
-            assert "loading" in response.json()["detail"].lower()
+            assert "loading" in response.json()["message"].lower()
 
     @pytest.mark.asyncio
     async def test_simple_inference_timeout_error(
@@ -412,8 +412,8 @@ class TestSunflowerSimpleEndpoint:
                 headers={"Authorization": f"Bearer {test_user['token']}"},
             )
 
-            assert response.status_code == 504
-            assert "timed out" in response.json()["detail"].lower()
+            assert response.status_code == 503
+            assert "timed out" in response.json()["message"].lower()
 
     @pytest.mark.asyncio
     async def test_simple_inference_with_custom_system_message(

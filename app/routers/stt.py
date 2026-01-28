@@ -285,8 +285,12 @@ async def speech_to_text(
         except AudioValidationError as e:
             raise ValidationError(
                 message=str(e),
-                field="audio",
-                value=content_type,
+                errors=[
+                    {
+                        "field": "audio",
+                        "value": content_type,
+                    }
+                ],
             )
 
         # Create temporary file
@@ -408,6 +412,23 @@ async def speech_to_text_org(
 
     try:
         # Save uploaded file to temp location
+        # Validate file type
+        content_type = audio.content_type
+        file_extension = get_audio_extension(audio.filename)
+
+        try:
+            service.validate_audio_file(content_type, file_extension)
+        except AudioValidationError as e:
+            raise ValidationError(
+                message=str(e),
+                errors=[
+                    {
+                        "field": "audio",
+                        "value": content_type,
+                    }
+                ],
+            )
+
         filename = secure_filename(audio.filename)
         timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         unique_file_name = f"{timestamp}_{filename}"

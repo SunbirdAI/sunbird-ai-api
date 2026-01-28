@@ -68,7 +68,7 @@ class TestUserRegistration:
         # Second registration with same username should fail
         user_data["email"] = "second@example.com"
         response2 = await async_client.post("/auth/register", json=user_data)
-        assert response2.status_code == 400
+        assert response2.status_code == 409  # ConflictError returns 409
 
     @pytest.mark.asyncio
     async def test_register_duplicate_email(
@@ -95,7 +95,7 @@ class TestUserRegistration:
         # Second registration with same email should fail
         user_data["username"] = "user_two"
         response2 = await async_client.post("/auth/register", json=user_data)
-        assert response2.status_code == 400
+        assert response2.status_code == 409  # ConflictError returns 409
 
     @pytest.mark.asyncio
     async def test_register_invalid_email(
@@ -329,4 +329,4 @@ class TestPasswordChange:
             headers={"Authorization": f"Bearer {test_user['token']}"},
         )
 
-        assert response.status_code == 400
+        assert response.status_code == 401  # AuthenticationError returns 401

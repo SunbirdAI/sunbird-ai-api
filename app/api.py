@@ -20,7 +20,11 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from tenacity import RetryError, retry, stop_after_attempt, wait_exponential
 
-from app.core.exceptions import validation_exception_handler
+from app.core.exceptions import (
+    APIException,
+    api_exception_handler,
+    validation_exception_handler,
+)
 from app.docs import description, tags_metadata
 from app.middleware import MonitoringMiddleware
 from app.routers.auth import router as auth_router
@@ -176,7 +180,8 @@ app.add_middleware(SlowAPIMiddleware)
 # Exception Handlers
 # ============================================================================
 
-# Custom validation error handler for consistent error responses
+# Custom exception handlers for consistent error responses
+app.add_exception_handler(APIException, api_exception_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
 
 

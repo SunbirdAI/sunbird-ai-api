@@ -153,8 +153,8 @@ class TestLanguageIdEndpoint:
                 headers={"Authorization": f"Bearer {test_user['token']}"},
             )
 
-            assert response.status_code == 408
-            assert "timed out" in response.json()["detail"].lower()
+            assert response.status_code == 503
+            assert "timed out" in response.json()["message"].lower()
         finally:
             app.dependency_overrides.pop(get_service, None)
 
@@ -179,7 +179,7 @@ class TestLanguageIdEndpoint:
                 headers={"Authorization": f"Bearer {test_user['token']}"},
             )
 
-            assert response.status_code == 500
+            assert response.status_code == 502
         finally:
             app.dependency_overrides.pop(get_service, None)
 
@@ -269,8 +269,8 @@ class TestClassifyLanguageEndpoint:
                 headers={"Authorization": f"Bearer {test_user['token']}"},
             )
 
-            assert response.status_code == 408
-            assert "timed out" in response.json()["detail"].lower()
+            assert response.status_code == 503
+            assert "timed out" in response.json()["message"].lower()
         finally:
             app.dependency_overrides.pop(get_service, None)
 
@@ -295,8 +295,8 @@ class TestClassifyLanguageEndpoint:
                 headers={"Authorization": f"Bearer {test_user['token']}"},
             )
 
-            assert response.status_code == 500
-            assert "unexpected" in response.json()["detail"].lower()
+            assert response.status_code == 502
+            assert "unexpected" in response.json()["message"].lower()
         finally:
             app.dependency_overrides.pop(get_service, None)
 
@@ -321,7 +321,7 @@ class TestClassifyLanguageEndpoint:
                 headers={"Authorization": f"Bearer {test_user['token']}"},
             )
 
-            assert response.status_code == 500
+            assert response.status_code == 502
         finally:
             app.dependency_overrides.pop(get_service, None)
 
@@ -425,7 +425,7 @@ class TestAutoDetectAudioLanguageEndpoint:
             )
 
             assert response.status_code == 503
-            assert "timeout" in response.json()["detail"].lower()
+            assert "timeout" in response.json()["message"].lower()
         finally:
             app.dependency_overrides.pop(get_service, None)
 
@@ -450,8 +450,8 @@ class TestAutoDetectAudioLanguageEndpoint:
                 headers={"Authorization": f"Bearer {test_user['token']}"},
             )
 
-            assert response.status_code == 503
-            assert "connection" in response.json()["detail"].lower()
+            assert response.status_code == 502
+            assert "connection" in response.json()["message"].lower()
         finally:
             app.dependency_overrides.pop(get_service, None)
 
@@ -476,7 +476,7 @@ class TestAutoDetectAudioLanguageEndpoint:
                 headers={"Authorization": f"Bearer {test_user['token']}"},
             )
 
-            assert response.status_code == 500
+            assert response.status_code == 502
         finally:
             app.dependency_overrides.pop(get_service, None)
 

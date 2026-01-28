@@ -136,8 +136,8 @@ class TestSTTEndpoint:
                 headers={"Authorization": f"Bearer {test_user['token']}"},
             )
 
-            assert response.status_code == 415
-            assert "Unsupported file type" in response.json()["detail"]
+            assert response.status_code == 422
+            assert "Unsupported file type" in response.json()["message"]
 
         finally:
             app.dependency_overrides.pop(get_service, None)
@@ -169,7 +169,7 @@ class TestSTTEndpoint:
             )
 
             assert response.status_code == 400
-            assert "Could not decode audio file" in response.json()["detail"]
+            assert "Could not decode audio file" in response.json()["message"]
 
         finally:
             app.dependency_overrides.pop(get_service, None)
@@ -181,7 +181,7 @@ class TestSTTEndpoint:
         test_user: Dict,
         mock_stt_service: MagicMock,
     ) -> None:
-        """Test that transcription error returns 503 Service Unavailable."""
+        """Test that transcription error returns 502 Service Unavailable."""
         mock_stt_service.transcribe_uploaded_file = AsyncMock(
             side_effect=TranscriptionError("Transcription service timed out")
         )
@@ -200,8 +200,8 @@ class TestSTTEndpoint:
                 headers={"Authorization": f"Bearer {test_user['token']}"},
             )
 
-            assert response.status_code == 503
-            assert "timed out" in response.json()["detail"]
+            assert response.status_code == 502
+            assert "timed out" in response.json()["message"]
 
         finally:
             app.dependency_overrides.pop(get_service, None)
@@ -352,7 +352,7 @@ class TestSTTFromGCSEndpoint:
             )
 
             assert response.status_code == 400
-            assert "does not exist" in response.json()["detail"]
+            assert "does not exist" in response.json()["message"]
 
         finally:
             app.dependency_overrides.pop(get_service, None)
@@ -495,7 +495,7 @@ class TestOrgSTTEndpoint:
         test_user: Dict,
         mock_stt_service: MagicMock,
     ) -> None:
-        """Test that transcription error in org endpoint returns 503."""
+        """Test that transcription error in org endpoint returns 502."""
         mock_stt_service.transcribe_org_audio = AsyncMock(
             side_effect=TranscriptionError("Connection error while transcribing")
         )
@@ -512,8 +512,8 @@ class TestOrgSTTEndpoint:
                 headers={"Authorization": f"Bearer {test_user['token']}"},
             )
 
-            assert response.status_code == 503
-            assert "Connection error" in response.json()["detail"]
+            assert response.status_code == 502
+            assert "Connection error" in response.json()["message"]
 
         finally:
             app.dependency_overrides.pop(get_service, None)

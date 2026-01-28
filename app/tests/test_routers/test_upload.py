@@ -156,7 +156,7 @@ class TestGenerateUploadUrlEndpoint:
             )
 
             assert response.status_code == 400
-            assert "path traversal" in response.json()["detail"].lower()
+            assert "path traversal" in response.json()["message"].lower()
 
             # Test with leading /
             response = await async_client.post(
@@ -168,7 +168,7 @@ class TestGenerateUploadUrlEndpoint:
             )
 
             assert response.status_code == 400
-            assert "path traversal" in response.json()["detail"].lower()
+            assert "path traversal" in response.json()["message"].lower()
         finally:
             app.dependency_overrides.pop(get_service, None)
 
@@ -177,7 +177,7 @@ class TestGenerateUploadUrlEndpoint:
         self,
         async_client: AsyncClient,
     ) -> None:
-        """Test that storage error returns 500."""
+        """Test that storage error returns 502 (ExternalServiceError)."""
         # Mock the service at the function level using patch
         with patch("app.routers.upload.get_service") as mock_get_service:
             mock_service = MagicMock()
@@ -194,15 +194,15 @@ class TestGenerateUploadUrlEndpoint:
                 },
             )
 
-            assert response.status_code == 500
-            assert "error" in response.json()["detail"].lower()
+            assert response.status_code == 502  # ExternalServiceError
+            assert "error" in response.json()["message"].lower()
 
     @pytest.mark.asyncio
     async def test_upload_url_generic_error(
         self,
         async_client: AsyncClient,
     ) -> None:
-        """Test that generic error returns 500."""
+        """Test that generic error returns 502 (ExternalServiceError)."""
         # Mock the service at the function level using patch
         with patch("app.routers.upload.get_service") as mock_get_service:
             mock_service = MagicMock()
@@ -219,7 +219,7 @@ class TestGenerateUploadUrlEndpoint:
                 },
             )
 
-            assert response.status_code == 500
+            assert response.status_code == 502  # ExternalServiceError
 
 
 class TestUploadSchemaValidation:

@@ -448,6 +448,44 @@ class BadRequestError(APIException):
 # Exception Handlers
 
 
+async def api_exception_handler(request: Request, exc: APIException) -> JSONResponse:
+    """Handle custom API exceptions with consistent formatting.
+
+    This handler converts custom APIException instances into a standardized
+    JSON response format that includes error_code, message, and optional details.
+
+    Args:
+        request: The incoming HTTP request.
+        exc: The APIException raised in the application.
+
+    Returns:
+        JSONResponse with formatted error response.
+
+    Example Response:
+        {
+            "error_code": "NOT_FOUND",
+            "message": "User with ID 123 not found",
+            "timestamp": "2024-01-15T10:30:00Z"
+        }
+    """
+    from datetime import UTC, datetime
+
+    response_content = {
+        "error_code": exc.error_code,
+        "message": exc.message,
+        "timestamp": datetime.now(UTC).isoformat(),
+    }
+
+    if exc.details:
+        response_content["details"] = exc.details
+
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=response_content,
+        headers=exc.headers,
+    )
+
+
 async def validation_exception_handler(
     request: Request, exc: RequestValidationError
 ) -> JSONResponse:

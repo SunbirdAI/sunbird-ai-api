@@ -235,7 +235,7 @@ class TestTranslateEndpoint:
             )
 
             assert response.status_code == 503
-            assert "timeout" in response.json()["detail"].lower()
+            assert "timeout" in response.json()["message"].lower()
         finally:
             app.dependency_overrides.pop(get_service, None)
 
@@ -264,8 +264,8 @@ class TestTranslateEndpoint:
                 headers={"Authorization": f"Bearer {test_user['token']}"},
             )
 
-            assert response.status_code == 503
-            assert "connection" in response.json()["detail"].lower()
+            assert response.status_code == 502
+            assert "connection" in response.json()["message"].lower()
         finally:
             app.dependency_overrides.pop(get_service, None)
 
@@ -298,8 +298,8 @@ class TestTranslateEndpoint:
                 headers={"Authorization": f"Bearer {test_user['token']}"},
             )
 
-            assert response.status_code == 500
-            assert "invalid" in response.json()["detail"].lower()
+            assert response.status_code == 502
+            assert "invalid" in response.json()["message"].lower()
         finally:
             app.dependency_overrides.pop(get_service, None)
 
@@ -328,7 +328,7 @@ class TestTranslateEndpoint:
                 headers={"Authorization": f"Bearer {test_user['token']}"},
             )
 
-            assert response.status_code == 500
+            assert response.status_code == 502
         finally:
             app.dependency_overrides.pop(get_service, None)
 

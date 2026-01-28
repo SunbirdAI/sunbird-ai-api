@@ -191,18 +191,32 @@ async def sunflower_inference(
             if not hasattr(message, "role") or not hasattr(message, "content"):
                 raise ValidationError(
                     message=f"Message {i} must have 'role' and 'content' fields",
-                    field=f"messages[{i}]",
+                    errors=[
+                        {
+                            "field": f"messages[{i}]",
+                            "value": message,
+                        }
+                    ],
                 )
             if message.role not in valid_roles:
                 raise ValidationError(
                     message=f"Message {i} role must be one of: {', '.join(valid_roles)}",
-                    field=f"messages[{i}].role",
-                    value=message.role,
+                    errors=[
+                        {
+                            "field": f"messages[{i}].role",
+                            "value": message.role,
+                        }
+                    ],
                 )
             if not message.content or not message.content.strip():
                 raise ValidationError(
                     message=f"Message {i} content cannot be empty",
-                    field=f"messages[{i}].content",
+                    errors=[
+                        {
+                            "field": f"messages[{i}].content",
+                            "value": message.content,
+                        }
+                    ],
                 )
 
         # Convert messages to dict format for the inference function
@@ -399,8 +413,12 @@ async def sunflower_simple_inference(
         if model_type not in ["qwen", "gemma"]:
             raise ValidationError(
                 message="Model type must be either 'qwen' or 'gemma'",
-                field="model_type",
-                value=model_type,
+                errors=[
+                    {
+                        "field": "model_type",
+                        "value": model_type,
+                    }
+                ],
             )
 
         logging.info(f"Simple Sunflower inference requested by user {user.id}")
