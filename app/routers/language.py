@@ -29,11 +29,12 @@ import shutil
 import time
 
 from dotenv import load_dotenv
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Request, UploadFile
 from jose import jwt
 from slowapi import Limiter
 from werkzeug.utils import secure_filename
 
+from app.core.exceptions import ExternalServiceError, ServiceUnavailableError
 from app.deps import get_current_user
 from app.schemas.language import (
     AudioDetectedLanguageResponse,
@@ -132,8 +133,8 @@ async def language_id(
         LanguageIdResponse containing the identified language.
 
     Raises:
-        HTTPException: 408 if the service times out.
-        HTTPException: 500 for internal server errors.
+        ServiceUnavailableError: If the service times out.
+        ExternalServiceError: If language identification service fails.
 
     Example:
         Request body:
@@ -152,15 +153,15 @@ async def language_id(
 
     except LanguageTimeoutError:
         logging.error("Language identification timed out")
-        raise HTTPException(
-            status_code=408,
-            detail="The language identification job timed out. Please try again later.",
+        raise ServiceUnavailableError(
+            message="The language identification job timed out. Please try again later."
         )
     except LanguageError as e:
         logging.error(f"Language identification error: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail="An error occurred while processing the language identification request.",
+        raise ExternalServiceError(
+            service_name="Language Identification Service",
+            message="An error occurred while processing the language identification request",
+            original_error=str(e),
         )
 
 
@@ -192,8 +193,8 @@ async def classify_language(
         LanguageIdResponse containing the classified language.
 
     Raises:
-        HTTPException: 408 if the service times out.
-        HTTPException: 500 for internal server errors or unexpected response format.
+        ServiceUnavailableError: If the service times out.
+        ExternalServiceError: If language classification service fails or returns unexpected response format.
 
     Example:
         Request body:
@@ -217,21 +218,22 @@ async def classify_language(
 
     except LanguageTimeoutError:
         logging.error("Language classification timed out")
-        raise HTTPException(
-            status_code=408,
-            detail="The language identification job timed out. Please try again later.",
+        raise ServiceUnavailableError(
+            message="The language identification job timed out. Please try again later."
         )
     except LanguageDetectionError as e:
         logging.error(f"Language detection error: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail="Unexpected response format from the language identification service.",
+        raise ExternalServiceError(
+            service_name="Language Identification Service",
+            message="Unexpected response format from the language identification service",
+            original_error=str(e),
         )
     except LanguageError as e:
         logging.error(f"Language classification error: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail="An error occurred while processing the language identification request.",
+        raise ExternalServiceError(
+            service_name="Language Classification Service",
+            message="An error occurred while processing the language identification request",
+            original_error=str(e),
         )
 
 
@@ -261,8 +263,8 @@ async def auto_detect_audio_language(
         AudioDetectedLanguageResponse containing the detected language.
 
     Raises:
-        HTTPException: 503 if the service is unavailable (timeout/connection error).
-        HTTPException: 500 for internal server errors.
+        ServiceUnavailableError: If the service times out.
+        ExternalServiceError: If language detection service fails or has connection errors.
 
     Example:
         Response:
@@ -294,20 +296,27 @@ async def auto_detect_audio_language(
 
     except LanguageTimeoutError:
         logging.error("Audio language detection timed out")
-        raise HTTPException(
-            status_code=503, detail="Service unavailable due to timeout."
-        )
+        raise ServiceUnavailableError(message="Service unavailable due to timeout")
     except LanguageConnectionError:
         logging.error("Audio language detection connection error")
-        raise HTTPException(
-            status_code=503, detail="Service unavailable due to connection error."
+        raise ExternalServiceError(
+            service_name="Language Detection Service",
+            message="Service unavailable due to connection error",
         )
     except LanguageError as e:
         logging.error(f"Audio language detection error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise ExternalServiceError(
+            service_name="Language Detection Service",
+            message="Audio language detection error",
+            original_error=str(e),
+        )
     except Exception as e:
         logging.error(f"Unexpected error in auto_detect_audio_language: {str(e)}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise ExternalServiceError(
+            service_name="Language Detection Service",
+            message="Internal server error",
+            original_error=str(e),
+        )
     finally:
         # Clean up temporary file
         if os.path.exists(file_path):

@@ -22,8 +22,9 @@ Note:
 
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 
+from app.core.exceptions import BadRequestError, ExternalServiceError
 from app.schemas.upload import UploadRequest, UploadResponse
 from app.services.storage_service import (
     StorageError,
@@ -70,8 +71,8 @@ async def generate_upload_url(
         UploadResponse containing the signed URL, file ID, and expiry time.
 
     Raises:
-        HTTPException: 400 if request validation fails.
-        HTTPException: 500 if URL generation fails.
+        BadRequestError: If request validation fails.
+        ExternalServiceError: If URL generation fails.
 
     Example:
         Request:
@@ -101,9 +102,8 @@ async def generate_upload_url(
     try:
         # Validate file name (basic security check)
         if ".." in request.file_name or request.file_name.startswith("/"):
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid file name: path traversal not allowed",
+            raise BadRequestError(
+                message="Invalid file name: path traversal not allowed"
             )
 
         # Get storage service and generate URL
@@ -121,17 +121,19 @@ async def generate_upload_url(
             expires_at=expires_at,
         )
 
-    except HTTPException:
+    except BadRequestError:
         raise
     except StorageError as e:
         logging.error(f"Storage error generating upload URL: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error generating upload URL: {str(e)}",
+        raise ExternalServiceError(
+            service_name="Google Cloud Storage",
+            message="Error generating upload URL",
+            original_error=str(e),
         )
     except Exception as e:
         logging.error(f"Unexpected error generating upload URL: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error generating upload URL: {str(e)}",
+        raise ExternalServiceError(
+            service_name="Google Cloud Storage",
+            message="Error generating upload URL",
+            original_error=str(e),
         )

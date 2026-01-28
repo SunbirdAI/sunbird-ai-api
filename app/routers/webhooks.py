@@ -25,8 +25,9 @@ import os
 import time
 
 from dotenv import load_dotenv
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, Response
+from fastapi import APIRouter, BackgroundTasks, Request, Response
 
+from app.core.exceptions import AuthorizationError, BadRequestError
 from app.integrations.firebase import get_user_preference
 from app.schemas.webhooks import WebhookResponse
 from app.services.message_processor import OptimizedMessageProcessor, ResponseType
@@ -297,7 +298,8 @@ async def verify_webhook(
         Plain text response with the challenge string.
 
     Raises:
-        HTTPException: 403 if verification fails, 400 if parameters missing.
+        AuthorizationError: If webhook verification fails.
+        BadRequestError: If required parameters are missing.
 
     Verification Process:
         1. WhatsApp sends GET request with query parameters
@@ -326,11 +328,13 @@ async def verify_webhook(
             logging.error(
                 f"Webhook verification failed - Expected token: {os.getenv('VERIFY_TOKEN')}, Received: {token}"
             )
-            raise HTTPException(status_code=403, detail="Forbidden")
+            raise AuthorizationError(message="Webhook verification failed")
 
         logging.info("WEBHOOK_VERIFIED")
         # WhatsApp expects a plain text response with just the challenge value
         return Response(content=challenge, media_type="text/plain")
 
     logging.error("Missing required parameters for webhook verification")
-    raise HTTPException(status_code=400, detail="Bad Request")
+    raise BadRequestError(
+        message="Missing required parameters for webhook verification"
+    )

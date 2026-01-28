@@ -33,21 +33,18 @@ from typing import Optional
 
 import aiofiles
 from dotenv import load_dotenv
-from fastapi import (
-    APIRouter,
-    Depends,
-    File,
-    Form,
-    HTTPException,
-    Request,
-    Response,
-    UploadFile,
-)
+from fastapi import APIRouter, Depends, File, Form, Request, Response, UploadFile
 from jose import jwt
 from slowapi import Limiter
 from sqlalchemy.ext.asyncio import AsyncSession
 from werkzeug.utils import secure_filename
 
+from app.core.exceptions import (
+    BadRequestError,
+    ExternalServiceError,
+    ServiceUnavailableError,
+    ValidationError,
+)
 from app.crud.audio_transcription import create_audio_transcription
 from app.deps import get_current_user, get_db
 from app.schemas.stt import (
@@ -157,7 +154,8 @@ async def speech_to_text_from_gcs(
         STTTranscript containing the transcription results.
 
     Raises:
-        HTTPException: If transcription fails.
+        BadRequestError: If audio processing fails.
+        ExternalServiceError: If transcription service fails.
     """
     try:
         result = await service.transcribe_from_gcs(
@@ -212,16 +210,20 @@ async def speech_to_text_from_gcs(
         return response
 
     except AudioProcessingError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise BadRequestError(message=str(e))
     except TranscriptionError as e:
-        raise HTTPException(status_code=503, detail=str(e))
-    except HTTPException:
+        raise ExternalServiceError(
+            service_name="STT Transcription Service",
+            message=str(e),
+        )
+    except (BadRequestError, ExternalServiceError):
         raise
     except Exception as e:
         logging.error(f"Unexpected error in speech_to_text_from_gcs: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail="An unexpected error occurred while processing your request",
+        raise ExternalServiceError(
+            service_name="STT Service",
+            message="An unexpected error occurred while processing your request",
+            original_error=str(e),
         )
 
 
@@ -267,7 +269,9 @@ async def speech_to_text(
         STTTranscript containing the transcription results.
 
     Raises:
-        HTTPException: If validation or transcription fails.
+        ValidationError: If audio file validation fails.
+        BadRequestError: If audio processing fails.
+        ExternalServiceError: If transcription service fails.
     """
     start_time = time.time()
 
@@ -279,7 +283,11 @@ async def speech_to_text(
         try:
             service.validate_audio_file(content_type, file_extension)
         except AudioValidationError as e:
-            raise HTTPException(status_code=415, detail=str(e))
+            raise ValidationError(
+                message=str(e),
+                field="audio",
+                value=content_type,
+            )
 
         # Create temporary file
         with tempfile.NamedTemporaryFile(
@@ -349,16 +357,20 @@ async def speech_to_text(
         return response
 
     except AudioProcessingError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise BadRequestError(message=str(e))
     except TranscriptionError as e:
-        raise HTTPException(status_code=503, detail=str(e))
-    except HTTPException:
+        raise ExternalServiceError(
+            service_name="STT Transcription Service",
+            message=str(e),
+        )
+    except (BadRequestError, ValidationError, ExternalServiceError):
         raise
     except Exception as e:
         logging.error(f"Unexpected error in speech_to_text: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail="An unexpected error occurred while processing your request",
+        raise ExternalServiceError(
+            service_name="STT Service",
+            message="An unexpected error occurred while processing your request",
+            original_error=str(e),
         )
 
 
@@ -388,7 +400,9 @@ async def speech_to_text_org(
         STTTranscript containing the transcription results.
 
     Raises:
-        HTTPException: If transcription fails.
+        BadRequestError: If audio processing fails.
+        ServiceUnavailableError: If service times out.
+        ExternalServiceError: If transcription service fails.
     """
     start_time = time.time()
 
@@ -421,20 +435,23 @@ async def speech_to_text_org(
         )
 
     except AudioProcessingError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise BadRequestError(message=str(e))
     except TranscriptionError as e:
-        raise HTTPException(status_code=503, detail=str(e))
-    except TimeoutError:
-        raise HTTPException(
-            status_code=503, detail="Service unavailable due to timeout."
+        raise ExternalServiceError(
+            service_name="STT Transcription Service",
+            message=str(e),
         )
+    except TimeoutError:
+        raise ServiceUnavailableError(message="Service unavailable due to timeout")
     except ConnectionError:
-        raise HTTPException(
-            status_code=503, detail="Service unavailable due to connection error."
+        raise ExternalServiceError(
+            service_name="STT Service",
+            message="Service unavailable due to connection error",
         )
     except Exception as e:
         logging.error(f"Unexpected error in speech_to_text_org: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail="An unexpected error occurred while processing your request",
+        raise ExternalServiceError(
+            service_name="STT Service",
+            message="An unexpected error occurred while processing your request",
+            original_error=str(e),
         )

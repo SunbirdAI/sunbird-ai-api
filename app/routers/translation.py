@@ -24,10 +24,11 @@ import logging
 import time
 
 from dotenv import load_dotenv
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 from jose import jwt
 from slowapi import Limiter
 
+from app.core.exceptions import ExternalServiceError, ServiceUnavailableError
 from app.deps import get_current_user
 from app.schemas.translation import NllbTranslationRequest, WorkerTranslationResponse
 from app.services.translation_service import (
@@ -135,8 +136,8 @@ async def translate(
         WorkerTranslationResponse containing the translation result.
 
     Raises:
-        HTTPException: 503 if service is unavailable (timeout/connection error).
-        HTTPException: 500 for internal server errors.
+        ServiceUnavailableError: If service times out.
+        ExternalServiceError: If translation service fails or returns invalid response.
 
     Example:
         Request body:
@@ -191,22 +192,34 @@ async def translate(
 
     except TranslationTimeoutError as e:
         logging.error(f"Translation timeout: {str(e)}")
-        raise HTTPException(
-            status_code=503, detail="Service unavailable due to timeout."
-        )
+        raise ServiceUnavailableError(message="Service unavailable due to timeout")
     except TranslationConnectionError as e:
         logging.error(f"Translation connection error: {str(e)}")
-        raise HTTPException(
-            status_code=503, detail="Service unavailable due to connection error."
+        raise ExternalServiceError(
+            service_name="Translation Service",
+            message="Service unavailable due to connection error",
+            original_error=str(e),
         )
     except TranslationValidationError as e:
         logging.error(f"Translation validation error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Invalid response from worker")
+        raise ExternalServiceError(
+            service_name="Translation Worker",
+            message="Invalid response from worker",
+            original_error=str(e),
+        )
     except TranslationError as e:
         logging.error(f"Translation error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Internal server error")
-    except HTTPException:
+        raise ExternalServiceError(
+            service_name="Translation Service",
+            message="Translation service error",
+            original_error=str(e),
+        )
+    except (ServiceUnavailableError, ExternalServiceError):
         raise
     except Exception as e:
         logging.error(f"Unexpected error in nllb_translate: {str(e)}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise ExternalServiceError(
+            service_name="Translation Service",
+            message="Internal server error",
+            original_error=str(e),
+        )

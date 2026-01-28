@@ -20,7 +20,7 @@ from typing import Any, Dict, Optional
 import aiohttp
 import runpod
 from dotenv import load_dotenv
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from jose import jwt
 from slowapi import Limiter
 from tenacity import (
@@ -30,6 +30,12 @@ from tenacity import (
     wait_exponential,
 )
 
+from app.core.exceptions import (
+    BadRequestError,
+    ExternalServiceError,
+    ServiceUnavailableError,
+    ValidationError,
+)
 from app.deps import get_current_user
 from app.schemas.tasks import TTSRequest
 from app.utils.auth import ALGORITHM, SECRET_KEY
@@ -251,9 +257,10 @@ async def text_to_speech(
         dict: A dictionary containing the generated speech audio with signed URL and metadata.
 
     Raises:
-        HTTPException: Returns 400 for invalid input parameters.
-        HTTPException: Returns 503 if the service is unavailable due to timeout or connection error.
-        HTTPException: Returns 502 for worker errors.
+        BadRequestError: For invalid input parameters.
+        ValidationError: For invalid speaker_id, temperature, or max_new_audio_tokens.
+        ServiceUnavailableError: If the service is unavailable due to timeout.
+        ExternalServiceError: For connection errors or worker errors.
 
     Speaker IDs:
         241: Acholi (female)
@@ -278,49 +285,56 @@ async def text_to_speech(
     text = tts_request.text
     # Validate inputs early and return informative 4xx errors
     if not isinstance(text, str) or not text.strip():
-        raise HTTPException(
-            status_code=400,
-            detail="`text` is required for TTS and must be a non-empty string",
+        raise BadRequestError(
+            message="`text` is required for TTS and must be a non-empty string"
         )
 
     # Limit text size to avoid worker-side errors
     MAX_TTS_CHARS = 10000
     if len(text) > MAX_TTS_CHARS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"`text` is too long for TTS (max {MAX_TTS_CHARS} characters)",
+        raise BadRequestError(
+            message=f"`text` is too long for TTS (max {MAX_TTS_CHARS} characters)"
         )
 
     # Validate speaker_id, temperature and token limits
     try:
         speaker_id_val = tts_request.speaker_id.value
     except Exception:
-        raise HTTPException(
-            status_code=400, detail="Invalid or missing `speaker_id` in TTS request"
+        raise ValidationError(
+            message="Invalid or missing `speaker_id` in TTS request",
+            field="speaker_id",
         )
 
     try:
         temperature = float(tts_request.temperature)
         if not (0.0 <= temperature <= 2.0):
-            raise HTTPException(
-                status_code=400, detail="`temperature` must be between 0.0 and 2.0"
+            raise ValidationError(
+                message="`temperature` must be between 0.0 and 2.0",
+                field="temperature",
+                value=str(temperature),
             )
-    except HTTPException:
+    except ValidationError:
         raise
     except Exception:
-        raise HTTPException(status_code=400, detail="Invalid `temperature` value")
+        raise ValidationError(
+            message="Invalid `temperature` value",
+            field="temperature",
+        )
 
     try:
         max_new_audio_tokens = int(tts_request.max_new_audio_tokens)
         if max_new_audio_tokens < 1:
-            raise HTTPException(
-                status_code=400, detail="`max_new_audio_tokens` must be >= 1"
+            raise ValidationError(
+                message="`max_new_audio_tokens` must be >= 1",
+                field="max_new_audio_tokens",
+                value=str(max_new_audio_tokens),
             )
-    except HTTPException:
+    except ValidationError:
         raise
     except Exception:
-        raise HTTPException(
-            status_code=400, detail="Invalid `max_new_audio_tokens` value"
+        raise ValidationError(
+            message="Invalid `max_new_audio_tokens` value",
+            field="max_new_audio_tokens",
         )
 
     # Data to be sent in the request body
@@ -339,23 +353,25 @@ async def text_to_speech(
         request_response = await call_endpoint_with_retry(endpoint, data)
     except TimeoutError as e:
         logging.error(f"Job timed out: {str(e)}")
-        raise HTTPException(
-            status_code=503, detail="Service unavailable due to timeout"
-        )
+        raise ServiceUnavailableError(message="Service unavailable due to timeout")
     except ConnectionError as e:
         logging.error(f"Connection lost: {str(e)}")
-        raise HTTPException(
-            status_code=503, detail="Service unavailable due to connection error"
+        raise ExternalServiceError(
+            service_name="RunPod TTS Service",
+            message="Service unavailable due to connection error",
+            original_error=str(e),
         )
     except ValueError as e:
         # Worker reported a bad request / invalid input
         logging.error(f"Bad request to worker: {e}")
-        raise HTTPException(
-            status_code=400, detail=f"Invalid request to TTS worker: {e}"
-        )
+        raise BadRequestError(message=f"Invalid request to TTS worker: {e}")
     except Exception as e:
         logging.exception("Unexpected error when calling TTS worker")
-        raise HTTPException(status_code=502, detail=f"TTS worker error: {str(e)}")
+        raise ExternalServiceError(
+            service_name="RunPod TTS Worker",
+            message="TTS worker error",
+            original_error=str(e),
+        )
 
     end_time = time.time()
     # Endpoint usage logging is handled automatically by MonitoringMiddleware

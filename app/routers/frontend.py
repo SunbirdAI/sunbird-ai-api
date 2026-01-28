@@ -3,21 +3,13 @@ import logging
 from datetime import timedelta
 from typing import List, Optional
 
-from fastapi import (
-    APIRouter,
-    Depends,
-    Form,
-    HTTPException,
-    Query,
-    Request,
-    responses,
-    status,
-)
+from fastapi import APIRouter, Depends, Form, Query, Request, responses, status
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import ExternalServiceError, NotFoundError
 from app.crud.audio_transcription import (
     get_audio_transcription as crud_audio_transcription,
 )
@@ -249,7 +241,9 @@ async def get_audio_transcriptions(
     )
 
     if not transcriptions:
-        raise HTTPException(status_code=404, detail="No transcriptions found")
+        raise NotFoundError(
+            resource="Transcriptions", message="No transcriptions found"
+        )
 
     transcriptions_dicts = [t.to_dict() for t in transcriptions]
 
@@ -267,7 +261,7 @@ async def get_audio_transcription(
     transcription = await crud_audio_transcription(db, id, current_user.username)
 
     if not transcription:
-        raise HTTPException(status_code=404, detail="Transcription not found")
+        raise NotFoundError(resource="Transcription", message="Transcription not found")
 
     return transcription.to_dict()
 
@@ -287,7 +281,7 @@ async def update_audio_transcription(
     transcription = await crud_audio_transcription(db, id, current_user.username)
 
     if not transcription:
-        raise HTTPException(status_code=404, detail="Transcription not found")
+        raise NotFoundError(resource="Transcription", message="Transcription not found")
 
     transcription.transcription = transcription_text
     try:
@@ -296,8 +290,10 @@ async def update_audio_transcription(
     except Exception as e:
         logging.error(f"Error: {str(e)}")
         await db.rollback()
-        raise HTTPException(
-            status_code=500, detail="An error occurred while updating the transcription"
+        raise ExternalServiceError(
+            service_name="Database",
+            message="An error occurred while updating the transcription",
+            original_error=str(e),
         )
 
     return transcription.to_dict()

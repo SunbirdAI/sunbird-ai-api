@@ -27,10 +27,16 @@ import time
 from typing import Any, Dict
 
 from dotenv import load_dotenv
-from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, Request
 from jose import jwt
 from slowapi import Limiter
 
+from app.core.exceptions import (
+    BadRequestError,
+    ExternalServiceError,
+    ServiceUnavailableError,
+    ValidationError,
+)
 from app.deps import get_current_user
 from app.schemas.inference import (
     SunflowerChatRequest,
@@ -143,11 +149,10 @@ async def sunflower_inference(
         SunflowerChatResponse containing the AI's response and usage stats.
 
     Raises:
-        HTTPException: 400 for validation errors.
-        HTTPException: 502 for empty model response.
-        HTTPException: 503 if the model is still loading.
-        HTTPException: 504 if the request times out.
-        HTTPException: 500 for unexpected errors.
+        BadRequestError: For validation errors.
+        ValidationError: For invalid message format.
+        ServiceUnavailableError: If the model is loading or request times out.
+        ExternalServiceError: For empty model response or unexpected errors.
 
     Example:
         Request body with message history:
@@ -178,26 +183,26 @@ async def sunflower_inference(
     try:
         # Validate input
         if not chat_request.messages:
-            raise HTTPException(
-                status_code=400, detail="At least one message is required"
-            )
+            raise BadRequestError(message="At least one message is required")
 
         # Validate message format
         valid_roles = {"system", "user", "assistant"}
         for i, message in enumerate(chat_request.messages):
             if not hasattr(message, "role") or not hasattr(message, "content"):
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Message {i} must have 'role' and 'content' fields",
+                raise ValidationError(
+                    message=f"Message {i} must have 'role' and 'content' fields",
+                    field=f"messages[{i}]",
                 )
             if message.role not in valid_roles:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Message {i} role must be one of: {', '.join(valid_roles)}",
+                raise ValidationError(
+                    message=f"Message {i} role must be one of: {', '.join(valid_roles)}",
+                    field=f"messages[{i}].role",
+                    value=message.role,
                 )
             if not message.content or not message.content.strip():
-                raise HTTPException(
-                    status_code=400, detail=f"Message {i} content cannot be empty"
+                raise ValidationError(
+                    message=f"Message {i} content cannot be empty",
+                    field=f"messages[{i}].content",
                 )
 
         # Convert messages to dict format for the inference function
@@ -236,31 +241,30 @@ async def sunflower_inference(
 
         except ModelLoadingError as e:
             logging.error(f"Model loading error: {e}")
-            raise HTTPException(
-                status_code=503,
-                detail="The AI model is currently loading. This usually takes 2-3 minutes. Please try again shortly.",
+            raise ServiceUnavailableError(
+                message="The AI model is currently loading. This usually takes 2-3 minutes. Please try again shortly."
             )
         except TimeoutError as e:
             logging.error(f"Inference timeout: {e}")
-            raise HTTPException(
-                status_code=504,
-                detail="The request timed out. Please try again with a shorter prompt or check your network connection.",
+            raise ServiceUnavailableError(
+                message="The request timed out. Please try again with a shorter prompt or check your network connection."
             )
         except ValueError as e:
             logging.error(f"Invalid request: {e}")
-            raise HTTPException(status_code=400, detail=f"Invalid request: {str(e)}")
+            raise BadRequestError(message=f"Invalid request: {str(e)}")
         except Exception as e:
             logging.error(f"Unexpected inference error: {e}")
-            raise HTTPException(
-                status_code=500,
-                detail="An unexpected error occurred during inference. Please try again.",
+            raise ExternalServiceError(
+                service_name="Sunflower Inference Service",
+                message="An unexpected error occurred during inference. Please try again.",
+                original_error=str(e),
             )
 
         # Process the response
         if not response or not response.get("content"):
-            raise HTTPException(
-                status_code=502,
-                detail="The model returned an empty response. Please try rephrasing your request.",
+            raise ExternalServiceError(
+                service_name="Sunflower Model",
+                message="The model returned an empty response. Please try rephrasing your request.",
             )
 
         end_time = time.time()
@@ -303,7 +307,12 @@ async def sunflower_inference(
 
         return chat_response
 
-    except HTTPException:
+    except (
+        BadRequestError,
+        ValidationError,
+        ServiceUnavailableError,
+        ExternalServiceError,
+    ):
         raise
     except Exception as e:
         end_time = time.time()
@@ -312,9 +321,10 @@ async def sunflower_inference(
         logging.error(
             f"Unexpected error in sunflower_inference after {total_time:.2f}s: {e}"
         )
-        raise HTTPException(
-            status_code=500,
-            detail="An unexpected server error occurred. Please try again later.",
+        raise ExternalServiceError(
+            service_name="Sunflower Inference",
+            message="An unexpected server error occurred. Please try again later.",
+            original_error=str(e),
         )
 
 
@@ -352,10 +362,10 @@ async def sunflower_simple_inference(
         Dictionary containing response, model_type, processing_time, usage, and success.
 
     Raises:
-        HTTPException: 400 for validation errors.
-        HTTPException: 503 if the model is still loading.
-        HTTPException: 504 if the request times out.
-        HTTPException: 500 for unexpected errors.
+        BadRequestError: For validation errors.
+        ValidationError: For invalid model type.
+        ServiceUnavailableError: If the model is loading or request times out.
+        ExternalServiceError: For unexpected errors.
 
     Example:
         Form data:
@@ -378,18 +388,19 @@ async def sunflower_simple_inference(
     try:
         # Validate input
         if not instruction or not instruction.strip():
-            raise HTTPException(status_code=400, detail="Instruction cannot be empty")
+            raise BadRequestError(message="Instruction cannot be empty")
 
         if len(instruction.strip()) > 4000:
-            raise HTTPException(
-                status_code=400,
-                detail="Instruction too long. Please limit to 4000 characters.",
+            raise BadRequestError(
+                message="Instruction too long. Please limit to 4000 characters."
             )
 
         # Validate model type
         if model_type not in ["qwen", "gemma"]:
-            raise HTTPException(
-                status_code=400, detail="Model type must be either 'qwen' or 'gemma'"
+            raise ValidationError(
+                message="Model type must be either 'qwen' or 'gemma'",
+                field="model_type",
+                value=model_type,
             )
 
         logging.info(f"Simple Sunflower inference requested by user {user.id}")
@@ -406,20 +417,20 @@ async def sunflower_simple_inference(
 
         except ModelLoadingError as e:
             logging.error(f"Model loading error: {e}")
-            raise HTTPException(
-                status_code=503,
-                detail="The AI model is currently loading. Please wait 2-3 minutes and try again.",
+            raise ServiceUnavailableError(
+                message="The AI model is currently loading. Please wait 2-3 minutes and try again."
             )
         except TimeoutError as e:
             logging.error(f"Inference timeout: {e}")
-            raise HTTPException(
-                status_code=504,
-                detail="Request timed out. Please try again with a shorter instruction.",
+            raise ServiceUnavailableError(
+                message="Request timed out. Please try again with a shorter instruction."
             )
         except Exception as e:
             logging.error(f"Inference error: {e}")
-            raise HTTPException(
-                status_code=500, detail="Inference failed. Please try again."
+            raise ExternalServiceError(
+                service_name="Sunflower Inference Service",
+                message="Inference failed. Please try again.",
+                original_error=str(e),
             )
 
         end_time = time.time()
@@ -453,11 +464,20 @@ async def sunflower_simple_inference(
         logging.info(f"Simple Sunflower inference completed in {total_time:.2f}s")
         return result
 
-    except HTTPException:
+    except (
+        BadRequestError,
+        ValidationError,
+        ServiceUnavailableError,
+        ExternalServiceError,
+    ):
         raise
     except Exception as e:
         end_time = time.time()
         total_time = end_time - start_time
 
         logging.error(f"Unexpected error in simple inference: {e}")
-        raise HTTPException(status_code=500, detail="An unexpected error occurred")
+        raise ExternalServiceError(
+            service_name="Sunflower Inference",
+            message="An unexpected error occurred",
+            original_error=str(e),
+        )

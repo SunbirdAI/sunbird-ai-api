@@ -9,11 +9,16 @@ import json
 from io import BytesIO
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.exceptions import (
+    ExternalServiceError,
+    NotFoundError,
+    ServiceUnavailableError,
+)
 from app.deps import LegacyStorageServiceDep, TTSServiceDep, get_current_user, get_db
 from app.models.enums import SpeakerID, TTSResponseMode, get_all_speakers
 from app.schemas.tts import (
@@ -136,12 +141,14 @@ async def generate_tts(
         )
 
     except httpx.TimeoutException:
-        raise HTTPException(
-            status_code=504, detail="TTS service timeout - text may be too long"
+        raise ServiceUnavailableError(
+            message="TTS service timeout - text may be too long"
         )
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Failed to generate audio: {str(e)}"
+        raise ExternalServiceError(
+            service_name="TTS",
+            message="Failed to generate audio",
+            original_error=str(e),
         )
 
 
@@ -203,8 +210,9 @@ async def refresh_signed_url(
         )
 
     except Exception as e:
-        raise HTTPException(
-            status_code=404, detail=f"File not found or error generating URL: {str(e)}"
+        raise NotFoundError(
+            resource="Audio file",
+            message=f"File not found or error generating URL: {str(e)}",
         )
 
 
