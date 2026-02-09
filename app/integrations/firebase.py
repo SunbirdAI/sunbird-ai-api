@@ -40,6 +40,7 @@ Note:
 import logging
 import os
 
+from dotenv import load_dotenv
 import firebase_admin
 from firebase_admin import credentials, firestore
 
@@ -52,6 +53,8 @@ def _init_firebase() -> None:
     global _db
     if _db is not None:
         return
+    
+    load_dotenv()
 
     try:
         # Initialize Firebase app
@@ -59,7 +62,7 @@ def _init_firebase() -> None:
             "type": os.getenv("TYPE"),
             "project_id": os.getenv("PROJECT_ID"),
             "private_key_id": os.getenv("PRIVATE_KEY_ID"),
-            "private_key": os.getenv("PRIVATE_KEY"),
+            "private_key": os.getenv("PRIVATE_KEY").replace('\\n', '\n'),
             "client_email": os.getenv("CLIENT_EMAIL"),
             "token_uri": os.getenv("TOKEN_URI"),
             "auth_provider_x509_cert_url": os.getenv("AUTH_PROVIDER_X509_CERT_URL"),
