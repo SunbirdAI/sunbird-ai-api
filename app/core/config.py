@@ -40,6 +40,12 @@ class Settings(BaseSettings):
     request_timeout_seconds: int = Field(
         default=120, description="Timeout for TTS API requests in seconds"
     )
+
+    # Modal STT Service Configuration
+    modal_stt_api_url: str = Field(
+        default="https://sb-modal-ws--asr-whisper-large-v3-salt-model-transcribe.modal.run",
+        description="Modal Whisper ASR API URL for speech-to-text",
+    )
     max_text_length: int = Field(
         default=10000, description="Maximum allowed text length for TTS"
     )
