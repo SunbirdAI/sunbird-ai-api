@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.11"]
+        python-version: ["3.12"]
 
     steps:
       - id: 'auth'
@@ -35,7 +35,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install setuptools
+          pip install setuptools==80.10.2
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
       - name: Unit Testing with pytest
         run: |
