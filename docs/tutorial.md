@@ -112,6 +112,45 @@ language_codes: {
 
 Convert speech audio to text for supported languages. The API supports various audio formats including MP3, WAV, and M4A.
 
+### Modal STT (Recommended)
+
+The Modal-based STT endpoint uses the Whisper large-v3 model for high-quality transcription. Simply upload an audio file and get the transcription back.
+
+```python
+import os
+import requests
+from dotenv import load_dotenv
+
+load_dotenv()
+
+url = "https://api.sunbird.ai/tasks/modal/stt"
+access_token = os.getenv("AUTH_TOKEN")
+
+headers = {
+    "accept": "application/json",
+    "Authorization": f"Bearer {access_token}",
+}
+
+# Replace with your audio file path
+audio_file_path = "/path/to/audio_file.wav"
+
+files = {
+    "audio": (
+        "recording.wav",
+        open(audio_file_path, "rb"),
+        "audio/wav",
+    ),
+}
+
+response = requests.post(url, headers=headers, files=files)
+result = response.json()
+print(f"Transcription: {result['audio_transcription']}")
+```
+
+### RunPod STT (with language selection)
+
+The RunPod-based STT endpoint allows you to specify a target language and adapter for transcription.
+
 ```python
 import os
 import requests

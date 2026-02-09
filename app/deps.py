@@ -41,6 +41,7 @@ from app.schemas.users import TokenData, User
 # Service imports
 from app.services.inference_service import InferenceService, get_inference_service
 from app.services.language_service import LanguageService, get_language_service
+from app.services.modal_stt_service import ModalSTTService, get_modal_stt_service
 from app.services.storage_service import StorageService
 from app.services.storage_service import get_storage_service as get_new_storage_service
 from app.services.stt_service import STTService, get_stt_service
@@ -58,6 +59,7 @@ from app.utils.storage import get_storage_service as get_legacy_storage_service
 
 # Service dependencies
 STTServiceDep = Annotated[STTService, Depends(get_stt_service)]
+ModalSTTServiceDep = Annotated[ModalSTTService, Depends(get_modal_stt_service)]
 TTSServiceDep = Annotated[TTSService, Depends(get_tts_service)]
 TranslationServiceDep = Annotated[TranslationService, Depends(get_translation_service)]
 LanguageServiceDep = Annotated[LanguageService, Depends(get_language_service)]
@@ -160,6 +162,7 @@ __all__ = [
     "oauth2_scheme",
     # Service dependencies
     "STTServiceDep",
+    "ModalSTTServiceDep",
     "TTSServiceDep",
     "TranslationServiceDep",
     "LanguageServiceDep",
@@ -174,6 +177,7 @@ __all__ = [
     "LegacyStorageServiceDep",
     # Service classes (for type hints)
     "STTService",
+    "ModalSTTService",
     "TTSService",
     "TranslationService",
     "LanguageService",
