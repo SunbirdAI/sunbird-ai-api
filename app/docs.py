@@ -22,7 +22,11 @@ Use the `Authorize` button below to login and access the protected endpoints.
 ## API Endpoints
 
 ### Speech-to-Text (STT)
-- **`POST /tasks/stt`** - Convert speech audio to text for supported languages
+- **`POST /tasks/modal/stt`** - Modal-based STT using Whisper large-v3 model
+  - Upload audio files directly for transcription
+  - Powered by Modal serverless GPU infrastructure
+  - Supports various audio formats (WAV, MP3, OGG, M4A, etc.)
+- **`POST /tasks/stt`** - RunPod-based STT for supported languages with language/adapter selection
 
 ### Translation
 - **`POST /tasks/translate`** - Translate text between English and local languages (Acholi, Ateso, Luganda, Lugbara, Runyankole)

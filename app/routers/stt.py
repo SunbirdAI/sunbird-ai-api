@@ -46,7 +46,7 @@ from app.core.exceptions import (
     ValidationError,
 )
 from app.crud.audio_transcription import create_audio_transcription
-from app.deps import get_current_user, get_db
+from app.deps import ModalSTTServiceDep, get_current_user, get_db
 from app.schemas.stt import (
     ALLOWED_AUDIO_TYPES,
     CHUNK_SIZE,
@@ -473,6 +473,75 @@ async def speech_to_text_org(
         logging.error(f"Unexpected error in speech_to_text_org: {str(e)}")
         raise ExternalServiceError(
             service_name="STT Service",
+            message="An unexpected error occurred while processing your request",
+            original_error=str(e),
+        )
+
+
+# =============================================================================
+# Modal STT Endpoint
+# =============================================================================
+
+
+@router.post(
+    "/modal/stt",
+    response_model=STTTranscript,
+    summary="Transcribe Audio via Modal Whisper ASR",
+    description="Upload an audio file and get transcription using the Modal-hosted Whisper model.",
+)
+@limiter.limit(get_account_type_limit)
+async def modal_speech_to_text(
+    request: Request,
+    audio: UploadFile = File(..., description="Audio file to transcribe"),
+    modal_stt_service: ModalSTTServiceDep = None,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+) -> STTTranscript:
+    """Transcribe audio using the Modal Whisper ASR inference server.
+
+    Sends the uploaded audio file to the Modal-hosted Whisper large-v3 model
+    for transcription. Supports various audio formats.
+
+    Args:
+        request: The FastAPI request object (required for rate limiting).
+        audio: The uploaded audio file.
+        modal_stt_service: The Modal STT service instance.
+        db: Database session.
+        current_user: The authenticated user.
+
+    Returns:
+        STTTranscript containing the transcription results.
+
+    Raises:
+        ServiceUnavailableError: If the Modal service times out.
+        ExternalServiceError: If the transcription service fails.
+    """
+    start_time = time.time()
+
+    try:
+        # Read audio bytes from uploaded file
+        audio_data = await audio.read()
+
+        logging.info(
+            f"Modal STT: received {len(audio_data)} bytes from file '{audio.filename}'"
+        )
+
+        # Call the Modal Whisper ASR service
+        transcription = await modal_stt_service.transcribe(audio_data)
+
+        elapsed_time = time.time() - start_time
+        logging.info(f"Modal STT transcription completed in {elapsed_time:.2f} seconds")
+
+        return STTTranscript(
+            audio_transcription=transcription,
+        )
+
+    except (ServiceUnavailableError, ExternalServiceError):
+        raise
+    except Exception as e:
+        logging.error(f"Unexpected error in modal_speech_to_text: {str(e)}")
+        raise ExternalServiceError(
+            service_name="Modal STT Service",
             message="An unexpected error occurred while processing your request",
             original_error=str(e),
         )

@@ -35,6 +35,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
+          # pip install setuptools==80.10.2
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
       - name: Unit Testing with pytest
         run: |
@@ -42,6 +43,7 @@ jobs:
           export GOOGLE_APPLICATION_CREDENTIALS=firebase_credentials.json
           coverage run -m pytest
           coverage report -m
+          coverage xml
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           TYPE: ${{ secrets.TYPE }}
@@ -67,8 +69,12 @@ jobs:
           GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
           RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
           RUNPOD_ENDPOINT_ID: ${{ secrets.RUNPOD_ENDPOINT_ID }}
-      - name: Coverage Badge
-        uses: tj-actions/coverage-badge-py@v2
+      # - name: Coverage Badge
+      #   uses: tj-actions/coverage-badge-py@v2
+      - name: Generate coverage badge
+        run: |
+          pip install genbadge[coverage]
+          genbadge coverage -i coverage.xml -o coverage.svg
 
       - name: Verify Changed files
         uses: tj-actions/verify-changed-files@v14
