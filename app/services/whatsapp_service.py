@@ -1095,9 +1095,40 @@ class WhatsAppBusinessService(BaseService):
 
         return ProcessingResult(response, ResponseType.TEXT)
 
+
     # =========================================================================
     # Async Helper Methods
     # =========================================================================
+
+    def valid_payload(self, payload):
+        if "object" in payload and "entry" in payload:
+            for entry in payload["entry"]:
+                if "changes" in entry:
+                    for change in entry["changes"]:
+                        if "value" in change:
+                            # Check for either 'messages' or 'statuses' in the 'value'
+                            if (
+                                "messages" in change["value"]
+                                or "statuses" in change["value"]
+                            ):
+                                return True
+        return False
+    
+    def get_messages_from_payload(self, payload):
+        try:
+            # Ensure 'entry' and 'changes' are in the payload
+            if "entry" in payload and isinstance(payload["entry"], list):
+                for entry in payload["entry"]:
+                    if "changes" in entry and isinstance(entry["changes"], list):
+                        for change in entry["changes"]:
+                            if "value" in change and "messages" in change["value"]:
+                                # Extract messages here
+                                return change["value"]["messages"]
+            logging.error("No 'messages' found in the payload")
+            return None
+        except Exception as e:
+            logging.error(f"Error parsing payload: {str(e)}")
+            return None
 
     async def _save_reaction_feedback_async(self, message_id: str, emoji: str) -> None:
         """Save reaction feedback asynchronously.
