@@ -68,8 +68,12 @@ jobs:
           GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
           RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
           RUNPOD_ENDPOINT_ID: ${{ secrets.RUNPOD_ENDPOINT_ID }}
-      - name: Coverage Badge
-        uses: tj-actions/coverage-badge-py@v2
+      # - name: Coverage Badge
+      #   uses: tj-actions/coverage-badge-py@v2
+      - name: Generate coverage badge
+        run: |
+          pip install "setuptools==80.10.2" coverage-badge
+          coverage-badge -o coverage.svg
 
       - name: Verify Changed files
         uses: tj-actions/verify-changed-files@v14
