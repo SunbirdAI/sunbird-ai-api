@@ -45,32 +45,48 @@ from firebase_admin import credentials, firestore
 
 logging.basicConfig(level=logging.INFO)
 
-try:
-    # Initialize Firebase app
-    firebase_config = {
-        "type": os.getenv("TYPE"),
-        "project_id": os.getenv("PROJECT_ID"),
-        "private_key_id": os.getenv("PRIVATE_KEY_ID"),
-        "private_key": os.getenv("PRIVATE_KEY"),
-        "client_email": os.getenv("CLIENT_EMAIL"),
-        "token_uri": os.getenv("TOKEN_URI"),
-        "auth_provider_x509_cert_url": os.getenv("AUTH_PROVIDER_X509_CERT_URL"),
-        "client_x509_cert_url": os.getenv("CLIENT_X509_CERT_URL"),
-        "client_id": os.getenv("CLIENT_ID"),
-        "auth_uri": os.getenv("AUTH_URI"),
-        "universe_domain": os.getenv("UNIVERSE_DOMAIN"),
-    }
+_db = None
 
-    cred = credentials.Certificate(firebase_config)
-    firebase_admin.initialize_app(cred)
-except ValueError as e:
-    logging.error(f"Value Error: {str(e)}")
-    firebase_admin.initialize_app()
-except Exception as e:
-    logging.error(f"Exception Error: {str(e)}")
 
-# Get Firestore database instance
-db = firestore.client()
+def _init_firebase() -> None:
+    global _db
+    if _db is not None:
+        return
+
+    try:
+        # Initialize Firebase app
+        firebase_config = {
+            "type": os.getenv("TYPE"),
+            "project_id": os.getenv("PROJECT_ID"),
+            "private_key_id": os.getenv("PRIVATE_KEY_ID"),
+            "private_key": os.getenv("PRIVATE_KEY"),
+            "client_email": os.getenv("CLIENT_EMAIL"),
+            "token_uri": os.getenv("TOKEN_URI"),
+            "auth_provider_x509_cert_url": os.getenv("AUTH_PROVIDER_X509_CERT_URL"),
+            "client_x509_cert_url": os.getenv("CLIENT_X509_CERT_URL"),
+            "client_id": os.getenv("CLIENT_ID"),
+            "auth_uri": os.getenv("AUTH_URI"),
+            "universe_domain": os.getenv("UNIVERSE_DOMAIN"),
+        }
+
+        cred = credentials.Certificate(firebase_config)
+        if not firebase_admin._apps:
+            firebase_admin.initialize_app(cred)
+    except ValueError as e:
+        logging.error(f"Value Error: {str(e)}")
+        if not firebase_admin._apps:
+            firebase_admin.initialize_app()
+    except Exception as e:
+        logging.error(f"Exception Error: {str(e)}")
+        if not firebase_admin._apps:
+            firebase_admin.initialize_app()
+
+    _db = firestore.client()
+
+
+def _get_db():
+    _init_firebase()
+    return _db
 
 
 # =============================================================================
@@ -88,6 +104,7 @@ def get_user_preference(user_id: str):
     Returns:
         str: Target language code if found, None otherwise
     """
+    db = _get_db()
     doc = db.collection("whatsapp_user_preferences").document(user_id).get()
     if doc.exists:
         preferences = doc.to_dict()
@@ -105,6 +122,7 @@ def save_user_preference(user_id: str, source_language: str, target_language: st
         source_language: Source language code
         target_language: Target language code
     """
+    db = _get_db()
     db.collection("whatsapp_user_preferences").document(user_id).set(
         {"source_language": source_language, "target_language": target_language}
     )
@@ -131,6 +149,7 @@ def update_feedback(message_id: str, feedback: str) -> bool:
     """
     try:
         # Update the old way (for backward compatibility)
+        db = _get_db()
         translations_ref = db.collection("whatsapp_translations")
         query = translations_ref.where("message_id", "==", message_id).stream()
 
@@ -167,6 +186,7 @@ def save_detailed_feedback(
     """
     try:
         # First, try to find the bot response this feedback is about
+        db = _get_db()
         messages_ref = db.collection("whatsapp_messages")
 
         # Find the specific message by message_id
@@ -192,6 +212,7 @@ def save_detailed_feedback(
                 "timestamp": firestore.SERVER_TIMESTAMP,
             }
 
+            db = _get_db()
             doc_ref = db.collection("whatsapp_feedback").add(feedback_doc)
             logging.info(f"Detailed feedback saved with ID: {doc_ref[1].id}")
             return True
@@ -241,6 +262,7 @@ def save_feedback_with_context(
                 "message_id": None,  # No specific message_id for button feedback
             }
 
+            db = _get_db()
             doc_ref = db.collection("whatsapp_feedback").add(feedback_doc)
             logging.info(f"Contextual feedback saved with ID: {doc_ref[1].id}")
             return True
@@ -258,6 +280,7 @@ def save_feedback_with_context(
                 "message_id": None,
             }
 
+            db = _get_db()
             doc_ref = db.collection("whatsapp_feedback").add(feedback_doc)
             logging.info(f"Basic feedback saved with ID: {doc_ref[1].id}")
             return True
@@ -279,6 +302,7 @@ def get_user_feedback_history(user_id: str, limit: int = 10) -> list:
         list: List of feedback records with full context
     """
     try:
+        db = _get_db()
         feedback_ref = db.collection("whatsapp_feedback")
         query = (
             feedback_ref.where("user_id", "==", user_id)
@@ -311,6 +335,7 @@ def get_all_feedback_summary(limit: int = 100) -> list:
         list: List of all feedback records
     """
     try:
+        db = _get_db()
         feedback_ref = db.collection("whatsapp_feedback")
         query = (
             feedback_ref.order_by("timestamp", direction=firestore.Query.DESCENDING)
@@ -347,6 +372,7 @@ def save_message(user_id: str, message_text: str) -> str:
     Returns:
         str: Document ID of the saved message
     """
+    db = _get_db()
     doc_ref = db.collection("whatsapp_messages").add(
         {
             "user_id": user_id,
@@ -374,6 +400,7 @@ def save_response(
     Returns:
         str: Document ID of the saved response
     """
+    db = _get_db()
     doc_ref = db.collection("whatsapp_messages").add(
         {
             "user_id": user_id,
@@ -398,6 +425,7 @@ def get_user_messages(user_id: str) -> list:
     Returns:
         list: List of all messages sent by the user
     """
+    db = _get_db()
     messages_ref = db.collection("whatsapp_messages")
     query = messages_ref.where("user_id", "==", user_id).stream()
     messages = []
@@ -416,6 +444,7 @@ def get_user_last_five_messages(user_id: str) -> list:
     Returns:
         list: List of the last five messages sent by the user
     """
+    db = _get_db()
     messages_ref = db.collection("whatsapp_messages")
     # Order the messages by timestamp descending and limit to the last 5
     query = (
@@ -440,6 +469,7 @@ def get_user_last_five_conversation_pairs(user_id: str) -> list:
     Returns:
         list: List of conversation pairs with user messages and bot responses
     """
+    db = _get_db()
     messages_ref = db.collection("whatsapp_messages")
     # Get last 10 messages to ensure we capture conversation pairs
     query = (
