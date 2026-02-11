@@ -320,64 +320,88 @@ The Sunflower model provides conversational AI capabilities with support for cha
 
 ### Chat with History
 ```python
-import os
 import requests
-from dotenv import load_dotenv
-
-load_dotenv()
 
 url = "https://api.sunbird.ai/tasks/sunflower_inference"
-access_token = os.getenv("AUTH_TOKEN")
 
 headers = {
     "accept": "application/json",
-    "Authorization": f"Bearer {access_token}",
+    "Authorization": "Bearer <your-access-token>",
     "Content-Type": "application/json",
 }
 
-data = {
+payload = {
     "messages": [
-        {"role": "user", "content": "Oli otya?"},
-        {"role": "assistant", "content": "Bulungi. Wange ye nnyanzi okukuyamba."},
-        {"role": "user", "content": "Nkwagala okumanya ebikwata ku ebyobulamu."}
+        {
+            "role": "user",
+            "content": "Good morning, what is weather today?",
+        }
     ],
-    "source_language": "lug",
-    "target_language": "lug",
-    "instruction": "You are a helpful assistant."
+    "model_type": "qwen",
+    "temperature": 0.3,
+    "stream": False,
+    "system_message": "string",
 }
 
-response = requests.post(url, headers=headers, json=data)
-result = response.json()
-print(f"Response: {result['response']}")
+response = requests.post(url, headers=headers, json=payload)
+
+print(response.status_code)
+print(response.json())
+```
+
+**Example Response:**
+```json
+{
+  "content": "I'm glad you're up! While I can't provide real-time weather updates, I can help you understand how to interpret weather forecasts or explain common weather patterns in Uganda. Could you share the current weather conditions you're experiencing?",
+  "model_type": "qwen",
+  "usage": {
+    "completion_tokens": 47,
+    "prompt_tokens": 22,
+    "total_tokens": 69
+  },
+  "processing_time": 4.802350997924805,
+  "inference_time": 4.792236804962158,
+  "message_count": 2
+}
 ```
 
 ### Simple Text Generation
 ```python
-import os
 import requests
-from dotenv import load_dotenv
-
-load_dotenv()
 
 url = "https://api.sunbird.ai/tasks/sunflower_simple"
-access_token = os.getenv("AUTH_TOKEN")
 
 headers = {
     "accept": "application/json",
-    "Authorization": f"Bearer {access_token}",
-    "Content-Type": "application/json",
+    "Authorization": "Bearer <your-access-token>",
 }
 
 data = {
-    "text": "Wandiikira ebikwata ku ebyobulamu mu Luganda.",
-    "source_language": "lug",
-    "target_language": "lug",
-    "instruction": "Provide health tips"
+    "instruction": "translate from english to luganda: i am very hungry they should serve food in time",
+    "model_type": "qwen",
+    "temperature": "0.1",
+    "system_message": "",
 }
 
-response = requests.post(url, headers=headers, json=data)
-result = response.json()
-print(f"Generated text: {result['output']}")
+response = requests.post(url, headers=headers, data=data)
+
+print(response.status_code)
+print(response.json())
+```
+
+**Example Response:**
+```json
+{
+  "response": "Ndi muyala nnyo, emmere erina okugabibwa mu budde.",
+  "model_type": "qwen",
+  "processing_time": 3.2431752681732178,
+  "usage": {
+    "completion_tokens": 19,
+    "prompt_tokens": 54,
+    "total_tokens": 73
+  },
+  "success": true
+}
 ```
 
 ---
