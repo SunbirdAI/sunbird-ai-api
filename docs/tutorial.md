@@ -114,7 +114,7 @@ Convert speech audio to text for supported languages. The API supports various a
 
 ### Modal STT (Recommended)
 
-The Modal-based STT endpoint uses the Whisper large-v3 model for high-quality transcription. Simply upload an audio file and get the transcription back.
+The Modal-based STT endpoint uses the Whisper large-v3 model for high-quality transcription. Simply upload an audio file and get the transcription back. You can optionally specify a `language` to improve accuracy; if omitted the model auto-detects the language.
 
 ```python
 import os
@@ -142,10 +142,35 @@ files = {
     ),
 }
 
+# Without language (auto-detect)
 response = requests.post(url, headers=headers, files=files)
 result = response.json()
 print(f"Transcription: {result['audio_transcription']}")
 ```
+
+#### Specifying a language
+
+Pass a `language` field to guide the model. Accepts either a 3-letter ISO 639-2 code or a full language name (case-insensitive).
+
+```python
+files = {
+    "audio": (
+        "recording.wav",
+        open(audio_file_path, "rb"),
+        "audio/wav",
+    ),
+}
+
+# Using a 3-letter code
+data = {"language": "lug"}
+response = requests.post(url, headers=headers, files=files, data=data)
+
+# Or using a full language name
+data = {"language": "Luganda"}
+response = requests.post(url, headers=headers, files=files, data=data)
+```
+
+**Supported languages:** English (`eng`), Luganda (`lug`), Runyankole (`nyn`), Acholi (`ach`), Ateso (`teo`), Lugbara (`lgg`), Swahili (`swa`), Kinyarwanda (`kin`), Lusoga (`xog`), Lumasaba (`myx`).
 
 ### RunPod STT (with language selection)
 
