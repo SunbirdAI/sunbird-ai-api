@@ -499,7 +499,7 @@ async def modal_speech_to_text(
     language: Optional[str] = Form(
         default=None,
         description=(
-            "Optional language hint for transcription. "
+            "Optional language hint for better transcriptions especially in local languages. "
             "Accepts a 3-letter ISO 639-2 code (e.g. 'eng', 'lug') "
             "or a full language name (e.g. 'english', 'luganda'). "
             "If omitted, the model auto-detects the language."
