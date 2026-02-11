@@ -1,0 +1,27 @@
+@import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --black: 240, 10%, 4%;
+    --secondary: 240, 5%, 8%
+   
+  }
+ 
+  .dark {
+    --background: 0 0% 0%;
+    --foreground: 210 40% 98%;
+    --secondary: 240 5% 8%;
+    --border: 240 5% 15%;
+  }
+}
+ 
+body {
+  @apply bg-white dark:bg-black text-slate-900 dark:text-slate-50 antialiased;
+  font-family: 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+}
