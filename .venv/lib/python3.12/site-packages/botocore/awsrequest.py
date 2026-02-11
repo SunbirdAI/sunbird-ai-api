@@ -15,11 +15,8 @@ import functools
 import logging
 from collections.abc import Mapping
 
-import urllib3.util
-from urllib3.connection import HTTPConnection, VerifiedHTTPSConnection
-from urllib3.connectionpool import HTTPConnectionPool, HTTPSConnectionPool
-
 import botocore.utils
+import urllib3.util
 from botocore.compat import (
     HTTPHeaders,
     HTTPResponse,
@@ -30,6 +27,8 @@ from botocore.compat import (
     urlunsplit,
 )
 from botocore.exceptions import UnseekableStreamError
+from urllib3.connection import HTTPConnection, VerifiedHTTPSConnection
+from urllib3.connectionpool import HTTPConnectionPool, HTTPSConnectionPool
 
 logger = logging.getLogger(__name__)
 

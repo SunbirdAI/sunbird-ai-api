@@ -15,7 +15,6 @@
 
 from pyasn1_modules import rfc4357
 
-
 # Signature Algorithm GOST R 34.10-94
 
 id_GostR3411_94_with_GostR3410_94 = rfc4357.id_GostR3411_94_with_GostR3410_94

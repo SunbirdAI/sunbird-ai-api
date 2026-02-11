@@ -1,5 +1,6 @@
 from flask import current_app
 from flask.signals import Namespace
+
 from ..base_client import FrameworkIntegration
 
 _signal = Namespace()

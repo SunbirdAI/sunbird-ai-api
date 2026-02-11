@@ -6,7 +6,7 @@
 # semantics to check that what you're asking to write to the wire is sensible,
 # but at least it gets you out of dealing with the wire itself.
 
-from h11._connection import Connection, NEED_DATA, PAUSED
+from h11._connection import NEED_DATA, PAUSED, Connection
 from h11._events import (
     ConnectionClosed,
     Data,

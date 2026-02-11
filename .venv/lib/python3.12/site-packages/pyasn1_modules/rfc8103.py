@@ -12,8 +12,7 @@
 # ASN.1 source from:
 # https://www.rfc-editor.org/rfc/rfc8103.txt
 
-from pyasn1.type import constraint
-from pyasn1.type import univ
+from pyasn1.type import constraint, univ
 
 
 def _OID(*components):

@@ -16,6 +16,7 @@
 #
 import argparse
 import os
+
 try:
     import libcst as cst
 except ImportError:
@@ -25,7 +26,7 @@ except ImportError:
     
 import pathlib
 import sys
-from typing import (Any, Callable, Dict, List, Sequence, Tuple)
+from typing import Any, Callable, Dict, List, Sequence, Tuple
 
 
 def partition(

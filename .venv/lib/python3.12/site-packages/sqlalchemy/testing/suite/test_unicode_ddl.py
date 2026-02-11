@@ -7,15 +7,9 @@
 # mypy: ignore-errors
 
 
-from sqlalchemy import desc
-from sqlalchemy import ForeignKey
-from sqlalchemy import Integer
-from sqlalchemy import MetaData
-from sqlalchemy import testing
-from sqlalchemy.testing import eq_
-from sqlalchemy.testing import fixtures
-from sqlalchemy.testing.schema import Column
-from sqlalchemy.testing.schema import Table
+from sqlalchemy import ForeignKey, Integer, MetaData, desc, testing
+from sqlalchemy.testing import eq_, fixtures
+from sqlalchemy.testing.schema import Column, Table
 
 
 class UnicodeSchemaTest(fixtures.TablesTest):

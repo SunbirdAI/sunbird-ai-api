@@ -13,10 +13,9 @@
 
 import logging
 
-from botocore import xform_name
-
 from boto3.docs.docstring import ActionDocstring
 from boto3.utils import inject_attribute
+from botocore import xform_name
 
 from .model import Action
 from .params import create_request_parameters

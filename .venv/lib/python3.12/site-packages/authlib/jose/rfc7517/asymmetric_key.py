@@ -1,8 +1,12 @@
 from authlib.common.encoding import to_bytes
 from cryptography.hazmat.primitives.serialization import (
-    Encoding, PrivateFormat, PublicFormat,
-    BestAvailableEncryption, NoEncryption,
+    BestAvailableEncryption,
+    Encoding,
+    NoEncryption,
+    PrivateFormat,
+    PublicFormat,
 )
+
 from ._cryptography_key import load_pem_key
 from .base_key import Key
 

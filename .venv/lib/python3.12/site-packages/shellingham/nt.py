@@ -1,7 +1,6 @@
 import contextlib
 import ctypes
 import os
-
 from ctypes.wintypes import (
     BOOL,
     CHAR,
@@ -15,7 +14,6 @@ from ctypes.wintypes import (
 )
 
 from shellingham._core import SHELL_NAMES
-
 
 INVALID_HANDLE_VALUE = HANDLE(-1).value
 ERROR_NO_MORE_FILES = 18

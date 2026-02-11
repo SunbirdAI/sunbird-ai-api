@@ -6,13 +6,12 @@ from collections.abc import Generator, Iterable, Iterator
 from optparse import Values
 from typing import NamedTuple
 
-from pip._vendor.packaging.requirements import InvalidRequirement
-from pip._vendor.packaging.utils import canonicalize_name
-
 from pip._internal.cli.base_command import Command
 from pip._internal.cli.status_codes import ERROR, SUCCESS
 from pip._internal.metadata import BaseDistribution, get_default_environment
 from pip._internal.utils.misc import write_output
+from pip._vendor.packaging.requirements import InvalidRequirement
+from pip._vendor.packaging.utils import canonicalize_name
 
 logger = logging.getLogger(__name__)
 

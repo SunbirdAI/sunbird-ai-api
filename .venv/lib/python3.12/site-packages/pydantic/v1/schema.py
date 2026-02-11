@@ -5,7 +5,14 @@ from dataclasses import is_dataclass
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from enum import Enum
-from ipaddress import IPv4Address, IPv4Interface, IPv4Network, IPv6Address, IPv6Interface, IPv6Network
+from ipaddress import (
+    IPv4Address,
+    IPv4Interface,
+    IPv4Network,
+    IPv6Address,
+    IPv6Interface,
+    IPv6Network,
+)
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
@@ -28,8 +35,6 @@ from typing import (
     cast,
 )
 from uuid import UUID
-
-from typing_extensions import Annotated, Literal
 
 from pydantic.v1.fields import (
     MAPPING_LIKE_SHAPES,
@@ -81,6 +86,7 @@ from pydantic.v1.typing import (
     is_union,
 )
 from pydantic.v1.utils import ROOT_KEY, get_model, lenient_issubclass
+from typing_extensions import Annotated, Literal
 
 if TYPE_CHECKING:
     from pydantic.v1.dataclasses import Dataclass

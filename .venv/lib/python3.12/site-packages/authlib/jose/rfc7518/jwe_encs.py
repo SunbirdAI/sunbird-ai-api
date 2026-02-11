@@ -7,14 +7,16 @@
 
     .. _`Section 5`: https://tools.ietf.org/html/rfc7518#section-5
 """
-import hmac
 import hashlib
+import hmac
+
+from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.ciphers import Cipher
 from cryptography.hazmat.primitives.ciphers.algorithms import AES
-from cryptography.hazmat.primitives.ciphers.modes import GCM, CBC
+from cryptography.hazmat.primitives.ciphers.modes import CBC, GCM
 from cryptography.hazmat.primitives.padding import PKCS7
-from cryptography.exceptions import InvalidTag
+
 from ..rfc7516 import JWEEncAlgorithm
 from .util import encode_int
 

@@ -1,9 +1,7 @@
 import logging
+
+from ..errors import InvalidRequestError, UnauthorizedClientError
 from .base import BaseGrant, TokenEndpointMixin
-from ..errors import (
-    UnauthorizedClientError,
-    InvalidRequestError,
-)
 
 log = logging.getLogger(__name__)
 

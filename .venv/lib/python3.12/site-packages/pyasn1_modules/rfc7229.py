@@ -14,7 +14,6 @@
 
 from pyasn1.type import univ
 
-
 id_pkix = univ.ObjectIdentifier('1.3.6.1.5.5.7')
 
 id_TEST = id_pkix + (13, )

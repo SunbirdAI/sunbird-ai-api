@@ -14,7 +14,6 @@
 
 from pyasn1.type import univ
 
-
 id_ct_cbor = univ.ObjectIdentifier('1.2.840.113549.1.9.16.1.44')
 
 

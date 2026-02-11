@@ -1,20 +1,18 @@
 from authlib.common.encoding import (
+    json_b64encode,
     to_bytes,
     to_unicode,
     urlsafe_b64encode,
-    json_b64encode,
-)
-from authlib.jose.util import (
-    extract_header,
-    extract_segment, ensure_dict,
 )
 from authlib.jose.errors import (
+    BadSignatureError,
     DecodeError,
+    InvalidHeaderParameterNameError,
     MissingAlgorithmError,
     UnsupportedAlgorithmError,
-    BadSignatureError,
-    InvalidHeaderParameterNameError,
 )
+from authlib.jose.util import ensure_dict, extract_header, extract_segment
+
 from .models import JWSHeader, JWSObject
 
 

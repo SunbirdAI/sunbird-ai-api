@@ -1,7 +1,9 @@
 from authlib.consts import default_json_headers
-from ..rfc6749 import TokenEndpoint, InvalidGrantError
+
 from ..rfc6749 import (
+    InvalidGrantError,
     InvalidRequestError,
+    TokenEndpoint,
     UnsupportedTokenTypeError,
 )
 

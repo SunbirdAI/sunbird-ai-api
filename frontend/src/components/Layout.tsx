@@ -107,7 +107,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <div className="space-y-1 pt-4 border-t border-gray-200 dark:border-white/10">
             <div className="relative group">
               <a
-                href="https://sunbirdai.mintlify.app"
+                href="https://docs.sunbird.ai"
                 target="_blank"
                 rel="noopener noreferrer"
                 className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5 transition-colors ${

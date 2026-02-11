@@ -4,12 +4,13 @@ from contextlib import asynccontextmanager
 from functools import partial
 from pathlib import Path
 from urllib.parse import urlparse
-from fastapi.responses import RedirectResponse, HTMLResponse
+
 import redis.asyncio as redis
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi_limiter import FastAPILimiter
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -28,10 +29,12 @@ from app.core.exceptions import (
 from app.docs import description, tags_metadata
 from app.middleware import MonitoringMiddleware
 from app.routers.auth import router as auth_router
+from app.routers.dashboard import router as dashboard_router
 from app.routers.frontend import router as frontend_router
 from app.routers.inference import router as inference_router
 from app.routers.language import router as language_router
 from app.routers.runpod_tts import router as runpod_tts_router
+from app.routers.spa import router as spa_router
 from app.routers.stt import router as stt_router
 from app.routers.tasks import router as tasks_router
 from app.routers.translation import router as translation_router
@@ -124,8 +127,6 @@ app = FastAPI(
     redoc_url="/redoc",
     openapi_url="/openapi.json",
     lifespan=lifespan,
-    docs_url=None,
-    redoc_url=None,
 )
 
 # ============================================================================
@@ -156,6 +157,16 @@ app.add_middleware(SessionMiddleware, secret_key=os.getenv("SECRET_KEY"))
 # Mount static files before monitoring middleware
 static_files_directory = Path(__file__).parent.absolute() / "static"
 app.mount("/static", StaticFiles(directory=static_files_directory), name="static")
+
+# Mount React Build Assets
+# Vite outputs assets to app/static/react_build/assets
+# We mount this to /assets so the browser can find them
+react_build_dir = static_files_directory / "react_build"
+assets_dir = react_build_dir / "assets"
+
+# Only mount if the directory exists (it will exist after npm run build)
+if assets_dir.exists():
+    app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
 # 3. MonitoringMiddleware - Logs endpoint usage for analytics
 #    Automatically monitors all /tasks/* endpoints
@@ -205,4 +216,6 @@ app.include_router(runpod_tts_router, prefix="/tasks/runpod", tags=["TTS (RunPod
 # Note: Legacy /tasks/tts endpoint maintained in tasks_router for backward compatibility
 
 # Frontend routes
-app.include_router(frontend_router, prefix="", tags=["Frontend Routes"])
+# app.include_router(frontend_router, prefix="", tags=["Frontend Routes"]) # Replaced by SPA
+app.include_router(dashboard_router, prefix="/api/dashboard", tags=["Dashboard"])
+app.include_router(spa_router, prefix="", tags=["Dashboard"])

@@ -4,9 +4,7 @@
 
 from __future__ import annotations
 
-from cryptography.hazmat.bindings._rust import (
-    ObjectIdentifier as ObjectIdentifier,
-)
+from cryptography.hazmat.bindings._rust import ObjectIdentifier as ObjectIdentifier
 from cryptography.hazmat.primitives import hashes
 
 

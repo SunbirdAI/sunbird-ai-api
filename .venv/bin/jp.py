@@ -1,8 +1,8 @@
 #!/Users/evelynouma/Developer/SunbirdAI/sunbird-ai-api/.venv/bin/python3.12
 
-import sys
-import json
 import argparse
+import json
+import sys
 from pprint import pformat
 
 import jmespath

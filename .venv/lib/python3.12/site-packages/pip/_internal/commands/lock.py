@@ -4,17 +4,12 @@ from pathlib import Path
 
 from pip._internal.cache import WheelCache
 from pip._internal.cli import cmdoptions
-from pip._internal.cli.req_command import (
-    RequirementCommand,
-    with_cleanup,
-)
+from pip._internal.cli.req_command import RequirementCommand, with_cleanup
 from pip._internal.cli.status_codes import SUCCESS
 from pip._internal.models.pylock import Pylock, is_valid_pylock_file_name
 from pip._internal.operations.build.build_tracker import get_build_tracker
 from pip._internal.utils.logging import getLogger
-from pip._internal.utils.misc import (
-    get_pip_version,
-)
+from pip._internal.utils.misc import get_pip_version
 from pip._internal.utils.temp_dir import TempDirectory
 
 logger = getLogger(__name__)

@@ -1,12 +1,11 @@
 import gc
-
 import weakref
 
 import greenlet
 
-
 from . import TestCase
 from .leakcheck import fails_leakcheck
+
 # These only work with greenlet gc support
 # which is no longer optional.
 assert greenlet.GREENLET_USE_GC

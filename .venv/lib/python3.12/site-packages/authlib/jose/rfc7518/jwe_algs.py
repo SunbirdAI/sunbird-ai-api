@@ -1,25 +1,25 @@
 import os
 import struct
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.keywrap import (
-    aes_key_wrap,
-    aes_key_unwrap
+
+from authlib.common.encoding import (
+    to_bytes,
+    to_native,
+    urlsafe_b64decode,
+    urlsafe_b64encode,
 )
+from authlib.jose.rfc7516 import JWEAlgorithm
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.ciphers import Cipher
 from cryptography.hazmat.primitives.ciphers.algorithms import AES
 from cryptography.hazmat.primitives.ciphers.modes import GCM
 from cryptography.hazmat.primitives.kdf.concatkdf import ConcatKDFHash
-from authlib.common.encoding import (
-    to_bytes, to_native,
-    urlsafe_b64decode,
-    urlsafe_b64encode
-)
-from authlib.jose.rfc7516 import JWEAlgorithm
-from .rsa_key import RSAKey
+from cryptography.hazmat.primitives.keywrap import aes_key_unwrap, aes_key_wrap
+
 from .ec_key import ECKey
 from .oct_key import OctKey
+from .rsa_key import RSAKey
 
 
 class DirectAlgorithm(JWEAlgorithm):

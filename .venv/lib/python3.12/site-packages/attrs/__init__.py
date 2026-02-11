@@ -26,7 +26,6 @@ from attr._next_gen import asdict, astuple
 
 from . import converters, exceptions, filters, setters, validators
 
-
 __all__ = [
     "NOTHING",
     "Attribute",

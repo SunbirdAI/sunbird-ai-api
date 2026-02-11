@@ -6,12 +6,12 @@
 """
 
 import re
+import urllib.parse as urlparse
 from urllib.parse import quote as _quote
 from urllib.parse import unquote as _unquote
 from urllib.parse import urlencode as _urlencode
-import urllib.parse as urlparse
 
-from .encoding import to_unicode, to_bytes
+from .encoding import to_bytes, to_unicode
 
 always_safe = (
     'ABCDEFGHIJKLMNOPQRSTUVWXYZ'

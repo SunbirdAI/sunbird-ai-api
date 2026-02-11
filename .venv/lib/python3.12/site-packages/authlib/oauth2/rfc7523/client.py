@@ -1,6 +1,8 @@
 import logging
+
 from authlib.jose import jwt
 from authlib.jose.errors import JoseError
+
 from ..rfc6749 import InvalidClientError
 
 ASSERTION_TYPE = 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer'

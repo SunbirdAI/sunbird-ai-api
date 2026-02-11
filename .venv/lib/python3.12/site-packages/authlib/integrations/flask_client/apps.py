@@ -1,9 +1,7 @@
 from flask import g, redirect, request, session
+
+from ..base_client import BaseApp, OAuth1Mixin, OAuth2Mixin, OAuthError, OpenIDMixin
 from ..requests_client import OAuth1Session, OAuth2Session
-from ..base_client import (
-    BaseApp, OAuthError,
-    OAuth1Mixin, OAuth2Mixin, OpenIDMixin,
-)
 
 
 class FlaskAppMixin:

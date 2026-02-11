@@ -9,9 +9,7 @@
 # ASN.1 source from:
 # http://www.ietf.org/rfc/rfc3414.txt
 #
-from pyasn1.type import constraint
-from pyasn1.type import namedtype
-from pyasn1.type import univ
+from pyasn1.type import constraint, namedtype, univ
 
 
 class UsmSecurityParameters(univ.Sequence):

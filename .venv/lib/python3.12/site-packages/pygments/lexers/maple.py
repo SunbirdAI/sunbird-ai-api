@@ -8,8 +8,17 @@
     :license: BSD, see LICENSE for details.
 """
 
-from pygments.lexer import words, bygroups, ExtendedRegexLexer
-from pygments.token import Comment, Name, String, Whitespace, Operator, Punctuation, Number, Keyword
+from pygments.lexer import ExtendedRegexLexer, bygroups, words
+from pygments.token import (
+    Comment,
+    Keyword,
+    Name,
+    Number,
+    Operator,
+    Punctuation,
+    String,
+    Whitespace,
+)
 
 __all__ = ['MapleLexer']
 

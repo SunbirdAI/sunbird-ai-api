@@ -13,13 +13,7 @@ from cryptography.exceptions import (
     UnsupportedAlgorithm,
     _Reasons,
 )
-from cryptography.hazmat.primitives import (
-    ciphers,
-    cmac,
-    constant_time,
-    hashes,
-    hmac,
-)
+from cryptography.hazmat.primitives import ciphers, cmac, constant_time, hashes, hmac
 from cryptography.hazmat.primitives.kdf import KeyDerivationFunction
 
 
@@ -199,9 +193,7 @@ class KBKDFHMAC(KeyDerivationFunction):
                 _Reasons.UNSUPPORTED_HASH,
             )
 
-        from cryptography.hazmat.backends.openssl.backend import (
-            backend as ossl,
-        )
+        from cryptography.hazmat.backends.openssl.backend import backend as ossl
 
         if not ossl.hmac_supported(algorithm):
             raise UnsupportedAlgorithm(
@@ -285,9 +277,7 @@ class KBKDFCMAC(KeyDerivationFunction):
 
         assert self._cipher is not None
 
-        from cryptography.hazmat.backends.openssl.backend import (
-            backend as ossl,
-        )
+        from cryptography.hazmat.backends.openssl.backend import backend as ossl
 
         if not ossl.cmac_algorithm_supported(self._cipher):
             raise UnsupportedAlgorithm(

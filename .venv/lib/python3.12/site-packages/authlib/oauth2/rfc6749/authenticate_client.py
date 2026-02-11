@@ -16,6 +16,7 @@
 """
 
 import logging
+
 from .errors import InvalidClientError
 from .util import extract_basic_authorization
 

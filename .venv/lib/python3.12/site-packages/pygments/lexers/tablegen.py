@@ -8,10 +8,20 @@
     :license: BSD, see LICENSE for details.
 """
 
-from pygments.lexer import RegexLexer, include, words, using
+from pygments.lexer import RegexLexer, include, using, words
 from pygments.lexers.c_cpp import CppLexer
-from pygments.token import Comment, Keyword, Name, Number, Operator, \
-    Punctuation, String, Text, Whitespace, Error
+from pygments.token import (
+    Comment,
+    Error,
+    Keyword,
+    Name,
+    Number,
+    Operator,
+    Punctuation,
+    String,
+    Text,
+    Whitespace,
+)
 
 __all__ = ['TableGenLexer']
 

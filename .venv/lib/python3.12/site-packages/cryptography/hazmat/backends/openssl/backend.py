@@ -10,22 +10,10 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives._asymmetric import AsymmetricPadding
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric import utils as asym_utils
-from cryptography.hazmat.primitives.asymmetric.padding import (
-    MGF1,
-    OAEP,
-    PSS,
-    PKCS1v15,
-)
-from cryptography.hazmat.primitives.ciphers import (
-    CipherAlgorithm,
-)
-from cryptography.hazmat.primitives.ciphers.algorithms import (
-    AES,
-)
-from cryptography.hazmat.primitives.ciphers.modes import (
-    CBC,
-    Mode,
-)
+from cryptography.hazmat.primitives.asymmetric.padding import MGF1, OAEP, PSS, PKCS1v15
+from cryptography.hazmat.primitives.ciphers import CipherAlgorithm
+from cryptography.hazmat.primitives.ciphers.algorithms import AES
+from cryptography.hazmat.primitives.ciphers.modes import CBC, Mode
 
 
 class Backend:

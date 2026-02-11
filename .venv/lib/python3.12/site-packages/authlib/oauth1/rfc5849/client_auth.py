@@ -1,29 +1,28 @@
-import time
 import base64
 import hashlib
+import time
+
+from authlib.common.encoding import to_native
 from authlib.common.security import generate_token
 from authlib.common.urls import extract_params
-from authlib.common.encoding import to_native
-from .wrapper import OAuth1Request
-from .signature import (
-    SIGNATURE_HMAC_SHA1,
-    SIGNATURE_PLAINTEXT,
-    SIGNATURE_RSA_SHA1,
-    SIGNATURE_TYPE_HEADER,
-    SIGNATURE_TYPE_BODY,
-    SIGNATURE_TYPE_QUERY,
-)
-from .signature import (
-    sign_hmac_sha1,
-    sign_rsa_sha1,
-    sign_plaintext
-)
+
 from .parameters import (
     prepare_form_encoded_body,
     prepare_headers,
     prepare_request_uri_query,
 )
-
+from .signature import (
+    SIGNATURE_HMAC_SHA1,
+    SIGNATURE_PLAINTEXT,
+    SIGNATURE_RSA_SHA1,
+    SIGNATURE_TYPE_BODY,
+    SIGNATURE_TYPE_HEADER,
+    SIGNATURE_TYPE_QUERY,
+    sign_hmac_sha1,
+    sign_plaintext,
+    sign_rsa_sha1,
+)
+from .wrapper import OAuth1Request
 
 CONTENT_TYPE_FORM_URLENCODED = 'application/x-www-form-urlencoded'
 CONTENT_TYPE_MULTI_PART = 'multipart/form-data'

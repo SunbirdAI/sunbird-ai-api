@@ -1,11 +1,10 @@
-from __future__ import print_function
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function
 
 import sys
 
 import greenlet
-from . import _test_extension
-from . import TestCase
+
+from . import TestCase, _test_extension
 
 # pylint:disable=c-extension-no-member
 

@@ -1,11 +1,10 @@
-import time
 import hmac
+import time
+
 from authlib.common.encoding import to_bytes
 from authlib.jose import JWTClaims
-from authlib.jose.errors import (
-    MissingClaimError,
-    InvalidClaimError,
-)
+from authlib.jose.errors import InvalidClaimError, MissingClaimError
+
 from .util import create_half_hash
 
 __all__ = [

@@ -2,24 +2,18 @@
 """
 Testing scenarios that may have leaked.
 """
-from __future__ import print_function, absolute_import, division
+from __future__ import absolute_import, division, print_function
 
-import sys
 import gc
-
+import sys
+import threading
 import time
 import weakref
-import threading
-
 
 import greenlet
-from . import TestCase
-from . import PY314
-from . import RUNNING_ON_FREETHREAD_BUILD
-from .leakcheck import fails_leakcheck
-from .leakcheck import ignores_leakcheck
-from .leakcheck import RUNNING_ON_MANYLINUX
 
+from . import PY314, RUNNING_ON_FREETHREAD_BUILD, TestCase
+from .leakcheck import RUNNING_ON_MANYLINUX, fails_leakcheck, ignores_leakcheck
 
 # pylint:disable=protected-access
 

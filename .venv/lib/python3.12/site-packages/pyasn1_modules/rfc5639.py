@@ -13,7 +13,6 @@
 
 from pyasn1.type import univ
 
-
 ecStdCurvesAndGeneration = univ.ObjectIdentifier((1, 3, 36, 3, 3, 2, 8,))
 
 ellipticCurve = ecStdCurvesAndGeneration + (1,)

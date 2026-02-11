@@ -10,13 +10,7 @@ from cryptography import x509
 from cryptography.hazmat.bindings._rust import pkcs12 as rust_pkcs12
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives._serialization import PBES as PBES
-from cryptography.hazmat.primitives.asymmetric import (
-    dsa,
-    ec,
-    ed448,
-    ed25519,
-    rsa,
-)
+from cryptography.hazmat.primitives.asymmetric import dsa, ec, ed448, ed25519, rsa
 from cryptography.hazmat.primitives.asymmetric.types import PrivateKeyTypes
 
 __all__ = [

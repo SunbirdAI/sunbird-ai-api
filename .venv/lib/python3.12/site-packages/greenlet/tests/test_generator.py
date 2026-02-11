@@ -3,6 +3,7 @@ from greenlet import greenlet
 
 from . import TestCase
 
+
 class genlet(greenlet):
     parent = None
     def __init__(self, *args, **kwds):

@@ -1,16 +1,18 @@
 import logging
+
 from authlib.oauth2.rfc6749 import (
-    OAuth2Error,
-    InvalidScopeError,
     AccessDeniedError,
     ImplicitGrant,
+    InvalidScopeError,
+    OAuth2Error,
 )
+
 from .util import (
+    create_response_mode_response,
+    generate_id_token,
     is_openid_scope,
     validate_nonce,
     validate_request_prompt,
-    create_response_mode_response,
-    generate_id_token,
 )
 
 log = logging.getLogger(__name__)

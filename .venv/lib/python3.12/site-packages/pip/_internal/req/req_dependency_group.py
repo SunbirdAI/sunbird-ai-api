@@ -1,10 +1,9 @@
 from collections.abc import Iterable, Iterator
 from typing import Any
 
-from pip._vendor.dependency_groups import DependencyGroupResolver
-
 from pip._internal.exceptions import InstallationError
 from pip._internal.utils.compat import tomllib
+from pip._vendor.dependency_groups import DependencyGroupResolver
 
 
 def parse_dependency_groups(groups: list[tuple[str, str]]) -> list[str]:

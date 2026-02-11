@@ -3,20 +3,16 @@ from __future__ import print_function
 import gc
 import sys
 import unittest
-
 from functools import partial
-from unittest import skipUnless
-from unittest import skipIf
+from unittest import skipIf, skipUnless
 
-from greenlet import greenlet
-from greenlet import getcurrent
-from . import TestCase
-from . import PY314
+from greenlet import getcurrent, greenlet
+
+from . import PY314, TestCase
 
 try:
-    from contextvars import Context
-    from contextvars import ContextVar
-    from contextvars import copy_context
+    from contextvars import Context, ContextVar, copy_context
+
     # From the documentation:
     #
     # Important: Context Variables should be created at the top module

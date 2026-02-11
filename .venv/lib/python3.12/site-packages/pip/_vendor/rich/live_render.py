@@ -1,5 +1,4 @@
-from typing import Optional, Tuple, Literal
-
+from typing import Literal, Optional, Tuple
 
 from ._loop import loop_last
 from .console import Console, ConsoleOptions, RenderableType, RenderResult

@@ -1,12 +1,11 @@
 import sys
-from typing import TYPE_CHECKING, Optional, Union, Literal
+from typing import TYPE_CHECKING, Literal, Optional, Union
 
+from ._emoji_codes import EMOJI
+from ._emoji_replace import _emoji_replace
 from .jupyter import JupyterMixin
 from .segment import Segment
 from .style import Style
-from ._emoji_codes import EMOJI
-from ._emoji_replace import _emoji_replace
-
 
 if TYPE_CHECKING:
     from .console import Console, ConsoleOptions, RenderResult

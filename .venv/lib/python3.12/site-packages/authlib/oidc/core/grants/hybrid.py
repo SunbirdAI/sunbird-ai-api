@@ -1,9 +1,11 @@
 import logging
+
 from authlib.common.security import generate_token
 from authlib.oauth2.rfc6749 import InvalidScopeError
 from authlib.oauth2.rfc6749.grants.authorization_code import (
-    validate_code_authorization_request
+    validate_code_authorization_request,
 )
+
 from .implicit import OpenIDImplicitGrant
 from .util import is_openid_scope, validate_nonce
 

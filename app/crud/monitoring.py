@@ -4,9 +4,9 @@ from datetime import datetime
 from typing import List
 
 from fastapi import Request
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import func
 
 from app.database.db import async_session_maker
 from app.models import monitoring as models

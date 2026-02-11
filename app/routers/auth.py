@@ -240,7 +240,9 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
         )
 
         # Append token to redirect URL for frontend to capture
-        redirect_url = f"{redirect_url}?token={access_token}&alert=Successfully%20Logged%20In"
+        redirect_url = (
+            f"{redirect_url}?token={access_token}&alert=Successfully%20Logged%20In"
+        )
 
         return RedirectResponse(url=redirect_url)
 

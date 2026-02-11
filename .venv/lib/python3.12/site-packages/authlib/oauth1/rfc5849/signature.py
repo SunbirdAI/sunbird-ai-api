@@ -9,8 +9,10 @@
 import binascii
 import hashlib
 import hmac
+
+from authlib.common.encoding import to_bytes, to_unicode
 from authlib.common.urls import urlparse
-from authlib.common.encoding import to_unicode, to_bytes
+
 from .util import escape, unescape
 
 SIGNATURE_HMAC_SHA1 = "HMAC-SHA1"

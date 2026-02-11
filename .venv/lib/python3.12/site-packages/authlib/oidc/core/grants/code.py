@@ -9,12 +9,14 @@
 """
 
 import logging
+
 from authlib.oauth2.rfc6749 import OAuth2Request
+
 from .util import (
+    generate_id_token,
     is_openid_scope,
     validate_nonce,
     validate_request_prompt,
-    generate_id_token,
 )
 
 log = logging.getLogger(__name__)

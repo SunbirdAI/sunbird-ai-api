@@ -21,7 +21,7 @@ export default function Header() {
 
           {/* Desktop Menu */}
           <div className="hidden md:flex items-center gap-8">
-            <a href="https://sunbirdai.mintlify.app" target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-gray-700 hover:text-primary-600 dark:text-gray-300 dark:hover:text-primary-400 transition-colors">
+            <a href="https://docs.sunbird.ai" target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-gray-700 hover:text-primary-600 dark:text-gray-300 dark:hover:text-primary-400 transition-colors">
               Documentation
             </a>
             <a href="https://github.com/SunbirdAI/sunbird-ai-api" target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-gray-700 hover:text-primary-600 dark:text-gray-300 dark:hover:text-primary-400 transition-colors">

@@ -1,5 +1,5 @@
-from authlib.jose import jwt, JsonWebToken, JsonWebKey
-from authlib.oidc.core import UserInfo, CodeIDToken, ImplicitIDToken
+from authlib.jose import JsonWebKey, JsonWebToken, jwt
+from authlib.oidc.core import CodeIDToken, ImplicitIDToken, UserInfo
 
 
 class OpenIDMixin:

@@ -1,10 +1,11 @@
 import functools
-from flask import g, json, Response
-from flask import request as _req
-from werkzeug.local import LocalProxy
+
 from authlib.consts import default_json_headers
 from authlib.oauth1 import ResourceProtector as _ResourceProtector
 from authlib.oauth1.errors import OAuth1Error
+from flask import Response, g, json
+from flask import request as _req
+from werkzeug.local import LocalProxy
 
 
 class ResourceProtector(_ResourceProtector):

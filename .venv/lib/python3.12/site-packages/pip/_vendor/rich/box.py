@@ -1,6 +1,5 @@
 from typing import TYPE_CHECKING, Iterable, List, Literal
 
-
 from ._loop import loop_last
 
 if TYPE_CHECKING:

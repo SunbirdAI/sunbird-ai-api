@@ -1,6 +1,7 @@
 from authlib.common.encoding import json_loads
-from .key_set import KeySet
+
 from ._cryptography_key import load_pem_key
+from .key_set import KeySet
 
 
 class JsonWebKey:

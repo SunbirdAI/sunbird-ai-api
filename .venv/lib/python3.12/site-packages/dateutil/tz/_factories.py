@@ -1,6 +1,6 @@
-from datetime import timedelta
 import weakref
 from collections import OrderedDict
+from datetime import timedelta
 
 from six.moves import _thread
 

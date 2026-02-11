@@ -28,7 +28,6 @@ import string
 
 from psycopg2 import extensions as ext
 
-
 _formatter = string.Formatter()
 
 

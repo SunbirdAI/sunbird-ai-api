@@ -7,7 +7,6 @@ fails.
 
 import greenlet
 
-
 print('fail_slp_switch is running', flush=True)
 
 runs = []

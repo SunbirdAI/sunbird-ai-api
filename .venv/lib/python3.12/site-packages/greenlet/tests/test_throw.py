@@ -1,8 +1,9 @@
 import sys
 
-
 from greenlet import greenlet
+
 from . import TestCase
+
 
 def switch(*args):
     return greenlet.getcurrent().parent.switch(*args)

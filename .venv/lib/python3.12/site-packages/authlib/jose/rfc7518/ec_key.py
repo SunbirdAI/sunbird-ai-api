@@ -1,11 +1,17 @@
+from authlib.common.encoding import base64_to_int, int_to_base64
+from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.ec import (
-    EllipticCurvePublicKey, EllipticCurvePrivateKeyWithSerialization,
-    EllipticCurvePrivateNumbers, EllipticCurvePublicNumbers,
-    SECP256R1, SECP384R1, SECP521R1, SECP256K1,
+    SECP256K1,
+    SECP256R1,
+    SECP384R1,
+    SECP521R1,
+    EllipticCurvePrivateKeyWithSerialization,
+    EllipticCurvePrivateNumbers,
+    EllipticCurvePublicKey,
+    EllipticCurvePublicNumbers,
 )
-from cryptography.hazmat.backends import default_backend
-from authlib.common.encoding import base64_to_int, int_to_base64
+
 from ..rfc7517 import AsymmetricKey
 
 

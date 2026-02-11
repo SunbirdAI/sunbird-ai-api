@@ -5,16 +5,13 @@ import math
 import operator
 import typing as t
 from contextvars import ContextVar
-from functools import partial
-from functools import update_wrapper
+from functools import partial, update_wrapper
 from operator import attrgetter
 
 from .wsgi import ClosingIterator
 
 if t.TYPE_CHECKING:
-    from _typeshed.wsgi import StartResponse
-    from _typeshed.wsgi import WSGIApplication
-    from _typeshed.wsgi import WSGIEnvironment
+    from _typeshed.wsgi import StartResponse, WSGIApplication, WSGIEnvironment
 
 T = t.TypeVar("T")
 F = t.TypeVar("F", bound=t.Callable[..., t.Any])

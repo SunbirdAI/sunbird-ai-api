@@ -1,10 +1,11 @@
 import httpx
-from httpx import Response, USE_CLIENT_DEFAULT
 from authlib.oauth2.rfc7521 import AssertionClient as _AssertionClient
 from authlib.oauth2.rfc7523 import JWTBearerGrant
-from .utils import extract_client_kwargs
-from .oauth2_client import OAuth2Auth
+from httpx import USE_CLIENT_DEFAULT, Response
+
 from ..base_client import OAuthError
+from .oauth2_client import OAuth2Auth
+from .utils import extract_client_kwargs
 
 __all__ = ['AsyncAssertionClient']
 

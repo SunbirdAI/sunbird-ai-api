@@ -13,8 +13,6 @@ from collections.abc import Iterable
 from types import TracebackType
 from typing import TYPE_CHECKING, Protocol, TypedDict
 
-from pip._vendor.packaging.version import Version
-
 from pip import __file__ as pip_location
 from pip._internal.cli.spinners import open_spinner
 from pip._internal.locations import get_platlib, get_purelib, get_scheme
@@ -24,6 +22,7 @@ from pip._internal.utils.logging import VERBOSE
 from pip._internal.utils.packaging import get_requirement
 from pip._internal.utils.subprocess import call_subprocess
 from pip._internal.utils.temp_dir import TempDirectory, tempdir_kinds
+from pip._vendor.packaging.version import Version
 
 if TYPE_CHECKING:
     from pip._internal.index.package_finder import PackageFinder

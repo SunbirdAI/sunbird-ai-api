@@ -1,5 +1,5 @@
-from authlib.jose import JsonWebToken, JsonWebKey
-from authlib.oidc.core import UserInfo, CodeIDToken, ImplicitIDToken
+from authlib.jose import JsonWebKey, JsonWebToken
+from authlib.oidc.core import CodeIDToken, ImplicitIDToken, UserInfo
 
 __all__ = ['AsyncOpenIDMixin']
 

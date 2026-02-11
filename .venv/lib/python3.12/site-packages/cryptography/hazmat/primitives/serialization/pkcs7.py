@@ -185,9 +185,7 @@ class PKCS7EnvelopeBuilder:
         _data: bytes | None = None,
         _recipients: list[x509.Certificate] | None = None,
     ):
-        from cryptography.hazmat.backends.openssl.backend import (
-            backend as ossl,
-        )
+        from cryptography.hazmat.backends.openssl.backend import backend as ossl
 
         if not ossl.rsa_encryption_supported(padding=padding.PKCS1v15()):
             raise UnsupportedAlgorithm(

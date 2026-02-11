@@ -12,14 +12,13 @@
 # language governing permissions and limitations under the License.
 import os
 
-from botocore.docs.bcdoc.restdoc import DocumentStructure
-from botocore.docs.service import ServiceDocumenter as BaseServiceDocumenter
-from botocore.exceptions import DataNotFoundError
-
 import boto3
 from boto3.docs.client import Boto3ClientDocumenter
 from boto3.docs.resource import ResourceDocumenter, ServiceResourceDocumenter
 from boto3.utils import ServiceContext
+from botocore.docs.bcdoc.restdoc import DocumentStructure
+from botocore.docs.service import ServiceDocumenter as BaseServiceDocumenter
+from botocore.exceptions import DataNotFoundError
 
 
 class ServiceDocumenter(BaseServiceDocumenter):

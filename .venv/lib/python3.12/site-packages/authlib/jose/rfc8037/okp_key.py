@@ -1,24 +1,30 @@
-from cryptography.hazmat.primitives.asymmetric.ed25519 import (
-    Ed25519PublicKey, Ed25519PrivateKey
+from authlib.common.encoding import (
+    to_bytes,
+    to_unicode,
+    urlsafe_b64decode,
+    urlsafe_b64encode,
 )
 from cryptography.hazmat.primitives.asymmetric.ed448 import (
-    Ed448PublicKey, Ed448PrivateKey
+    Ed448PrivateKey,
+    Ed448PublicKey,
 )
+from cryptography.hazmat.primitives.asymmetric.ed25519 import (
+    Ed25519PrivateKey,
+    Ed25519PublicKey,
+)
+from cryptography.hazmat.primitives.asymmetric.x448 import X448PrivateKey, X448PublicKey
 from cryptography.hazmat.primitives.asymmetric.x25519 import (
-    X25519PublicKey, X25519PrivateKey
-)
-from cryptography.hazmat.primitives.asymmetric.x448 import (
-    X448PublicKey, X448PrivateKey
+    X25519PrivateKey,
+    X25519PublicKey,
 )
 from cryptography.hazmat.primitives.serialization import (
-    Encoding, PublicFormat, PrivateFormat, NoEncryption
+    Encoding,
+    NoEncryption,
+    PrivateFormat,
+    PublicFormat,
 )
-from authlib.common.encoding import (
-    to_unicode, to_bytes,
-    urlsafe_b64decode, urlsafe_b64encode,
-)
-from ..rfc7517 import AsymmetricKey
 
+from ..rfc7517 import AsymmetricKey
 
 PUBLIC_KEYS_MAP = {
     'Ed25519': Ed25519PublicKey,

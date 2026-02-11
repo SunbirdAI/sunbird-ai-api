@@ -82,7 +82,7 @@ export default function Footer() {
             <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Resources</h3>
             <ul className="space-y-3">
               <li>
-                <a href="https://sunbirdai.mintlify.app" target="_blank" rel="noopener noreferrer" className="text-sm text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
+                <a href="https://docs.sunbird.ai" target="_blank" rel="noopener noreferrer" className="text-sm text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
                   Documentation
                 </a>
               </li>

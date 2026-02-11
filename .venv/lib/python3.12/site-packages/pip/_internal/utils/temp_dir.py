@@ -9,11 +9,7 @@ import traceback
 from collections.abc import Generator
 from contextlib import ExitStack, contextmanager
 from pathlib import Path
-from typing import (
-    Any,
-    Callable,
-    TypeVar,
-)
+from typing import Any, Callable, TypeVar
 
 from pip._internal.utils.misc import enum, rmtree
 

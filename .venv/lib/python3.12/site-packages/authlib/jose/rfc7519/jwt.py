@@ -1,16 +1,15 @@
-import re
-import random
-import datetime
 import calendar
-from authlib.common.encoding import (
-    to_bytes, to_unicode,
-    json_loads, json_dumps,
-)
-from .claims import JWTClaims
+import datetime
+import random
+import re
+
+from authlib.common.encoding import json_dumps, json_loads, to_bytes, to_unicode
+
 from ..errors import DecodeError, InsecureClaimError
 from ..rfc7515 import JsonWebSignature
 from ..rfc7516 import JsonWebEncryption
-from ..rfc7517 import KeySet, Key
+from ..rfc7517 import Key, KeySet
+from .claims import JWTClaims
 
 
 class JsonWebToken:

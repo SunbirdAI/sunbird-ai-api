@@ -3,9 +3,8 @@ from __future__ import annotations
 import logging
 import os
 
-from pip._vendor.pyproject_hooks import BuildBackendHookCaller, HookMissing
-
 from pip._internal.utils.subprocess import runner_with_spinner_message
+from pip._vendor.pyproject_hooks import BuildBackendHookCaller, HookMissing
 
 logger = logging.getLogger(__name__)
 

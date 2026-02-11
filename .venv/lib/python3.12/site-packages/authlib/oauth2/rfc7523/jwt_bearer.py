@@ -1,11 +1,14 @@
 import logging
-from authlib.jose import jwt, JoseError
-from ..rfc6749 import BaseGrant, TokenEndpointMixin
+
+from authlib.jose import JoseError, jwt
+
 from ..rfc6749 import (
-    UnauthorizedClientError,
-    InvalidRequestError,
-    InvalidGrantError,
+    BaseGrant,
     InvalidClientError,
+    InvalidGrantError,
+    InvalidRequestError,
+    TokenEndpointMixin,
+    UnauthorizedClientError,
 )
 from .assertion import sign_jwt_bearer_assertion
 

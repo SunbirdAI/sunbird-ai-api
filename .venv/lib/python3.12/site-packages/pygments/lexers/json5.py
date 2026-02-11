@@ -8,9 +8,16 @@
     :license: BSD, see LICENSE for details.
 """
 
-from pygments.lexer import include, RegexLexer, words
-from pygments.token import Comment, Keyword, Name, Number, Punctuation, \
-    String, Whitespace
+from pygments.lexer import RegexLexer, include, words
+from pygments.token import (
+    Comment,
+    Keyword,
+    Name,
+    Number,
+    Punctuation,
+    String,
+    Whitespace,
+)
 
 __all__ = ['Json5Lexer']
 

@@ -23,7 +23,6 @@ from pip._vendor.urllib3.util import make_headers, parse_url
 
 from . import certs
 from .__version__ import __version__
-
 # to_native_string is unused here, but imported here for backwards compatibility
 from ._internal_utils import (  # noqa: F401
     _HEADER_VALIDATORS_BYTE,

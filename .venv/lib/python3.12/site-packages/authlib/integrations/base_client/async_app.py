@@ -1,10 +1,9 @@
-import time
 import logging
+import time
+
 from authlib.common.urls import urlparse
-from .errors import (
-    MissingRequestTokenError,
-    MissingTokenError,
-)
+
+from .errors import MissingRequestTokenError, MissingTokenError
 from .sync_app import OAuth1Base, OAuth2Base
 
 log = logging.getLogger(__name__)

@@ -1,4 +1,5 @@
 import functools
+
 from .framework_integration import FrameworkIntegration
 
 __all__ = ['BaseOAuth']

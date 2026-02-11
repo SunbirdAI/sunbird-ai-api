@@ -1,12 +1,14 @@
+from pathlib import Path
+
 from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse, HTMLResponse
-from pathlib import Path
 
 router = APIRouter()
 
 # Path to the React build output
 # Adjust this path if your build output location changes
 BUILD_DIR = Path(__file__).parent.parent / "static" / "react_build"
+
 
 @router.get("/{full_path:path}")
 async def serve_spa(request: Request, full_path: str):
@@ -26,7 +28,7 @@ async def serve_spa(request: Request, full_path: str):
     if not index_path.exists():
         return HTMLResponse(
             "<h1>React Build Not Found</h1><p>Please run <code>npm run build</code> in the frontend directory.</p>",
-            status_code=404
+            status_code=404,
         )
-        
+
     return FileResponse(index_path)

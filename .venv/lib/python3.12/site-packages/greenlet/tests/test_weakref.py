@@ -1,9 +1,10 @@
 import gc
 import weakref
 
-
 import greenlet
+
 from . import TestCase
+
 
 class WeakRefTests(TestCase):
     def test_dead_weakref(self):

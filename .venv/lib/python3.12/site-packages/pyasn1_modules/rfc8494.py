@@ -10,11 +10,7 @@
 # ASN.1 source from:
 # https://www.rfc-editor.org/rfc/rfc8494.txt
 
-from pyasn1.type import namedtype
-from pyasn1.type import namedval
-from pyasn1.type import tag
-from pyasn1.type import univ
-
+from pyasn1.type import namedtype, namedval, tag, univ
 
 id_mmhs_CDT = univ.ObjectIdentifier('1.3.26.0.4406.0.4.2')
 

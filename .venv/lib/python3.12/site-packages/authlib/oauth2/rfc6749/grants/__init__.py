@@ -22,12 +22,12 @@
 
 # flake8: noqa
 
-from .base import BaseGrant, AuthorizationEndpointMixin, TokenEndpointMixin
 from .authorization_code import AuthorizationCodeGrant
-from .implicit import ImplicitGrant
-from .resource_owner_password_credentials import ResourceOwnerPasswordCredentialsGrant
+from .base import AuthorizationEndpointMixin, BaseGrant, TokenEndpointMixin
 from .client_credentials import ClientCredentialsGrant
+from .implicit import ImplicitGrant
 from .refresh_token import RefreshTokenGrant
+from .resource_owner_password_credentials import ResourceOwnerPasswordCredentialsGrant
 
 __all__ = [
     'BaseGrant', 'AuthorizationEndpointMixin', 'TokenEndpointMixin',

@@ -28,7 +28,7 @@ export default function LandingPage() {
               Get Started
               <ArrowRight size={20} />
             </Link>
-            <a href="https://sunbirdai.mintlify.app" target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto px-8 py-4 rounded-xl bg-white dark:bg-secondary hover:bg-gray-50 dark:hover:bg-white/5 border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white font-semibold text-lg transition-all backdrop-blur-sm flex items-center justify-center gap-2">
+            <a href="https://docs.sunbird.ai" target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto px-8 py-4 rounded-xl bg-white dark:bg-secondary hover:bg-gray-50 dark:hover:bg-white/5 border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white font-semibold text-lg transition-all backdrop-blur-sm flex items-center justify-center gap-2">
               <BookOpen size={20} />
               Read Docs
             </a>
@@ -49,7 +49,7 @@ export default function LandingPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <a 
-            href="https://sunbirdai.mintlify.app/guides/translation" 
+            href="https://docs.sunbird.ai/guides/translation" 
             target="_blank" 
             rel="noopener noreferrer"
             className="group p-8 rounded-2xl bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 border-b-4 hover:border-primary-500 dark:hover:border-primary-500 transition-all hover:shadow-2xl hover:-translate-y-1"
@@ -66,7 +66,7 @@ export default function LandingPage() {
           </a>
 
           <a 
-            href="https://sunbirdai.mintlify.app/guides/speech-to-text" 
+            href="https://docs.sunbird.ai/guides/speech-to-text" 
             target="_blank" 
             rel="noopener noreferrer"
             className="group p-8 rounded-2xl bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 border-b-4 hover:border-primary-500 dark:hover:border-primary-500 transition-all hover:shadow-2xl hover:-translate-y-1"
@@ -83,7 +83,7 @@ export default function LandingPage() {
           </a>
 
           <a 
-            href="https://sunbirdai.mintlify.app/guides/text-to-speech" 
+            href="https://docs.sunbird.ai/guides/text-to-speech" 
             target="_blank" 
             rel="noopener noreferrer"
             className="group p-8 rounded-2xl bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 border-b-4 hover:border-primary-500 dark:hover:border-primary-500 transition-all hover:shadow-2xl hover:-translate-y-1"
@@ -100,7 +100,7 @@ export default function LandingPage() {
           </a>
 
           <a 
-            href="https://sunbirdai.mintlify.app/guides/sunflower-chat" 
+            href="https://docs.sunbird.ai/guides/sunflower-chat" 
             target="_blank" 
             rel="noopener noreferrer"
             className="group p-8 rounded-2xl bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 border-b-4 hover:border-primary-500 dark:hover:border-primary-500 transition-all hover:shadow-2xl hover:-translate-y-1"
@@ -142,7 +142,7 @@ export default function LandingPage() {
 
         <div className="text-center mt-6">
           <a 
-            href="https://sunbirdai.mintlify.app/languages" 
+            href="https://docs.sunbird.ai/languages" 
             target="_blank" 
             rel="noopener noreferrer"
             className="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium inline-flex items-center gap-2"

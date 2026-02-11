@@ -18,18 +18,7 @@ from io import StringIO
 from itertools import filterfalse, tee, zip_longest
 from pathlib import Path
 from types import FunctionType, TracebackType
-from typing import (
-    Any,
-    BinaryIO,
-    Callable,
-    Optional,
-    TextIO,
-    TypeVar,
-    cast,
-)
-
-from pip._vendor.packaging.requirements import Requirement
-from pip._vendor.pyproject_hooks import BuildBackendHookCaller
+from typing import Any, BinaryIO, Callable, Optional, TextIO, TypeVar, cast
 
 from pip import __version__
 from pip._internal.exceptions import CommandError, ExternallyManagedEnvironment
@@ -37,6 +26,8 @@ from pip._internal.locations import get_major_minor_version
 from pip._internal.utils.compat import WINDOWS
 from pip._internal.utils.retry import retry
 from pip._internal.utils.virtualenv import running_under_virtualenv
+from pip._vendor.packaging.requirements import Requirement
+from pip._vendor.pyproject_hooks import BuildBackendHookCaller
 
 __all__ = [
     "rmtree",

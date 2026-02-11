@@ -110,7 +110,7 @@
 # tables. But it can't automatically read the transitions that are written
 # directly in Python code. So if you touch those, you need to also update the
 # script to keep it in sync!
-from typing import cast, Dict, Optional, Set, Tuple, Type, Union
+from typing import Dict, Optional, Set, Tuple, Type, Union, cast
 
 from ._events import *
 from ._util import LocalProtocolError, Sentinel

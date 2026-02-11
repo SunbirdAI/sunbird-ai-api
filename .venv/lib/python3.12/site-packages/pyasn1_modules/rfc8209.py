@@ -14,7 +14,6 @@
 
 from pyasn1.type import univ
 
-
 id_kp = univ.ObjectIdentifier('1.3.6.1.5.5.7.3')
 
 id_kp_bgpsec_router = id_kp + (30, )

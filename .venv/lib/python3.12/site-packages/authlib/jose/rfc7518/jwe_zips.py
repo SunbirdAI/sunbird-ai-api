@@ -1,5 +1,6 @@
 import zlib
-from ..rfc7516 import JWEZipAlgorithm, JsonWebEncryption
+
+from ..rfc7516 import JsonWebEncryption, JWEZipAlgorithm
 
 
 class DeflateZipAlgorithm(JWEZipAlgorithm):

@@ -1,6 +1,7 @@
-from requests import Session
 from authlib.oauth2.rfc7521 import AssertionClient
 from authlib.oauth2.rfc7523 import JWTBearerGrant
+from requests import Session
+
 from .oauth2_session import OAuth2Auth
 from .utils import update_session_configure
 

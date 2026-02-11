@@ -1,8 +1,8 @@
 import re
-from typing import AnyStr, cast, List, overload, Sequence, Tuple, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, AnyStr, List, Sequence, Tuple, Union, cast, overload
 
 from ._abnf import field_name, field_value
-from ._util import bytesify, LocalProtocolError, validate
+from ._util import LocalProtocolError, bytesify, validate
 
 if TYPE_CHECKING:
     from ._events import Request

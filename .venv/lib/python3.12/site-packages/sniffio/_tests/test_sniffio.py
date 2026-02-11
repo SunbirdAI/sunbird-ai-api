@@ -4,8 +4,10 @@ import sys
 import pytest
 
 from .. import (
-    current_async_library, AsyncLibraryNotFoundError,
-    current_async_library_cvar, thread_local
+    AsyncLibraryNotFoundError,
+    current_async_library,
+    current_async_library_cvar,
+    thread_local,
 )
 
 

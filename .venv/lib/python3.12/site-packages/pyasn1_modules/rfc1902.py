@@ -9,10 +9,7 @@
 # ASN.1 source from:
 # http://www.ietf.org/rfc/rfc1902.txt
 #
-from pyasn1.type import constraint
-from pyasn1.type import namedtype
-from pyasn1.type import tag
-from pyasn1.type import univ
+from pyasn1.type import constraint, namedtype, tag, univ
 
 
 class Integer(univ.Integer):

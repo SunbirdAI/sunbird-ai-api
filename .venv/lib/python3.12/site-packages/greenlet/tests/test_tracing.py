@@ -1,11 +1,12 @@
 from __future__ import print_function
+
 import sys
 import sysconfig
-import greenlet
 import unittest
 
-from . import TestCase
-from . import PY312
+import greenlet
+
+from . import PY312, TestCase
 
 # https://discuss.python.org/t/cpython-3-12-greenlet-and-tracing-profiling-how-to-not-crash-and-get-correct-results/33144/2
 # When build variables are available, OPT is the best way of detecting

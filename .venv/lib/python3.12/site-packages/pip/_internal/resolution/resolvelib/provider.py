@@ -3,14 +3,10 @@ from __future__ import annotations
 import math
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from functools import cache
-from typing import (
-    TYPE_CHECKING,
-    TypeVar,
-)
-
-from pip._vendor.resolvelib.providers import AbstractProvider
+from typing import TYPE_CHECKING, TypeVar
 
 from pip._internal.req.req_install import InstallRequirement
+from pip._vendor.resolvelib.providers import AbstractProvider
 
 from .base import Candidate, Constraint, Requirement
 from .candidates import REQUIRES_PYTHON_IDENTIFIER

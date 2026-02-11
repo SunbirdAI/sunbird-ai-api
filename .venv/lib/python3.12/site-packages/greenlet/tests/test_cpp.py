@@ -1,13 +1,12 @@
-from __future__ import print_function
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function
 
 import subprocess
 import unittest
 
 import greenlet
-from . import _test_extension_cpp
-from . import TestCase
-from . import WIN
+
+from . import WIN, TestCase, _test_extension_cpp
+
 
 class CPPTests(TestCase):
     def test_exception_switch(self):

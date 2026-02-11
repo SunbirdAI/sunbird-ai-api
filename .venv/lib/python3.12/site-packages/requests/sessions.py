@@ -28,7 +28,6 @@ from .exceptions import (
     TooManyRedirects,
 )
 from .hooks import default_hooks, dispatch_hook
-
 # formerly defined here, reexposed here for backward compatibility
 from .models import (  # noqa: F401
     DEFAULT_REDIRECT_LIMIT,

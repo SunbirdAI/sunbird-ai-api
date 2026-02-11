@@ -5,8 +5,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud.monitoring import (
     get_logs_by_username,
-    get_recent_logs_by_username,
     get_logs_by_username_since,
+    get_recent_logs_by_username,
     get_usage_stats_by_username,
 )
 from app.schemas.monitoring import EndpointLog
@@ -31,7 +31,7 @@ async def get_dashboard_stats(db: AsyncSession, username: str, time_range: str =
 
     # 3. Daily request volume & Latency (dynamic time range)
     # Parse time_range: "7d", "30d", "90d"
-    days = int(time_range.rstrip('d')) if time_range.endswith('d') else 7
+    days = int(time_range.rstrip("d")) if time_range.endswith("d") else 7
     start_date = datetime.now() - timedelta(days=days)
     recent_period_logs = await get_logs_by_username_since(db, username, start_date)
 
@@ -40,7 +40,7 @@ async def get_dashboard_stats(db: AsyncSession, username: str, time_range: str =
     daily_latency_count = defaultdict(int)
     # Track per-endpoint daily volumes
     endpoint_daily_volumes = defaultdict(lambda: defaultdict(int))
-    
+
     for log in recent_period_logs:
         if log.date:
             day = log.date.strftime("%a")  # Mon, Tue, etc.
@@ -54,13 +54,13 @@ async def get_dashboard_stats(db: AsyncSession, username: str, time_range: str =
     day_labels = []
     volume_counts = []
     latency_data = []
-    
+
     for i in range(days):
         date = datetime.now() - timedelta(days=days - 1 - i)
         day_name = date.strftime("%b %d") if days > 7 else date.strftime("%a")
         day_labels.append(day_name)
         volume_counts.append(daily_volume.get(day_name, 0))
-        
+
         # Calculate average latency for the day
         count = daily_latency_count.get(day_name, 0)
         if count > 0:
@@ -68,7 +68,7 @@ async def get_dashboard_stats(db: AsyncSession, username: str, time_range: str =
         else:
             avg_latency = 0
         latency_data.append(avg_latency)
-    
+
     # Generate per-endpoint time series data
     endpoint_chart_data = {}
     for endpoint in aggregates.keys():
@@ -81,14 +81,8 @@ async def get_dashboard_stats(db: AsyncSession, username: str, time_range: str =
 
     # 4. Latency Distribution (Histogram buckets)
     # Buckets: <100ms, 100-500ms, 500ms-1s, 1s-2s, >2s
-    latency_buckets = {
-        "<100ms": 0,
-        "100-500ms": 0,
-        "500ms-1s": 0,
-        "1s-2s": 0,
-        ">2s": 0
-    }
-    
+    latency_buckets = {"<100ms": 0, "100-500ms": 0, "500ms-1s": 0, "1s-2s": 0, ">2s": 0}
+
     for log in recent_period_logs:
         ms = log.time_taken * 1000
         if ms < 100:
@@ -110,10 +104,10 @@ async def get_dashboard_stats(db: AsyncSession, username: str, time_range: str =
         "latency_chart": {"labels": day_labels, "data": latency_data},
         "distribution_chart": {
             "labels": list(aggregates.keys()),
-            "data": list(aggregates.values())
+            "data": list(aggregates.values()),
         },
         "latency_distribution": {
             "labels": list(latency_buckets.keys()),
-            "data": list(latency_buckets.values())
-        }
+            "data": list(latency_buckets.values()),
+        },
     }

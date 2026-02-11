@@ -1,9 +1,6 @@
 from authlib.consts import default_json_headers
-from ..rfc6749 import (
-    TokenEndpoint,
-    InvalidRequestError,
-    UnsupportedTokenTypeError,
-)
+
+from ..rfc6749 import InvalidRequestError, TokenEndpoint, UnsupportedTokenTypeError
 
 
 class IntrospectionEndpoint(TokenEndpoint):

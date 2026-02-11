@@ -14,9 +14,8 @@ import logging
 from collections.abc import Iterator, Sequence
 from typing import Any, Callable, Optional
 
-from pip._vendor.packaging.version import _BaseVersion
-
 from pip._internal.exceptions import MetadataInvalid
+from pip._vendor.packaging.version import _BaseVersion
 
 from .base import Candidate
 

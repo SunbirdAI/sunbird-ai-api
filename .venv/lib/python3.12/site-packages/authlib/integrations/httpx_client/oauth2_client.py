@@ -2,18 +2,19 @@ import typing
 from contextlib import asynccontextmanager
 
 import httpx
-from httpx import Auth, Request, Response, USE_CLIENT_DEFAULT
 from anyio import Lock  # Import after httpx so import errors refer to httpx
 from authlib.common.urls import url_decode
-from authlib.oauth2.client import OAuth2Client as _OAuth2Client
 from authlib.oauth2.auth import ClientAuth, TokenAuth
-from .utils import HTTPX_CLIENT_KWARGS, build_request
+from authlib.oauth2.client import OAuth2Client as _OAuth2Client
+from httpx import USE_CLIENT_DEFAULT, Auth, Request, Response
+
 from ..base_client import (
-    OAuthError,
     InvalidTokenError,
     MissingTokenError,
+    OAuthError,
     UnsupportedTokenTypeError,
 )
+from .utils import HTTPX_CLIENT_KWARGS, build_request
 
 __all__ = [
     'OAuth2Auth', 'OAuth2ClientAuth',

@@ -6,13 +6,10 @@
 # the MIT License: https://www.opensource.org/licenses/mit-license.php
 # mypy: ignore-errors
 
+from ... import Integer, String, testing
 from .. import fixtures
 from ..assertions import eq_
-from ..schema import Column
-from ..schema import Table
-from ... import Integer
-from ... import String
-from ... import testing
+from ..schema import Column, Table
 
 
 class SimpleUpdateDeleteTest(fixtures.TablesTest):

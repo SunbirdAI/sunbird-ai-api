@@ -1,6 +1,6 @@
 import os
-import string
 import random
+import string
 
 UNICODE_ASCII_CHARACTER_SET = string.ascii_letters + string.digits
 

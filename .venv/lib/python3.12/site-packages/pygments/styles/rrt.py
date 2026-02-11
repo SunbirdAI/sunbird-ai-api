@@ -9,8 +9,7 @@
 """
 
 from pygments.style import Style
-from pygments.token import Token, Comment, Name, Keyword, String, Number, Operator
-
+from pygments.token import Comment, Keyword, Name, Number, Operator, String, Token
 
 __all__ = ['RrtStyle']
 

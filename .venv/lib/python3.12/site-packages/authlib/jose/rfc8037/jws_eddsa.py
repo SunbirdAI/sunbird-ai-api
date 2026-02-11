@@ -1,4 +1,5 @@
 from cryptography.exceptions import InvalidSignature
+
 from ..rfc7515 import JWSAlgorithm
 from .okp_key import OKPKey
 

@@ -23,13 +23,11 @@
 # THE SOFTWARE.
 from __future__ import print_function
 
+import gc
 import os
 import sys
-import gc
-
-from functools import wraps
 import unittest
-
+from functools import wraps
 
 import objgraph
 

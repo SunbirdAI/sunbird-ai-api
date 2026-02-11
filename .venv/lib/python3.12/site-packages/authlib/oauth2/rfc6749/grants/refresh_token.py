@@ -9,14 +9,16 @@
 """
 
 import logging
-from .base import BaseGrant, TokenEndpointMixin
-from ..util import scope_to_list
+
 from ..errors import (
+    InvalidGrantError,
     InvalidRequestError,
     InvalidScopeError,
-    InvalidGrantError,
     UnauthorizedClientError,
 )
+from ..util import scope_to_list
+from .base import BaseGrant, TokenEndpointMixin
+
 log = logging.getLogger(__name__)
 
 

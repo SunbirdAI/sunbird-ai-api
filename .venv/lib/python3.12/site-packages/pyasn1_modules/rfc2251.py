@@ -12,11 +12,7 @@
 # Sample captures from:
 # http://wiki.wireshark.org/SampleCaptures/
 #
-from pyasn1.type import constraint
-from pyasn1.type import namedtype
-from pyasn1.type import namedval
-from pyasn1.type import tag
-from pyasn1.type import univ
+from pyasn1.type import constraint, namedtype, namedval, tag, univ
 
 maxInt = univ.Integer(2147483647)
 

@@ -5,8 +5,10 @@ Helper for testing a C++ exception throw aborts the process.
 Takes one argument, the name of the function in :mod:`_test_extension_cpp` to call.
 """
 import sys
+
 import greenlet
 from greenlet.tests import _test_extension_cpp
+
 print('fail_cpp_exception is running')
 
 def run_unhandled_exception_in_greenlet_aborts():

@@ -1,7 +1,10 @@
 import copy
 import re
-from collections import Counter as CollectionCounter, defaultdict, deque
-from collections.abc import Callable, Hashable as CollectionsHashable, Iterable as CollectionsIterable
+from collections import Counter as CollectionCounter
+from collections import defaultdict, deque
+from collections.abc import Callable
+from collections.abc import Hashable as CollectionsHashable
+from collections.abc import Iterable as CollectionsIterable
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -26,12 +29,19 @@ from typing import (
     Union,
 )
 
-from typing_extensions import Annotated, Final
-
 from pydantic.v1 import errors as errors_
-from pydantic.v1.class_validators import Validator, make_generic_validator, prep_validators
+from pydantic.v1.class_validators import (
+    Validator,
+    make_generic_validator,
+    prep_validators,
+)
 from pydantic.v1.error_wrappers import ErrorWrapper
-from pydantic.v1.errors import ConfigError, InvalidDiscriminator, MissingDiscriminator, NoneIsNotAllowedError
+from pydantic.v1.errors import (
+    ConfigError,
+    InvalidDiscriminator,
+    MissingDiscriminator,
+    NoneIsNotAllowedError,
+)
 from pydantic.v1.types import Json, JsonWrapper
 from pydantic.v1.typing import (
     NoArgAnyCallable,
@@ -59,7 +69,13 @@ from pydantic.v1.utils import (
     sequence_like,
     smart_deepcopy,
 )
-from pydantic.v1.validators import constant_validator, dict_validator, find_validators, validate_json
+from pydantic.v1.validators import (
+    constant_validator,
+    dict_validator,
+    find_validators,
+    validate_json,
+)
+from typing_extensions import Annotated, Final
 
 Required: Any = Ellipsis
 

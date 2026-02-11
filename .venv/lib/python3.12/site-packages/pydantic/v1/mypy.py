@@ -1,6 +1,8 @@
 import sys
 from configparser import ConfigParser
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type as TypingType, Union
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+from typing import Type as TypingType
+from typing import Union
 
 from mypy.errorcodes import ErrorCode
 from mypy.nodes import (
@@ -65,7 +67,6 @@ from mypy.types import (
 from mypy.typevars import fill_typevars
 from mypy.util import get_unique_redefinition_name
 from mypy.version import __version__ as mypy_version
-
 from pydantic.v1.utils import is_valid_field
 
 try:

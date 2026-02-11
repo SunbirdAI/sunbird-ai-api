@@ -8,9 +8,16 @@
     :license: BSD, see LICENSE for details.
 """
 
-from pygments.lexer import RegexLexer, include, bygroups, words
-from pygments.token import Whitespace, Name, String,  Punctuation, Keyword, \
-    Operator, Number
+from pygments.lexer import RegexLexer, bygroups, include, words
+from pygments.token import (
+    Keyword,
+    Name,
+    Number,
+    Operator,
+    Punctuation,
+    String,
+    Whitespace,
+)
 
 __all__ = ["NumbaIRLexer"]
 

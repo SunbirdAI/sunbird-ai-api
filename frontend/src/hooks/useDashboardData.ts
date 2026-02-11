@@ -48,7 +48,8 @@ export function useDashboardData(timeRange: string = '7d') {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get(`/api/usage?time_range=${timeRange}`);
+        const response = await axios.get(`/api/dashboard/usage?time_range=${timeRange}`);
+        console.log(`Response from /api/dashboard/usage:`, response.data);
         setData(response.data);
         console.log(response.data);
       } catch (err: any) {

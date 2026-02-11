@@ -12,9 +12,8 @@
 # language governing permissions and limitations under the License.
 import os
 
-from botocore.docs import DEPRECATED_SERVICE_NAMES
-
 from boto3.docs.service import ServiceDocumenter
+from botocore.docs import DEPRECATED_SERVICE_NAMES
 
 
 def generate_docs(root_dir, session):

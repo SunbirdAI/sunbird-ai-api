@@ -1,10 +1,12 @@
 from authlib.common.encoding import (
-    to_bytes, to_unicode,
-    urlsafe_b64encode, urlsafe_b64decode,
+    to_bytes,
+    to_unicode,
+    urlsafe_b64decode,
+    urlsafe_b64encode,
 )
 from authlib.common.security import generate_token
-from ..rfc7517 import Key
 
+from ..rfc7517 import Key
 
 POSSIBLE_UNSAFE_KEYS = (
     b"-----BEGIN ",

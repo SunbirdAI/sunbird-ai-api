@@ -2,22 +2,28 @@ from collections import OrderedDict
 from copy import deepcopy
 
 from authlib.common.encoding import (
-    to_bytes, urlsafe_b64encode, json_b64encode, to_unicode
-)
-from authlib.jose.rfc7516.models import JWEAlgorithmWithTagAwareKeyAgreement, JWESharedHeader, JWEHeader
-from authlib.jose.util import (
-    extract_header,
-    extract_segment, ensure_dict,
+    json_b64encode,
+    to_bytes,
+    to_unicode,
+    urlsafe_b64encode,
 )
 from authlib.jose.errors import (
     DecodeError,
+    InvalidAlgorithmForMultipleRecipientsMode,
+    InvalidHeaderParameterNameError,
+    KeyMismatchError,
     MissingAlgorithmError,
-    UnsupportedAlgorithmError,
     MissingEncryptionAlgorithmError,
-    UnsupportedEncryptionAlgorithmError,
+    UnsupportedAlgorithmError,
     UnsupportedCompressionAlgorithmError,
-    InvalidHeaderParameterNameError, InvalidAlgorithmForMultipleRecipientsMode, KeyMismatchError,
+    UnsupportedEncryptionAlgorithmError,
 )
+from authlib.jose.rfc7516.models import (
+    JWEAlgorithmWithTagAwareKeyAgreement,
+    JWEHeader,
+    JWESharedHeader,
+)
+from authlib.jose.util import ensure_dict, extract_header, extract_segment
 
 
 class JsonWebEncryption:

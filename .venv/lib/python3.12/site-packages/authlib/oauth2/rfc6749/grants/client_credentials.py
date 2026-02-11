@@ -1,6 +1,7 @@
 import logging
-from .base import BaseGrant, TokenEndpointMixin
+
 from ..errors import UnauthorizedClientError
+from .base import BaseGrant, TokenEndpointMixin
 
 log = logging.getLogger(__name__)
 

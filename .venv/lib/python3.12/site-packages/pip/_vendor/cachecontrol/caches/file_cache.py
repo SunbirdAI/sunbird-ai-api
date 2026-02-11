@@ -6,9 +6,9 @@ from __future__ import annotations
 import hashlib
 import os
 import tempfile
+from pathlib import Path
 from textwrap import dedent
 from typing import IO, TYPE_CHECKING
-from pathlib import Path
 
 from pip._vendor.cachecontrol.cache import BaseCache, SeparateBodyBaseCache
 from pip._vendor.cachecontrol.controller import CacheController

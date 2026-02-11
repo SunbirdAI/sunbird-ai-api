@@ -1,12 +1,9 @@
+from authlib.common.encoding import to_native
+from authlib.oauth1 import SIGNATURE_HMAC_SHA1, SIGNATURE_TYPE_HEADER, ClientAuth
+from authlib.oauth1.client import OAuth1Client
 from requests import Session
 from requests.auth import AuthBase
-from authlib.oauth1 import (
-    SIGNATURE_HMAC_SHA1,
-    SIGNATURE_TYPE_HEADER,
-)
-from authlib.common.encoding import to_native
-from authlib.oauth1 import ClientAuth
-from authlib.oauth1.client import OAuth1Client
+
 from ..base_client import OAuthError
 from .utils import update_session_configure
 

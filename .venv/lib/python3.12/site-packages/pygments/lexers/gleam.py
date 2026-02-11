@@ -8,9 +8,17 @@
     :license: BSD, see LICENSE for details.
 """
 
-from pygments.lexer import RegexLexer, words, bygroups
-from pygments.token import Comment, Operator, Keyword, Name, String, \
-    Number, Punctuation, Whitespace
+from pygments.lexer import RegexLexer, bygroups, words
+from pygments.token import (
+    Comment,
+    Keyword,
+    Name,
+    Number,
+    Operator,
+    Punctuation,
+    String,
+    Whitespace,
+)
 
 __all__ = ['GleamLexer']
 

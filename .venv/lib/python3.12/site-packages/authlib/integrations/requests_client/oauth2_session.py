@@ -1,11 +1,12 @@
+from authlib.oauth2.auth import ClientAuth, TokenAuth
+from authlib.oauth2.client import OAuth2Client
 from requests import Session
 from requests.auth import AuthBase
-from authlib.oauth2.client import OAuth2Client
-from authlib.oauth2.auth import ClientAuth, TokenAuth
+
 from ..base_client import (
-    OAuthError,
     InvalidTokenError,
     MissingTokenError,
+    OAuthError,
     UnsupportedTokenTypeError,
 )
 from .utils import update_session_configure

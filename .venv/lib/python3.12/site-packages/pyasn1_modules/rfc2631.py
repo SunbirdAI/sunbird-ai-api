@@ -13,10 +13,7 @@
 # https://www.rfc-editor.org/errata/eid5897
 #
 
-from pyasn1.type import constraint
-from pyasn1.type import namedtype
-from pyasn1.type import tag
-from pyasn1.type import univ
+from pyasn1.type import constraint, namedtype, tag, univ
 
 
 class KeySpecificInfo(univ.Sequence):

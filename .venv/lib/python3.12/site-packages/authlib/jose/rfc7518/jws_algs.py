@@ -7,20 +7,23 @@
     .. _`Section 3`: https://tools.ietf.org/html/rfc7518#section-3
 """
 
-import hmac
 import hashlib
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric.utils import (
-    decode_dss_signature, encode_dss_signature
-)
-from cryptography.hazmat.primitives.asymmetric.ec import ECDSA
-from cryptography.hazmat.primitives.asymmetric import padding
+import hmac
+
 from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.asymmetric.ec import ECDSA
+from cryptography.hazmat.primitives.asymmetric.utils import (
+    decode_dss_signature,
+    encode_dss_signature,
+)
+
 from ..rfc7515 import JWSAlgorithm
+from .ec_key import ECKey
 from .oct_key import OctKey
 from .rsa_key import RSAKey
-from .ec_key import ECKey
-from .util import encode_int, decode_int
+from .util import decode_int, encode_int
 
 
 class NoneAlgorithm(JWSAlgorithm):
