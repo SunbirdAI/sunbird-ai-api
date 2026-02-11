@@ -1095,7 +1095,6 @@ class WhatsAppBusinessService(BaseService):
 
         return ProcessingResult(response, ResponseType.TEXT)
 
-
     # =========================================================================
     # Async Helper Methods
     # =========================================================================
@@ -1113,7 +1112,7 @@ class WhatsAppBusinessService(BaseService):
                             ):
                                 return True
         return False
-    
+
     def get_messages_from_payload(self, payload):
         try:
             # Ensure 'entry' and 'changes' are in the payload

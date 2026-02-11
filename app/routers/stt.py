@@ -487,12 +487,24 @@ async def speech_to_text_org(
     "/modal/stt",
     response_model=STTTranscript,
     summary="Transcribe Audio via Modal Whisper ASR",
-    description="Upload an audio file and get transcription using the Modal-hosted Whisper model.",
+    description=(
+        "Upload an audio file and get transcription using the Modal-hosted "
+        "Whisper model. Optionally specify a language to improve accuracy."
+    ),
 )
 @limiter.limit(get_account_type_limit)
 async def modal_speech_to_text(
     request: Request,
     audio: UploadFile = File(..., description="Audio file to transcribe"),
+    language: Optional[str] = Form(
+        default=None,
+        description=(
+            "Optional language hint for transcription. "
+            "Accepts a 3-letter ISO 639-2 code (e.g. 'eng', 'lug') "
+            "or a full language name (e.g. 'english', 'luganda'). "
+            "If omitted, the model auto-detects the language."
+        ),
+    ),
     modal_stt_service: ModalSTTServiceDep = None,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
@@ -505,6 +517,7 @@ async def modal_speech_to_text(
     Args:
         request: The FastAPI request object (required for rate limiting).
         audio: The uploaded audio file.
+        language: Optional language code or name to guide transcription.
         modal_stt_service: The Modal STT service instance.
         db: Database session.
         current_user: The authenticated user.
@@ -513,6 +526,7 @@ async def modal_speech_to_text(
         STTTranscript containing the transcription results.
 
     Raises:
+        ValidationError: If the provided language is not recognized.
         ServiceUnavailableError: If the Modal service times out.
         ExternalServiceError: If the transcription service fails.
     """
@@ -523,11 +537,15 @@ async def modal_speech_to_text(
         audio_data = await audio.read()
 
         logging.info(
-            f"Modal STT: received {len(audio_data)} bytes from file '{audio.filename}'"
+            f"Modal STT: received {len(audio_data)} bytes from file "
+            f"'{audio.filename}', language={language}"
         )
 
         # Call the Modal Whisper ASR service
-        transcription = await modal_stt_service.transcribe(audio_data)
+        transcription = await modal_stt_service.transcribe(
+            audio_data, language=language
+        )
+        logging.info(f"Modal STT: transcription result - {transcription[:100]}...")
 
         elapsed_time = time.time() - start_time
         logging.info(f"Modal STT transcription completed in {elapsed_time:.2f} seconds")
@@ -536,7 +554,7 @@ async def modal_speech_to_text(
             audio_transcription=transcription,
         )
 
-    except (ServiceUnavailableError, ExternalServiceError):
+    except (ValidationError, ServiceUnavailableError, ExternalServiceError):
         raise
     except Exception as e:
         logging.error(f"Unexpected error in modal_speech_to_text: {str(e)}")

@@ -26,6 +26,7 @@ Use the `Authorize` button below to login and access the protected endpoints.
   - Upload audio files directly for transcription
   - Powered by Modal serverless GPU infrastructure
   - Supports various audio formats (WAV, MP3, OGG, M4A, etc.)
+  - Optional `language` parameter: pass a 3-letter code (e.g. `eng`, `lug`) or full name (e.g. `english`, `luganda`) to improve accuracy. Auto-detects if omitted.
 - **`POST /tasks/stt`** - RunPod-based STT for supported languages with language/adapter selection
 
 ### Translation

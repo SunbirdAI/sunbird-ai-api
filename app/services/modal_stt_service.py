@@ -21,13 +21,62 @@ Usage:
         return {"transcription": transcription}
 """
 
-from typing import Optional
+from typing import Dict, Optional
 
 import httpx
 
 from app.core.config import settings
-from app.core.exceptions import ExternalServiceError
+from app.core.exceptions import ExternalServiceError, ValidationError
 from app.services.base import BaseService
+
+# Mapping of language names (lowercase) to ISO 639-2/3 codes
+LANGUAGE_NAME_TO_CODE: Dict[str, str] = {
+    "english": "eng",
+    "luganda": "lug",
+    "runyankole": "nyn",
+    "acholi": "ach",
+    "ateso": "teo",
+    "lugbara": "lgg",
+    "swahili": "swa",
+    "kinyarwanda": "kin",
+    "lusoga": "xog",
+    "lumasaba": "myx",
+}
+
+# Set of valid language codes for quick lookup
+VALID_LANGUAGE_CODES = set(LANGUAGE_NAME_TO_CODE.values())
+
+
+def resolve_language(language: str) -> str:
+    """Resolve a language name or code to a valid ISO 639-2/3 code.
+
+    Accepts either a 3-letter code (e.g. "eng") or a full language name
+    (e.g. "english", "English") and returns the corresponding code.
+
+    Args:
+        language: Language name or ISO 639-2/3 code.
+
+    Returns:
+        The resolved language code.
+
+    Raises:
+        ValueError: If the language is not recognized.
+    """
+    normalized = language.strip().lower()
+
+    # Check if it's already a valid code
+    if normalized in VALID_LANGUAGE_CODES:
+        return normalized
+
+    # Try to resolve from name
+    if normalized in LANGUAGE_NAME_TO_CODE:
+        return LANGUAGE_NAME_TO_CODE[normalized]
+
+    valid_options = sorted(VALID_LANGUAGE_CODES | set(LANGUAGE_NAME_TO_CODE.keys()))
+    raise ValueError(
+        f"Unsupported language: '{language}'. "
+        f"Valid options: {', '.join(valid_options)}"
+    )
 
 
 class ModalSTTService(BaseService):
@@ -63,7 +112,9 @@ class ModalSTTService(BaseService):
             extra={"api_url": self.api_url, "timeout": self.timeout},
         )
 
-    async def transcribe(self, audio_data: bytes) -> str:
+    async def transcribe(
+        self, audio_data: bytes, language: Optional[str] = None
+    ) -> str:
         """Transcribe audio using the Modal Whisper ASR API.
 
         Sends raw audio bytes to the endpoint and parses the response.
@@ -71,24 +122,48 @@ class ModalSTTService(BaseService):
 
         Args:
             audio_data: Raw audio bytes to transcribe.
+            language: Optional language code or name to guide transcription.
+                Accepts ISO 639-2/3 codes (e.g. "eng", "lug") or full names
+                (e.g. "english", "luganda"). If not provided, the model
+                will auto-detect the language.
 
         Returns:
             Concatenated transcription text from all segments.
 
         Raises:
+            ValidationError: If the provided language is not recognized.
             ExternalServiceError: If the API returns an error or is unreachable.
         """
+        # Resolve language if provided
+        resolved_language = None
+        if language:
+            try:
+                resolved_language = resolve_language(language)
+            except ValueError as e:
+                raise self.validation_error(
+                    message=str(e),
+                    errors=[{"field": "language", "value": language}],
+                )
+
         self.log_info(
             "Transcribing audio",
-            extra={"audio_bytes": len(audio_data)},
+            extra={
+                "audio_bytes": len(audio_data),
+                "language": resolved_language,
+            },
         )
 
         try:
+            params = {}
+            if resolved_language:
+                params["language"] = resolved_language
+
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.post(
                     self.api_url,
                     content=audio_data,
                     headers={"Content-Type": "application/octet-stream"},
+                    params=params,
                 )
 
                 if response.status_code != 200:
@@ -106,6 +181,7 @@ class ModalSTTService(BaseService):
                     )
 
                 result = response.json()
+                self.log_info(f"Result received from Modal STT API: {result}")
                 transcription = self._parse_transcription(result)
 
                 self.log_info(
@@ -128,7 +204,7 @@ class ModalSTTService(BaseService):
                 message="Failed to connect to STT service",
                 original_error=str(e),
             )
-        except ExternalServiceError:
+        except (ExternalServiceError, ValidationError):
             raise
         except Exception as e:
             self.log_error("Unexpected error during transcription", exc_info=e)
@@ -153,7 +229,7 @@ class ModalSTTService(BaseService):
             ExternalServiceError: If the response format is unexpected.
         """
         try:
-            segments = result["text"]
+            segments = result
             return " ".join(segment["text"].strip() for segment in segments).strip()
         except (KeyError, TypeError, IndexError) as e:
             self.log_error(
