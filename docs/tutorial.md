@@ -291,26 +291,47 @@ headers = {
     "Content-Type": "application/json",
 }
 
-data = {
-    "text": "Webale nnyo ku kuyita mu Sunbird AI.",
-    "language": "lug",
-    "response_mode": "url"  # Options: "url", "stream", "both"
+payload = {
+    "response_mode": "url",
+    "speaker_id": 248,
+    "text": "I am a nurse who takes care of many people.",
 }
 
-response = requests.post(url, headers=headers, json=data)
-result = response.json()
+response = requests.post(url, headers=headers, json=payload)
 
-if "url" in result:
-    print(f"Audio URL: {result['url']}")
-    print(f"Expires at: {result['expires_at']}")
+print(response.status_code)
+print(response.json())
 ```
 
-**Response Modes:**
+### Speaker IDs
+
+| Speaker ID | Voice |
+|---|---|
+| 241 | Acholi (female) |
+| 242 | Ateso (female) |
+| 243 | Runyankore (female) |
+| 245 | Lugbara (female) |
+| 246 | Swahili (male) |
+| 248 | Luganda (female) |
+
+### Response Modes
 - `url` - Generate audio, upload to GCP, return signed URL (valid for 30 minutes)
 - `stream` - Stream raw audio chunks directly
 - `both` - Stream audio AND return final signed URL
 
-**Supported Languages:** Acholi, Ateso, Runyankore, Lugbara, Swahili, Luganda
+**Example Response:**
+```json
+{
+  "success": true,
+  "audio_url": "https://storage.googleapis.com/sb-asr-audio-content-sb-gcp-project-01/tts_audio/20260212_222936_2a9f1f83_da308cdb.wav?...",
+  "expires_at": "2026-02-12T22:59:36.954061Z",
+  "file_name": "tts_audio/20260212_222936_2a9f1f83_da308cdb.wav",
+  "duration_estimate_seconds": 4,
+  "text_length": 43,
+  "speaker_id": 248,
+  "speaker_name": "Luganda (female)"
+}
+```
 
 ---
 

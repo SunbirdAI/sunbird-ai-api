@@ -1,8 +1,10 @@
 import logging
 from contextlib import asynccontextmanager
+from datetime import datetime
 from typing import List
 
 from fastapi import Request
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
@@ -61,3 +63,35 @@ async def get_logs_by_username(db: AsyncSession, username: str) -> List[Endpoint
         select(models.EndpointLog).filter(models.EndpointLog.username == username)
     )
     return result.scalars().all()
+
+
+async def get_recent_logs_by_username(
+    db: AsyncSession, username: str, limit: int = 10
+) -> List[EndpointLog]:
+    result = await db.execute(
+        select(models.EndpointLog)
+        .filter(models.EndpointLog.username == username)
+        .order_by(models.EndpointLog.date.desc())
+        .limit(limit)
+    )
+    return result.scalars().all()
+
+
+async def get_logs_by_username_since(
+    db: AsyncSession, username: str, since: datetime
+) -> List[EndpointLog]:
+    result = await db.execute(
+        select(models.EndpointLog)
+        .filter(models.EndpointLog.username == username)
+        .filter(models.EndpointLog.date >= since)
+    )
+    return result.scalars().all()
+
+
+async def get_usage_stats_by_username(db: AsyncSession, username: str):
+    result = await db.execute(
+        select(models.EndpointLog.endpoint, func.count(models.EndpointLog.id))
+        .filter(models.EndpointLog.username == username)
+        .group_by(models.EndpointLog.endpoint)
+    )
+    return result.all()

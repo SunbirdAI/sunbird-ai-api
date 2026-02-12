@@ -139,6 +139,7 @@ async def sunflower_inference(
     - Message history management
 
     Args:
+
         request: The FastAPI request object (required for rate limiting).
         chat_request: The chat request containing messages and parameters.
         background_tasks: FastAPI background tasks for async operations.
@@ -146,16 +147,20 @@ async def sunflower_inference(
         service: The inference service instance.
 
     Returns:
+
         SunflowerChatResponse containing the AI's response and usage stats.
 
     Raises:
+
         BadRequestError: For validation errors.
         ValidationError: For invalid message format.
         ServiceUnavailableError: If the model is loading or request times out.
         ExternalServiceError: For empty model response or unexpected errors.
 
     Example:
+
         Request body with message history:
+
         {
             "messages": [
                 {"role": "system", "content": "You are Sunflower..."},
@@ -168,6 +173,7 @@ async def sunflower_inference(
         }
 
         Response:
+
         {
             "content": "In Acholi, 'Good morning' is 'Icwiny atir'.",
             "model_type": "qwen",
@@ -363,6 +369,7 @@ async def sunflower_simple_inference(
     integration with simple clients.
 
     Args:
+
         request: The FastAPI request object (required for rate limiting).
         background_tasks: FastAPI background tasks for async operations.
         instruction: The question or instruction for the AI.
@@ -373,15 +380,18 @@ async def sunflower_simple_inference(
         current_user: The authenticated user.
 
     Returns:
+
         Dictionary containing response, model_type, processing_time, usage, and success.
 
     Raises:
+
         BadRequestError: For validation errors.
         ValidationError: For invalid model type.
         ServiceUnavailableError: If the model is loading or request times out.
         ExternalServiceError: For unexpected errors.
 
     Example:
+
         Form data:
         - instruction: "Translate 'hello' to Luganda"
         - model_type: "qwen"
