@@ -125,6 +125,7 @@ async def translate(
     the target can be any of the other languages.
 
     Args:
+
         request: The FastAPI request object.
         translation_request: The translation request containing source/target
             languages and text to translate.
@@ -133,13 +134,16 @@ async def translate(
         service: The translation service instance.
 
     Returns:
+
         WorkerTranslationResponse containing the translation result.
 
     Raises:
+
         ServiceUnavailableError: If service times out.
         ExternalServiceError: If translation service fails or returns invalid response.
 
     Example:
+
         Request body:
         {
             "source_language": "eng",

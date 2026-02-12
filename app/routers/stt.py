@@ -140,6 +140,7 @@ async def speech_to_text_from_gcs(
     uploads a final version (if trimmed), then calls the transcription service.
 
     Args:
+
         request: The FastAPI request object.
         gcs_blob_name: Name of the blob in GCS bucket.
         language: Target language for transcription. Defaults to Luganda.
@@ -151,9 +152,11 @@ async def speech_to_text_from_gcs(
         service: The STT service instance.
 
     Returns:
+
         STTTranscript containing the transcription results.
 
     Raises:
+
         BadRequestError: If audio processing fails.
         ExternalServiceError: If transcription service fails.
     """
@@ -246,15 +249,18 @@ async def speech_to_text(
     including MP3, WAV, OGG, M4A, and AAC.
 
     Limitations:
+
         - Maximum audio duration: Files longer than 10 minutes will be trimmed
         - Supported formats: MP3, WAV, OGG, M4A, AAC
         - Large files are supported but only first 10 minutes will be transcribed
 
     Note:
+
         For files larger than 100MB, please use chunked upload or consider
         splitting the audio file.
 
     Args:
+
         request: The FastAPI request object.
         audio: The uploaded audio file.
         language: Target language for transcription. Defaults to Luganda.
@@ -266,9 +272,11 @@ async def speech_to_text(
         service: The STT service instance.
 
     Returns:
+
         STTTranscript containing the transcription results.
 
     Raises:
+
         ValidationError: If audio file validation fails.
         BadRequestError: If audio processing fails.
         ExternalServiceError: If transcription service fails.
@@ -394,6 +402,7 @@ async def speech_to_text_org(
     speaker diarization.
 
     Args:
+
         request: The FastAPI request object (required for rate limiting).
         audio: The uploaded audio file.
         recognise_speakers: Enable speaker diarization. Defaults to False.
@@ -401,9 +410,11 @@ async def speech_to_text_org(
         service: The STT service instance.
 
     Returns:
+
         STTTranscript containing the transcription results.
 
     Raises:
+
         BadRequestError: If audio processing fails.
         ServiceUnavailableError: If service times out.
         ExternalServiceError: If transcription service fails.
@@ -515,6 +526,7 @@ async def modal_speech_to_text(
     for transcription. Supports various audio formats.
 
     Args:
+
         request: The FastAPI request object (required for rate limiting).
         audio: The uploaded audio file.
         language: Optional language code or name to guide transcription.
@@ -523,9 +535,11 @@ async def modal_speech_to_text(
         current_user: The authenticated user.
 
     Returns:
+
         STTTranscript containing the transcription results.
 
     Raises:
+
         ValidationError: If the provided language is not recognized.
         ServiceUnavailableError: If the Modal service times out.
         ExternalServiceError: If the transcription service fails.
