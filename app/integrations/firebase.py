@@ -49,6 +49,48 @@ logging.basicConfig(level=logging.INFO)
 _db = None
 
 
+def _normalize_private_key(raw_key: str) -> str:
+    """Normalize private key from env vars (handles quoted + escaped formats)."""
+    key = raw_key.strip()
+    if (key.startswith('"') and key.endswith('"')) or (
+        key.startswith("'") and key.endswith("'")
+    ):
+        key = key[1:-1]
+    return key.replace("\\n", "\n")
+
+
+def _build_certificate_config() -> dict | None:
+    """Build Firebase certificate config when required env vars are present."""
+    project_id = os.getenv("PROJECT_ID")
+    client_email = os.getenv("CLIENT_EMAIL")
+    private_key_raw = os.getenv("PRIVATE_KEY")
+
+    if not project_id or not client_email or not private_key_raw:
+        return None
+
+    private_key = _normalize_private_key(private_key_raw)
+    if "BEGIN PRIVATE KEY" not in private_key:
+        logging.error(
+            "PRIVATE_KEY is set but does not look like a PEM private key. "
+            "Skipping certificate initialization."
+        )
+        return None
+
+    return {
+        "type": os.getenv("TYPE"),
+        "project_id": project_id,
+        "private_key_id": os.getenv("PRIVATE_KEY_ID"),
+        "private_key": private_key,
+        "client_email": client_email,
+        "token_uri": os.getenv("TOKEN_URI"),
+        "auth_provider_x509_cert_url": os.getenv("AUTH_PROVIDER_X509_CERT_URL"),
+        "client_x509_cert_url": os.getenv("CLIENT_X509_CERT_URL"),
+        "client_id": os.getenv("CLIENT_ID"),
+        "auth_uri": os.getenv("AUTH_URI"),
+        "universe_domain": os.getenv("UNIVERSE_DOMAIN"),
+    }
+
+
 def _is_permission_error(error: Exception) -> bool:
     """Check whether an exception likely indicates Firestore IAM permission issues."""
     text = str(error).lower()
@@ -85,42 +127,37 @@ def _init_firebase() -> None:
     load_dotenv()
 
     try:
-        # Initialize Firebase app
-        private_key = os.getenv("PRIVATE_KEY")
-        firebase_config = {
-            "type": os.getenv("TYPE"),
-            "project_id": os.getenv("PROJECT_ID"),
-            "private_key_id": os.getenv("PRIVATE_KEY_ID"),
-            "private_key": private_key.replace("\\n", "\n") if private_key else None,
-            "client_email": os.getenv("CLIENT_EMAIL"),
-            "token_uri": os.getenv("TOKEN_URI"),
-            "auth_provider_x509_cert_url": os.getenv("AUTH_PROVIDER_X509_CERT_URL"),
-            "client_x509_cert_url": os.getenv("CLIENT_X509_CERT_URL"),
-            "client_id": os.getenv("CLIENT_ID"),
-            "auth_uri": os.getenv("AUTH_URI"),
-            "universe_domain": os.getenv("UNIVERSE_DOMAIN"),
-        }
+        if firebase_admin._apps:
+            _db = firestore.client()
+            return
 
-        cred = credentials.Certificate(firebase_config)
-        if not firebase_admin._apps:
+        firebase_config = _build_certificate_config()
+        if firebase_config is not None:
+            cred = credentials.Certificate(firebase_config)
             firebase_admin.initialize_app(cred)
             logging.info("Firebase initialized with certificate credentials.")
+        else:
+            firebase_admin.initialize_app()
+            logging.info(
+                "Firebase initialized with default application credentials "
+                "(certificate env vars missing/invalid)."
+            )
     except ValueError as e:
         logging.error(f"Value Error: {str(e)}")
         if not firebase_admin._apps:
             firebase_admin.initialize_app()
-            logging.info(
-                "Firebase initialized with default application credentials "
-                "(no certificate)."
-            )
+        logging.info(
+            "Firebase initialized with default application credentials "
+            "(certificate parse failure)."
+        )
     except Exception as e:
         logging.error(f"Exception Error: {str(e)}")
         if not firebase_admin._apps:
             firebase_admin.initialize_app()
-            logging.info(
-                "Firebase initialized with default application credentials "
-                "(exception fallback)."
-            )
+        logging.info(
+            "Firebase initialized with default application credentials "
+            "(exception fallback)."
+        )
 
     _db = firestore.client()
 
