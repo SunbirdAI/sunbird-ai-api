@@ -17,7 +17,7 @@ This comprehensive tutorial describes how to use the Sunbird AI API and includes
 
 ### Creating an Account
 1. If you don't already have an account, create one at https://api.sunbird.ai/register
-2. Go to the [tokens page](https://api.sunbird.ai/tokens) to get your access token
+2. Go to the [tokens page](https://api.sunbird.ai/keys) to get your access token / api key
 
 ### Using the Authentication API
 
