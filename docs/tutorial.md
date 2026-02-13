@@ -17,7 +17,7 @@ This comprehensive tutorial describes how to use the Sunbird AI API and includes
 
 ### Creating an Account
 1. If you don't already have an account, create one at https://api.sunbird.ai/register
-2. Go to the [tokens page](https://api.sunbird.ai/tokens) to get your access token
+2. Go to the [tokens page](https://api.sunbird.ai/keys) to get your access token / api key
 
 ### Using the Authentication API
 
@@ -114,7 +114,7 @@ Convert speech audio to text for supported languages. The API supports various a
 
 ### Modal STT (Recommended)
 
-The Modal-based STT endpoint uses the Whisper large-v3 model for high-quality transcription. Simply upload an audio file and get the transcription back.
+The Modal-based STT endpoint uses the Whisper large-v3 model for high-quality transcription. Simply upload an audio file and get the transcription back. You can optionally specify a `language` to improve accuracy; if omitted the model auto-detects the language.
 
 ```python
 import os
@@ -142,10 +142,35 @@ files = {
     ),
 }
 
+# Without language (auto-detect)
 response = requests.post(url, headers=headers, files=files)
 result = response.json()
 print(f"Transcription: {result['audio_transcription']}")
 ```
+
+#### Specifying a language
+
+Pass a `language` field to guide the model. Accepts either a 3-letter ISO 639-2 code or a full language name (case-insensitive).
+
+```python
+files = {
+    "audio": (
+        "recording.wav",
+        open(audio_file_path, "rb"),
+        "audio/wav",
+    ),
+}
+
+# Using a 3-letter code
+data = {"language": "lug"}
+response = requests.post(url, headers=headers, files=files, data=data)
+
+# Or using a full language name
+data = {"language": "Luganda"}
+response = requests.post(url, headers=headers, files=files, data=data)
+```
+
+**Supported languages:** English (`eng`), Luganda (`lug`), Runyankole (`nyn`), Acholi (`ach`), Ateso (`teo`), Lugbara (`lgg`), Swahili (`swa`), Kinyarwanda (`kin`), Lusoga (`xog`), Lumasaba (`myx`).
 
 ### RunPod STT (with language selection)
 
@@ -266,26 +291,47 @@ headers = {
     "Content-Type": "application/json",
 }
 
-data = {
-    "text": "Webale nnyo ku kuyita mu Sunbird AI.",
-    "language": "lug",
-    "response_mode": "url"  # Options: "url", "stream", "both"
+payload = {
+    "response_mode": "url",
+    "speaker_id": 248,
+    "text": "I am a nurse who takes care of many people.",
 }
 
-response = requests.post(url, headers=headers, json=data)
-result = response.json()
+response = requests.post(url, headers=headers, json=payload)
 
-if "url" in result:
-    print(f"Audio URL: {result['url']}")
-    print(f"Expires at: {result['expires_at']}")
+print(response.status_code)
+print(response.json())
 ```
 
-**Response Modes:**
+### Speaker IDs
+
+| Speaker ID | Voice |
+|---|---|
+| 241 | Acholi (female) |
+| 242 | Ateso (female) |
+| 243 | Runyankore (female) |
+| 245 | Lugbara (female) |
+| 246 | Swahili (male) |
+| 248 | Luganda (female) |
+
+### Response Modes
 - `url` - Generate audio, upload to GCP, return signed URL (valid for 30 minutes)
 - `stream` - Stream raw audio chunks directly
 - `both` - Stream audio AND return final signed URL
 
-**Supported Languages:** Acholi, Ateso, Runyankore, Lugbara, Swahili, Luganda
+**Example Response:**
+```json
+{
+  "success": true,
+  "audio_url": "https://storage.googleapis.com/sb-asr-audio-content-sb-gcp-project-01/tts_audio/20260212_222936_2a9f1f83_da308cdb.wav?...",
+  "expires_at": "2026-02-12T22:59:36.954061Z",
+  "file_name": "tts_audio/20260212_222936_2a9f1f83_da308cdb.wav",
+  "duration_estimate_seconds": 4,
+  "text_length": 43,
+  "speaker_id": 248,
+  "speaker_name": "Luganda (female)"
+}
+```
 
 ---
 
@@ -295,64 +341,88 @@ The Sunflower model provides conversational AI capabilities with support for cha
 
 ### Chat with History
 ```python
-import os
 import requests
-from dotenv import load_dotenv
-
-load_dotenv()
 
 url = "https://api.sunbird.ai/tasks/sunflower_inference"
-access_token = os.getenv("AUTH_TOKEN")
 
 headers = {
     "accept": "application/json",
-    "Authorization": f"Bearer {access_token}",
+    "Authorization": "Bearer <your-access-token>",
     "Content-Type": "application/json",
 }
 
-data = {
+payload = {
     "messages": [
-        {"role": "user", "content": "Oli otya?"},
-        {"role": "assistant", "content": "Bulungi. Wange ye nnyanzi okukuyamba."},
-        {"role": "user", "content": "Nkwagala okumanya ebikwata ku ebyobulamu."}
+        {
+            "role": "user",
+            "content": "Good morning, what is weather today?",
+        }
     ],
-    "source_language": "lug",
-    "target_language": "lug",
-    "instruction": "You are a helpful assistant."
+    "model_type": "qwen",
+    "temperature": 0.3,
+    "stream": False,
+    "system_message": "string",
 }
 
-response = requests.post(url, headers=headers, json=data)
-result = response.json()
-print(f"Response: {result['response']}")
+response = requests.post(url, headers=headers, json=payload)
+
+print(response.status_code)
+print(response.json())
+```
+
+**Example Response:**
+```json
+{
+  "content": "I'm glad you're up! While I can't provide real-time weather updates, I can help you understand how to interpret weather forecasts or explain common weather patterns in Uganda. Could you share the current weather conditions you're experiencing?",
+  "model_type": "qwen",
+  "usage": {
+    "completion_tokens": 47,
+    "prompt_tokens": 22,
+    "total_tokens": 69
+  },
+  "processing_time": 4.802350997924805,
+  "inference_time": 4.792236804962158,
+  "message_count": 2
+}
 ```
 
 ### Simple Text Generation
 ```python
-import os
 import requests
-from dotenv import load_dotenv
-
-load_dotenv()
 
 url = "https://api.sunbird.ai/tasks/sunflower_simple"
-access_token = os.getenv("AUTH_TOKEN")
 
 headers = {
     "accept": "application/json",
-    "Authorization": f"Bearer {access_token}",
-    "Content-Type": "application/json",
+    "Authorization": "Bearer <your-access-token>",
 }
 
 data = {
-    "text": "Wandiikira ebikwata ku ebyobulamu mu Luganda.",
-    "source_language": "lug",
-    "target_language": "lug",
-    "instruction": "Provide health tips"
+    "instruction": "translate from english to luganda: i am very hungry they should serve food in time",
+    "model_type": "qwen",
+    "temperature": "0.1",
+    "system_message": "",
 }
 
-response = requests.post(url, headers=headers, json=data)
-result = response.json()
-print(f"Generated text: {result['output']}")
+response = requests.post(url, headers=headers, data=data)
+
+print(response.status_code)
+print(response.json())
+```
+
+**Example Response:**
+```json
+{
+  "response": "Ndi muyala nnyo, emmere erina okugabibwa mu budde.",
+  "model_type": "qwen",
+  "processing_time": 3.2431752681732178,
+  "usage": {
+    "completion_tokens": 19,
+    "prompt_tokens": 54,
+    "total_tokens": 73
+  },
+  "success": true
+}
 ```
 
 ---

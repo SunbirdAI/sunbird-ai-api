@@ -248,21 +248,25 @@ async def text_to_speech(
     This endpoint uses the RunPod inference server for TTS generation.
 
     Args:
+
         request (Request): The incoming HTTP request object (required for rate limiting).
         tts_request (TTSRequest): The request body containing text, speaker ID, and synthesis parameters.
         background_tasks (BackgroundTasks): FastAPI background tasks for logging.
         current_user (User): The authenticated user making the request.
 
     Returns:
+
         dict: A dictionary containing the generated speech audio with signed URL and metadata.
 
     Raises:
+
         BadRequestError: For invalid input parameters.
         ValidationError: For invalid speaker_id, temperature, or max_new_audio_tokens.
         ServiceUnavailableError: If the service is unavailable due to timeout.
         ExternalServiceError: For connection errors or worker errors.
 
     Speaker IDs:
+
         241: Acholi (female)
         242: Ateso (female)
         243: Runyankore (female)

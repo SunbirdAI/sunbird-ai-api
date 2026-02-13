@@ -11,11 +11,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from app.core.exceptions import ExternalServiceError
+from app.core.exceptions import ExternalServiceError, ValidationError
 from app.services.modal_stt_service import (
+    LANGUAGE_NAME_TO_CODE,
+    VALID_LANGUAGE_CODES,
     ModalSTTService,
     get_modal_stt_service,
     reset_modal_stt_service,
+    resolve_language,
 )
 
 
@@ -64,7 +67,7 @@ class TestModalSTTServiceTranscribe:
         """Test successful audio transcription returns text."""
         service = ModalSTTService(api_url="https://test.com/stt", timeout=10)
         mock_audio = b"fake audio data"
-        mock_response_json = {"text": [{"text": "Hello world this is a test."}]}
+        mock_response_json = [{"text": "Hello world this is a test."}]
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -84,19 +87,18 @@ class TestModalSTTServiceTranscribe:
                 "https://test.com/stt",
                 content=mock_audio,
                 headers={"Content-Type": "application/octet-stream"},
+                params={},
             )
 
     @pytest.mark.asyncio
     async def test_transcription_with_multiple_segments(self) -> None:
         """Test transcription with multiple text segments."""
         service = ModalSTTService(api_url="https://test.com/stt", timeout=10)
-        mock_response_json = {
-            "text": [
-                {"text": " First segment."},
-                {"text": " Second segment."},
-                {"text": " Third segment."},
-            ]
-        }
+        mock_response_json = [
+            {"text": " First segment."},
+            {"text": " Second segment."},
+            {"text": " Third segment."},
+        ]
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -203,7 +205,7 @@ class TestModalSTTServiceTranscribe:
 
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {"text": []}
+        mock_response.json.return_value = []
 
         with patch("httpx.AsyncClient") as mock_client_class:
             mock_client = AsyncMock()
@@ -318,7 +320,7 @@ class TestModalSTTServiceLogging:
 
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {"text": [{"text": "hello"}]}
+        mock_response.json.return_value = [{"text": "hello"}]
 
         with patch("httpx.AsyncClient") as mock_client_class:
             mock_client = AsyncMock()
@@ -354,3 +356,146 @@ class TestModalSTTServiceLogging:
                     await service.transcribe(b"audio")
 
                 mock_log.assert_called()
+
+
+class TestResolveLanguage:
+    """Tests for the resolve_language helper function."""
+
+    def test_resolve_valid_code(self) -> None:
+        """Test resolving a valid 3-letter language code."""
+        assert resolve_language("eng") == "eng"
+        assert resolve_language("lug") == "lug"
+        assert resolve_language("nyn") == "nyn"
+
+    def test_resolve_valid_name(self) -> None:
+        """Test resolving a full language name."""
+        assert resolve_language("english") == "eng"
+        assert resolve_language("luganda") == "lug"
+        assert resolve_language("swahili") == "swa"
+
+    def test_resolve_case_insensitive(self) -> None:
+        """Test that resolution is case-insensitive."""
+        assert resolve_language("English") == "eng"
+        assert resolve_language("LUGANDA") == "lug"
+        assert resolve_language("Acholi") == "ach"
+        assert resolve_language("ENG") == "eng"
+
+    def test_resolve_with_whitespace(self) -> None:
+        """Test that leading/trailing whitespace is stripped."""
+        assert resolve_language("  eng  ") == "eng"
+        assert resolve_language(" luganda ") == "lug"
+
+    def test_resolve_invalid_raises_value_error(self) -> None:
+        """Test that an invalid language raises ValueError."""
+        with pytest.raises(ValueError, match="Unsupported language"):
+            resolve_language("xyz")
+
+    def test_resolve_empty_raises_value_error(self) -> None:
+        """Test that an empty string raises ValueError."""
+        with pytest.raises(ValueError, match="Unsupported language"):
+            resolve_language("")
+
+    def test_all_codes_are_valid(self) -> None:
+        """Test that every code in VALID_LANGUAGE_CODES resolves to itself."""
+        for code in VALID_LANGUAGE_CODES:
+            assert resolve_language(code) == code
+
+    def test_all_names_resolve(self) -> None:
+        """Test that every name in LANGUAGE_NAME_TO_CODE resolves correctly."""
+        for name, code in LANGUAGE_NAME_TO_CODE.items():
+            assert resolve_language(name) == code
+
+
+class TestTranscribeWithLanguage:
+    """Tests for transcribe method with language parameter."""
+
+    @pytest.mark.asyncio
+    async def test_transcribe_with_language_code(self) -> None:
+        """Test that language code is passed as query param."""
+        service = ModalSTTService(api_url="https://test.com/stt", timeout=10)
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = [{"text": "Hello"}]
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.post = AsyncMock(return_value=mock_response)
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=None)
+            mock_client_class.return_value = mock_client
+
+            result = await service.transcribe(b"audio", language="eng")
+
+            assert result == "Hello"
+            mock_client.post.assert_called_once_with(
+                "https://test.com/stt",
+                content=b"audio",
+                headers={"Content-Type": "application/octet-stream"},
+                params={"language": "eng"},
+            )
+
+    @pytest.mark.asyncio
+    async def test_transcribe_with_language_name(self) -> None:
+        """Test that language name is resolved and passed as query param."""
+        service = ModalSTTService(api_url="https://test.com/stt", timeout=10)
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = [{"text": "Oli otya"}]
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.post = AsyncMock(return_value=mock_response)
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=None)
+            mock_client_class.return_value = mock_client
+
+            result = await service.transcribe(b"audio", language="Luganda")
+
+            assert result == "Oli otya"
+            mock_client.post.assert_called_once_with(
+                "https://test.com/stt",
+                content=b"audio",
+                headers={"Content-Type": "application/octet-stream"},
+                params={"language": "lug"},
+            )
+
+    @pytest.mark.asyncio
+    async def test_transcribe_without_language(self) -> None:
+        """Test that no language param is sent when not provided."""
+        service = ModalSTTService(api_url="https://test.com/stt", timeout=10)
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = [{"text": "Auto detected"}]
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.post = AsyncMock(return_value=mock_response)
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=None)
+            mock_client_class.return_value = mock_client
+
+            result = await service.transcribe(b"audio")
+
+            assert result == "Auto detected"
+            mock_client.post.assert_called_once_with(
+                "https://test.com/stt",
+                content=b"audio",
+                headers={"Content-Type": "application/octet-stream"},
+                params={},
+            )
+
+    @pytest.mark.asyncio
+    async def test_transcribe_with_invalid_language_raises_validation_error(
+        self,
+    ) -> None:
+        """Test that invalid language raises ValidationError."""
+        service = ModalSTTService(api_url="https://test.com/stt", timeout=10)
+
+        with pytest.raises(ValidationError) as exc_info:
+            await service.transcribe(b"audio", language="klingon")
+
+        assert exc_info.value.status_code == 422
+        assert "Unsupported language" in exc_info.value.message

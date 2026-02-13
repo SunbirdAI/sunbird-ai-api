@@ -12,6 +12,7 @@ test.db
 .coverage
 .pylintrc
 env/
+venv/
 key.json
 
 # Private JSON files

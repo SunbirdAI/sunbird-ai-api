@@ -125,18 +125,22 @@ async def language_id(
     Luganda (lug), Lugbara (lgg), and Runyankole (nyn).
 
     Args:
+
         languageId_request: The language identification request containing text.
         current_user: The authenticated user.
         service: The language service instance.
 
     Returns:
+
         LanguageIdResponse containing the identified language.
 
     Raises:
+
         ServiceUnavailableError: If the service times out.
         ExternalServiceError: If language identification service fails.
 
     Example:
+
         Request body:
         {
             "text": "Oli otya?"
@@ -185,18 +189,22 @@ async def classify_language(
     Runyankole (nyn).
 
     Args:
+
         languageId_request: The language identification request containing text.
         current_user: The authenticated user.
         service: The language service instance.
 
     Returns:
+
         LanguageIdResponse containing the classified language.
 
     Raises:
+
         ServiceUnavailableError: If the service times out.
         ExternalServiceError: If language classification service fails or returns unexpected response format.
 
     Example:
+
         Request body:
         {
             "text": "Oli otya?"
@@ -254,19 +262,23 @@ async def auto_detect_audio_language(
     The audio file is uploaded to cloud storage for processing.
 
     Args:
+
         request: The FastAPI request object (required for rate limiting).
         audio: The audio file to analyze.
         current_user: The authenticated user.
         service: The language service instance.
 
     Returns:
+
         AudioDetectedLanguageResponse containing the detected language.
 
     Raises:
+
         ServiceUnavailableError: If the service times out.
         ExternalServiceError: If language detection service fails or has connection errors.
 
     Example:
+
         Response:
         {
             "detected_language": "lug"

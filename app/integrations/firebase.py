@@ -40,8 +40,8 @@ Note:
 import logging
 import os
 
-from dotenv import load_dotenv
 import firebase_admin
+from dotenv import load_dotenv
 from firebase_admin import credentials, firestore
 
 logging.basicConfig(level=logging.INFO)
@@ -81,7 +81,7 @@ def _init_firebase() -> None:
     global _db
     if _db is not None:
         return
-    
+
     load_dotenv()
 
     try:
