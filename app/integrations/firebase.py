@@ -49,6 +49,34 @@ logging.basicConfig(level=logging.INFO)
 _db = None
 
 
+def _is_permission_error(error: Exception) -> bool:
+    """Check whether an exception likely indicates Firestore IAM permission issues."""
+    text = str(error).lower()
+    return any(
+        marker in text
+        for marker in [
+            "permission_denied",
+            "missing or insufficient permissions",
+            "insufficient permission",
+            "403",
+            "forbidden",
+        ]
+    )
+
+
+def _log_firestore_error(operation: str, error: Exception) -> None:
+    """Log Firestore errors with extra context for production debugging."""
+    if _is_permission_error(error):
+        logging.error(
+            "Firestore permission error during %s: %s. "
+            "Check deployed service-account IAM roles for Firestore access.",
+            operation,
+            error,
+        )
+    else:
+        logging.error("Firestore error during %s: %s", operation, error)
+
+
 def _init_firebase() -> None:
     global _db
     if _db is not None:
@@ -58,11 +86,12 @@ def _init_firebase() -> None:
 
     try:
         # Initialize Firebase app
+        private_key = os.getenv("PRIVATE_KEY")
         firebase_config = {
             "type": os.getenv("TYPE"),
             "project_id": os.getenv("PROJECT_ID"),
             "private_key_id": os.getenv("PRIVATE_KEY_ID"),
-            "private_key": os.getenv("PRIVATE_KEY").replace("\\n", "\n"),
+            "private_key": private_key.replace("\\n", "\n") if private_key else None,
             "client_email": os.getenv("CLIENT_EMAIL"),
             "token_uri": os.getenv("TOKEN_URI"),
             "auth_provider_x509_cert_url": os.getenv("AUTH_PROVIDER_X509_CERT_URL"),
@@ -75,14 +104,23 @@ def _init_firebase() -> None:
         cred = credentials.Certificate(firebase_config)
         if not firebase_admin._apps:
             firebase_admin.initialize_app(cred)
+            logging.info("Firebase initialized with certificate credentials.")
     except ValueError as e:
         logging.error(f"Value Error: {str(e)}")
         if not firebase_admin._apps:
             firebase_admin.initialize_app()
+            logging.info(
+                "Firebase initialized with default application credentials "
+                "(no certificate)."
+            )
     except Exception as e:
         logging.error(f"Exception Error: {str(e)}")
         if not firebase_admin._apps:
             firebase_admin.initialize_app()
+            logging.info(
+                "Firebase initialized with default application credentials "
+                "(exception fallback)."
+            )
 
     _db = firestore.client()
 
@@ -107,12 +145,15 @@ def get_user_preference(user_id: str):
     Returns:
         str: Target language code if found, None otherwise
     """
-    db = _get_db()
-    doc = db.collection("whatsapp_user_preferences").document(user_id).get()
-    if doc.exists:
-        preferences = doc.to_dict()
-        return preferences["target_language"]
-    else:
+    try:
+        db = _get_db()
+        doc = db.collection("whatsapp_user_preferences").document(user_id).get()
+        if doc.exists:
+            preferences = doc.to_dict()
+            return preferences["target_language"]
+        return None
+    except Exception as e:
+        _log_firestore_error("get_user_preference", e)
         return None
 
 
@@ -125,10 +166,13 @@ def save_user_preference(user_id: str, source_language: str, target_language: st
         source_language: Source language code
         target_language: Target language code
     """
-    db = _get_db()
-    db.collection("whatsapp_user_preferences").document(user_id).set(
-        {"source_language": source_language, "target_language": target_language}
-    )
+    try:
+        db = _get_db()
+        db.collection("whatsapp_user_preferences").document(user_id).set(
+            {"source_language": source_language, "target_language": target_language}
+        )
+    except Exception as e:
+        _log_firestore_error("save_user_preference", e)
 
 
 # =============================================================================
@@ -375,17 +419,21 @@ def save_message(user_id: str, message_text: str) -> str:
     Returns:
         str: Document ID of the saved message
     """
-    db = _get_db()
-    doc_ref = db.collection("whatsapp_messages").add(
-        {
-            "user_id": user_id,
-            "message_text": message_text,
-            "message_type": "user_message",
-            "timestamp": firestore.SERVER_TIMESTAMP,
-        }
-    )
-    logging.info(f"Message saved with document ID: {doc_ref[1].id}")
-    return doc_ref[1].id
+    try:
+        db = _get_db()
+        doc_ref = db.collection("whatsapp_messages").add(
+            {
+                "user_id": user_id,
+                "message_text": message_text,
+                "message_type": "user_message",
+                "timestamp": firestore.SERVER_TIMESTAMP,
+            }
+        )
+        logging.info(f"Message saved with document ID: {doc_ref[1].id}")
+        return doc_ref[1].id
+    except Exception as e:
+        _log_firestore_error("save_message", e)
+        return ""
 
 
 def save_response(
@@ -403,19 +451,23 @@ def save_response(
     Returns:
         str: Document ID of the saved response
     """
-    db = _get_db()
-    doc_ref = db.collection("whatsapp_messages").add(
-        {
-            "user_id": user_id,
-            "message_text": bot_response,
-            "message_type": "bot_response",
-            "user_message": user_message,
-            "message_id": message_id,
-            "timestamp": firestore.SERVER_TIMESTAMP,
-        }
-    )
-    logging.info(f"Bot response saved with document ID: {doc_ref[1].id}")
-    return doc_ref[1].id
+    try:
+        db = _get_db()
+        doc_ref = db.collection("whatsapp_messages").add(
+            {
+                "user_id": user_id,
+                "message_text": bot_response,
+                "message_type": "bot_response",
+                "user_message": user_message,
+                "message_id": message_id,
+                "timestamp": firestore.SERVER_TIMESTAMP,
+            }
+        )
+        logging.info(f"Bot response saved with document ID: {doc_ref[1].id}")
+        return doc_ref[1].id
+    except Exception as e:
+        _log_firestore_error("save_response", e)
+        return ""
 
 
 def get_user_messages(user_id: str) -> list:
@@ -472,45 +524,51 @@ def get_user_last_five_conversation_pairs(user_id: str) -> list:
     Returns:
         list: List of conversation pairs with user messages and bot responses
     """
-    db = _get_db()
-    messages_ref = db.collection("whatsapp_messages")
-    # Get last 10 messages to ensure we capture conversation pairs
-    query = (
-        messages_ref.where("user_id", "==", user_id)
-        .order_by("timestamp", direction=firestore.Query.DESCENDING)
-        .limit(10)
-        .stream()
-    )
+    try:
+        db = _get_db()
+        messages_ref = db.collection("whatsapp_messages")
+        # Get last 10 messages to ensure we capture conversation pairs
+        query = (
+            messages_ref.where("user_id", "==", user_id)
+            .order_by("timestamp", direction=firestore.Query.DESCENDING)
+            .limit(10)
+            .stream()
+        )
 
-    all_messages = []
-    for doc in query:
-        message_data = doc.to_dict()
-        all_messages.append(message_data)
+        all_messages = []
+        for doc in query:
+            message_data = doc.to_dict()
+            all_messages.append(message_data)
 
-    # Sort by timestamp ascending to process chronologically
-    all_messages.sort(key=lambda x: x.get("timestamp", 0))
+        # Sort by timestamp ascending to process chronologically
+        all_messages.sort(key=lambda x: x.get("timestamp", 0))
 
-    # Group into conversation pairs
-    conversation_pairs = []
-    current_user_msg = None
+        # Group into conversation pairs
+        conversation_pairs = []
+        current_user_msg = None
 
-    for msg in all_messages:
-        if msg.get("message_type") == "user_message":
-            current_user_msg = msg
-        elif msg.get("message_type") == "bot_response" and current_user_msg:
-            conversation_pairs.append(
-                {
-                    "user_message": current_user_msg.get("message_text", ""),
-                    "bot_response": msg.get("message_text", ""),
-                    "timestamp": msg.get("timestamp"),
-                }
-            )
-            current_user_msg = None
+        for msg in all_messages:
+            if msg.get("message_type") == "user_message":
+                current_user_msg = msg
+            elif msg.get("message_type") == "bot_response" and current_user_msg:
+                conversation_pairs.append(
+                    {
+                        "user_message": current_user_msg.get("message_text", ""),
+                        "bot_response": msg.get("message_text", ""),
+                        "timestamp": msg.get("timestamp"),
+                    }
+                )
+                current_user_msg = None
 
-    # Return last 5 conversation pairs
-    return (
-        conversation_pairs[-5:] if len(conversation_pairs) > 5 else conversation_pairs
-    )
+        # Return last 5 conversation pairs
+        return (
+            conversation_pairs[-5:]
+            if len(conversation_pairs) > 5
+            else conversation_pairs
+        )
+    except Exception as e:
+        _log_firestore_error("get_user_last_five_conversation_pairs", e)
+        return []
 
 
 # =============================================================================
