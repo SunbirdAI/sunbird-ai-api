@@ -23,12 +23,13 @@ Note:
 import logging
 import os
 import time
+from inspect import isawaitable
 
 from dotenv import load_dotenv
 from fastapi import APIRouter, BackgroundTasks, Request, Response
 
 from app.core.exceptions import AuthorizationError, BadRequestError
-from app.integrations.firebase import get_user_preference
+from app.integrations.whatsapp_store import get_user_preference
 from app.schemas.webhooks import WebhookResponse
 from app.services.message_processor import OptimizedMessageProcessor, ResponseType
 from app.services.whatsapp_service import get_whatsapp_service
@@ -194,6 +195,8 @@ async def webhook(
 
         # Get user preference
         target_language = get_user_preference(from_number)
+        if isawaitable(target_language):
+            target_language = await target_language
 
         if not target_language:
             target_language = "eng"  # Default to English if no preference set

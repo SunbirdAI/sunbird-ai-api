@@ -24,6 +24,7 @@ from app.database import db
 from app.models.users import User
 from app.models.monitoring import EndpointLog
 from app.models.audio_transcription import AudioTranscription
+from app.models.whatsapp import WhatsAppFeedback, WhatsAppMessage, WhatsAppUserPreference
 target_metadata = db.Base.metadata
 
 def run_migrations_offline() -> None:

@@ -43,9 +43,10 @@ from dotenv import load_dotenv
 from pydub import AudioSegment
 from pydub.exceptions import CouldntDecodeError
 
-from app.integrations.firebase import (
+from app.integrations.whatsapp_store import (
     get_user_last_five_conversation_pairs,
     get_user_preference,
+    save_detailed_feedback,
     save_feedback_with_context,
     save_message,
     save_response,
@@ -213,7 +214,7 @@ class OptimizedMessageProcessor:
             if message_type == MessageType.REACTION:
                 result = self._handle_reaction(payload)
             elif message_type == MessageType.INTERACTIVE:
-                result = self._handle_interactive(payload, sender_name, from_number)
+                result = await self._handle_interactive(payload, sender_name, from_number)
             elif message_type == MessageType.UNSUPPORTED:
                 result = self._handle_unsupported(sender_name)
             elif message_type == MessageType.AUDIO:
@@ -291,7 +292,7 @@ class OptimizedMessageProcessor:
             logging.error(f"Error handling reaction: {e}")
         return ProcessingResult("", ResponseType.SKIP)
 
-    def _handle_interactive(
+    async def _handle_interactive(
         self, payload: Dict, sender_name: str, from_number: str
     ) -> ProcessingResult:
         """Handle interactive button responses.
@@ -316,7 +317,7 @@ class OptimizedMessageProcessor:
 
             # Handle different types of interactive responses
             if "list_reply" in interactive_response:
-                return self._handle_list_reply(
+                return await self._handle_list_reply(
                     interactive_response["list_reply"], from_number, sender_name
                 )
             elif "button_reply" in interactive_response:
@@ -594,7 +595,7 @@ class OptimizedMessageProcessor:
                             final_response, WHATSAPP_TOKEN, from_number, phone_number_id
                         )
                         # Save the audio transcription and response
-                        save_response(
+                        await save_response(
                             from_number, f"[AUDIO]: {transcribed_text}", final_response
                         )
                     else:
@@ -664,7 +665,7 @@ class OptimizedMessageProcessor:
                 return command_result
 
             # Check if new user using preference lookup
-            user_preference = get_user_preference(from_number)
+            user_preference = await get_user_preference(from_number)
             is_new_user = user_preference is None
 
             if is_new_user:
@@ -679,7 +680,7 @@ class OptimizedMessageProcessor:
                 )
 
             # Get conversation context for existing users
-            conversation_pairs = get_user_last_five_conversation_pairs(from_number)
+            conversation_pairs = await get_user_last_five_conversation_pairs(from_number)
 
             # Build optimized prompt (limit context for speed)
             messages = self._build_optimized_prompt(
@@ -822,10 +823,7 @@ class OptimizedMessageProcessor:
             from_number: The user's phone number.
         """
         try:
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(
-                None, save_user_preference, from_number, "English", "eng"
-            )
+            await save_user_preference(from_number, "English", "eng")
             logging.info(f"Default preference set for new user: {from_number}")
         except Exception as e:
             logging.error(f"Error setting default preference: {e}")
@@ -838,8 +836,7 @@ class OptimizedMessageProcessor:
             message: The message text.
         """
         try:
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, save_message, from_number, message)
+            await save_message(from_number, message)
         except Exception as e:
             logging.error(f"Error saving message: {e}")
 
@@ -855,10 +852,7 @@ class OptimizedMessageProcessor:
             message_id: The WhatsApp message ID.
         """
         try:
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(
-                None, save_response, from_number, user_message, response, message_id
-            )
+            await save_response(from_number, user_message, response, message_id)
         except Exception as e:
             logging.error(f"Error saving response: {e}")
 
@@ -870,8 +864,7 @@ class OptimizedMessageProcessor:
             emoji: The emoji reaction.
         """
         try:
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, update_feedback, message_id, emoji)
+            await update_feedback(message_id, emoji)
         except Exception as e:
             logging.error(f"Error updating feedback: {e}")
 
@@ -957,7 +950,7 @@ class OptimizedMessageProcessor:
         return None
 
     # Interactive response handlers
-    def _handle_list_reply(
+    async def _handle_list_reply(
         self, list_reply: Dict, from_number: str, sender_name: str
     ) -> ProcessingResult:
         """Handle list selection responses.
@@ -1010,7 +1003,7 @@ class OptimizedMessageProcessor:
 
             # Language selection responses
             elif selected_title in self.language_mapping.values():
-                return self._handle_language_selection_by_name(
+                return await self._handle_language_selection_by_name(
                     selected_title, from_number, sender_name
                 )
 
@@ -1061,7 +1054,7 @@ class OptimizedMessageProcessor:
             should_save=True,
         )
 
-    def _handle_language_selection_by_name(
+    async def _handle_language_selection_by_name(
         self, language_name: str, from_number: str, sender_name: str
     ) -> ProcessingResult:
         """Handle language selection by language name.
@@ -1092,7 +1085,7 @@ class OptimizedMessageProcessor:
 
             # Save the language preference
             try:
-                save_user_preference(from_number, "English", language_code)
+                await save_user_preference(from_number, "English", language_code)
                 logging.info(
                     f"Language preference saved for {from_number}: {language_code}"
                 )
@@ -1199,27 +1192,17 @@ class OptimizedMessageProcessor:
             emoji: The emoji reaction.
         """
         try:
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(
-                None, self._save_reaction_feedback_sync, message_id, emoji
+            saved = await save_detailed_feedback(
+                message_id, emoji, feedback_type="reaction"
             )
+            if saved:
+                logging.info(f"Reaction feedback saved: {message_id} - {emoji}")
+            else:
+                logging.warning(
+                    f"Could not map reaction feedback to message: {message_id}"
+                )
         except Exception as e:
             logging.error(f"Error saving reaction feedback: {e}")
-
-    def _save_reaction_feedback_sync(self, message_id: str, emoji: str) -> None:
-        """Synchronous method to save reaction feedback.
-
-        Args:
-            message_id: The WhatsApp message ID.
-            emoji: The emoji reaction.
-        """
-        try:
-            from app.integrations.firebase import save_detailed_feedback
-
-            save_detailed_feedback(message_id, emoji, feedback_type="reaction")
-            logging.info(f"Reaction feedback saved: {message_id} - {emoji}")
-        except Exception as e:
-            logging.error(f"Error in sync reaction feedback save: {e}")
 
     async def _save_detailed_feedback_async(
         self, from_number: str, feedback_title: str, sender_name: str
@@ -1232,34 +1215,22 @@ class OptimizedMessageProcessor:
             sender_name: The sender's display name.
         """
         try:
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(
-                None,
-                self._save_detailed_feedback_sync,
+            saved = await save_feedback_with_context(
                 from_number,
                 feedback_title,
                 sender_name,
+                feedback_type="button",
             )
+            if saved:
+                logging.info(
+                    f"Detailed feedback saved: {from_number} - {feedback_title}"
+                )
+            else:
+                logging.warning(
+                    f"Failed to save detailed feedback: {from_number} - {feedback_title}"
+                )
         except Exception as e:
             logging.error(f"Error saving detailed feedback: {e}")
-
-    def _save_detailed_feedback_sync(
-        self, from_number: str, feedback_title: str, sender_name: str
-    ) -> None:
-        """Save detailed feedback with conversation context.
-
-        Args:
-            from_number: The sender's phone number.
-            feedback_title: The feedback rating.
-            sender_name: The sender's display name.
-        """
-        try:
-            save_feedback_with_context(
-                from_number, feedback_title, sender_name, feedback_type="button"
-            )
-            logging.info(f"Detailed feedback saved: {from_number} - {feedback_title}")
-        except Exception as e:
-            logging.error(f"Error in sync detailed feedback save: {e}")
 
     # Button creation methods
     def create_language_selection_button(self) -> Dict:
