@@ -666,17 +666,14 @@ class OptimizedMessageProcessor:
 
             # Check if new user using preference lookup
             user_preference = await get_user_preference(from_number)
-            is_new_user = user_preference is None
-
-            if is_new_user:
-                # Save initial user interaction and set default preference
-                asyncio.create_task(self._save_message_async(from_number, input_text))
+            if not user_preference:
+                # Do not block model processing for new users or transient DB failures.
+                # Default to English and initialize preference in the background.
+                user_preference = target_language or "eng"
                 asyncio.create_task(self._set_default_preference_async(from_number))
-                return ProcessingResult(
-                    "",
-                    ResponseType.TEMPLATE,
-                    template_name="welcome_message",
-                    should_save=False,
+                logging.info(
+                    f"No stored language preference for {from_number}; "
+                    f"continuing with default '{user_preference}'."
                 )
 
             # Get conversation context for existing users
