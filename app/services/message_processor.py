@@ -55,7 +55,7 @@ from app.integrations.whatsapp_store import (
 )
 from app.services.inference_service import run_inference
 from app.services.whatsapp_service import get_whatsapp_service
-from app.utils.upload_audio_file_gcp import upload_audio_file
+from app.utils.upload_audio_file_gcp import delete_audio_file, upload_audio_file
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
@@ -538,7 +538,9 @@ class OptimizedMessageProcessor:
             }
 
             try:
-                request_response = endpoint.run_sync(transcription_data, timeout=150)
+                request_response = await asyncio.to_thread(
+                    lambda: endpoint.run_sync(transcription_data, timeout=150)
+                )
             except Exception as e:
                 logging.error(f"Transcription error: {str(e)}")
                 whatsapp_service.send_message(
@@ -635,6 +637,15 @@ class OptimizedMessageProcessor:
                     logging.info("Cleaned up local audio file")
                 except Exception as cleanup_error:
                     logging.warning(f"Could not clean up: {cleanup_error}")
+            if blob_name:
+                try:
+                    delete_audio_file(blob_name)
+                    logging.info(f"Cleaned up uploaded audio blob: {blob_name}")
+                except Exception as cleanup_error:
+                    logging.warning(
+                        f"Could not clean up uploaded audio blob {blob_name}: "
+                        f"{cleanup_error}"
+                    )
 
     async def _handle_text_optimized(
         self, payload: Dict, target_language: str, from_number: str, sender_name: str
@@ -666,17 +677,14 @@ class OptimizedMessageProcessor:
 
             # Check if new user using preference lookup
             user_preference = await get_user_preference(from_number)
-            is_new_user = user_preference is None
-
-            if is_new_user:
-                # Save initial user interaction and set default preference
-                asyncio.create_task(self._save_message_async(from_number, input_text))
+            if not user_preference:
+                # Do not block model processing for new users or transient DB failures.
+                # Default to English and initialize preference in the background.
+                user_preference = target_language or "eng"
                 asyncio.create_task(self._set_default_preference_async(from_number))
-                return ProcessingResult(
-                    "",
-                    ResponseType.TEMPLATE,
-                    template_name="welcome_message",
-                    should_save=False,
+                logging.info(
+                    f"No stored language preference for {from_number}; "
+                    f"continuing with default '{user_preference}'."
                 )
 
             # Get conversation context for existing users

@@ -651,15 +651,18 @@ class WhatsAppAPIClient:
         headers = {"Authorization": f"Bearer {self.token}"}
 
         logger.info(f"Querying media URL for {media_id}")
-        response = requests.get(url, headers=headers)
+        try:
+            response = requests.get(url, headers=headers, timeout=30)
+            if response.status_code == 200:
+                logger.info(f"Media URL queried for {media_id}")
+                return response.json().get("url")
 
-        if response.status_code == 200:
-            logger.info(f"Media URL queried for {media_id}")
-            return response.json().get("url")
-
-        logger.warning(f"Media URL not queried for {media_id}")
-        logger.info(f"Status code: {response.status_code}")
-        return None
+            logger.warning(f"Media URL not queried for {media_id}")
+            logger.info(f"Status code: {response.status_code}")
+            return None
+        except requests.RequestException as exc:
+            logger.error(f"Error querying media URL for {media_id}: {exc}")
+            return None
 
     def download_media(
         self,
@@ -829,16 +832,20 @@ class WhatsAppAPIClient:
         url = f"https://graph.facebook.com/{self.api_version}/{media_id}"
         headers = {"Authorization": f"Bearer {self.token}"}
 
-        response = requests.get(url, headers=headers)
+        try:
+            response = requests.get(url, headers=headers, timeout=30)
 
-        if response.status_code == 200:
-            logger.info(f"Fetch response: {response.json()}")
-            return response.json().get("url")
-        else:
+            if response.status_code == 200:
+                logger.info(f"Fetch response: {response.json()}")
+                return response.json().get("url")
+
             logger.error(
                 f"Failed to fetch media URL for ID {media_id}. "
                 f"HTTP Status: {response.status_code}"
             )
+            return None
+        except requests.RequestException as exc:
+            logger.error(f"Request error fetching media URL for {media_id}: {exc}")
             return None
 
     # =========================================================================
