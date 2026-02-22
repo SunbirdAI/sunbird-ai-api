@@ -168,10 +168,19 @@ async def webhook(
 
         messages = whatsapp_service.get_messages_from_payload(payload)
         if not messages:
+            is_status_update = any(
+                "statuses" in change.get("value", {})
+                for entry in payload.get("entry", [])
+                for change in entry.get("changes", [])
+            )
             return WebhookResponse(
-                status="no_messages",
+                status="ignored" if is_status_update else "no_messages",
                 processing_time=time.time() - start_time,
-                message="No messages found in payload",
+                message=(
+                    "Status update received"
+                    if is_status_update
+                    else "No messages found in payload"
+                ),
             )
 
         # Extract message details

@@ -1120,14 +1120,26 @@ class WhatsAppBusinessService(BaseService):
                 for entry in payload["entry"]:
                     if "changes" in entry and isinstance(entry["changes"], list):
                         for change in entry["changes"]:
-                            if "value" in change and "messages" in change["value"]:
+                            if "value" not in change:
+                                continue
+
+                            value = change["value"]
+                            if "messages" in value:
                                 # Extract messages here
-                                return change["value"]["messages"]
-            logging.error("No 'messages' found in the payload")
-            return None
+                                return value.get("messages") or []
+
+                            # Status webhooks (sent/delivered/read) are valid and expected.
+                            if "statuses" in value:
+                                logging.info(
+                                    "Webhook status update received; no user message to process."
+                                )
+                                return []
+
+            logging.info("Webhook payload contained no messages.")
+            return []
         except Exception as e:
             logging.error(f"Error parsing payload: {str(e)}")
-            return None
+            return []
 
     async def _save_reaction_feedback_async(self, message_id: str, emoji: str) -> None:
         """Save reaction feedback asynchronously.
@@ -1250,24 +1262,46 @@ class WhatsAppBusinessService(BaseService):
     # Convenience Methods for API Client
     # =========================================================================
 
-    def send_message(
-        self,
-        recipient_id: str,
-        message: str,
-        phone_number_id: Optional[str] = None,
-    ) -> Optional[str]:
+    def send_message(self, *args: Any, **kwargs: Any) -> Optional[str]:
         """Send a text message (convenience wrapper).
 
-        Args:
-            recipient_id: Recipient's phone number.
-            message: Message text.
-            phone_number_id: Override phone number ID.
+        Supports both:
+        - Current signature: (recipient_id, message, phone_number_id=None)
+        - Legacy signature: (message, token, recipient_id, phone_number_id)
 
         Returns:
             Message ID if successful.
         """
+        recipient_id: Optional[str] = kwargs.get("recipient_id")
+        message: Optional[str] = kwargs.get("message")
+        phone_number_id: Optional[str] = kwargs.get("phone_number_id")
+        preview_url: bool = kwargs.get("preview_url", True)
+
+        if args:
+            if len(args) >= 4:
+                # Legacy style: message, token, recipient_id, phone_number_id
+                message = args[0]
+                recipient_id = args[2]
+                phone_number_id = args[3]
+                self.log_warning(
+                    "Using legacy send_message signature; please migrate to "
+                    "(recipient_id, message, phone_number_id)."
+                )
+            elif len(args) == 3:
+                recipient_id, message, phone_number_id = args
+            elif len(args) == 2:
+                recipient_id, message = args
+            else:
+                raise TypeError("send_message requires at least recipient and message")
+
+        if not recipient_id or message is None:
+            raise TypeError("send_message requires recipient_id and message")
+
         return self.api_client.send_message(
-            recipient_id, message, phone_number_id=phone_number_id
+            str(recipient_id),
+            str(message),
+            preview_url=preview_url,
+            phone_number_id=phone_number_id,
         )
 
     def send_button(
