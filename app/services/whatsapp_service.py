@@ -1349,6 +1349,34 @@ class WhatsAppBusinessService(BaseService):
             phone_number_id=phone_number_id,
         )
 
+    def fetch_media_url(
+        self,
+        media_id: str,
+        access_token: Optional[str] = None,
+    ) -> Optional[str]:
+        """Fetch media URL from WhatsApp media ID.
+
+        Args:
+            media_id: WhatsApp media ID.
+            access_token: Optional token override (kept for backward compatibility).
+
+        Returns:
+            Media URL if successful.
+        """
+        if access_token and access_token != self.api_client.token:
+            self.log_warning(
+                "Ignoring token override in fetch_media_url; using configured API client token."
+            )
+        return self.api_client.fetch_media_url(media_id)
+
+    def download_whatsapp_audio(
+        self,
+        url: str,
+        access_token: Optional[str] = None,
+    ) -> str:
+        """Download WhatsApp audio (convenience wrapper)."""
+        return self.api_client.download_whatsapp_audio(url, access_token)
+
 
 # =============================================================================
 # Singleton and Dependency Injection
