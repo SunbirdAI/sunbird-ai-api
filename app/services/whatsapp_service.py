@@ -1137,11 +1137,9 @@ class WhatsAppBusinessService(BaseService):
             emoji: Reaction emoji.
         """
         try:
-            # Import here to avoid circular imports
-            from app.integrations.firebase import update_feedback
+            from app.integrations.whatsapp_store import update_feedback
 
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, update_feedback, message_id, emoji)
+            await update_feedback(message_id, emoji)
             self.log_info(f"Reaction feedback saved: {message_id} - {emoji}")
         except Exception as e:
             self.log_error(f"Error saving reaction feedback: {e}")
@@ -1156,12 +1154,9 @@ class WhatsAppBusinessService(BaseService):
             language_code: Selected language code.
         """
         try:
-            from app.integrations.firebase import save_user_preference
+            from app.integrations.whatsapp_store import save_user_preference
 
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(
-                None, save_user_preference, from_number, "English", language_code
-            )
+            await save_user_preference(from_number, "English", language_code)
             self.log_info(f"Language preference saved: {from_number} - {language_code}")
         except Exception as e:
             self.log_error(f"Error saving language preference: {e}")
@@ -1177,12 +1172,9 @@ class WhatsAppBusinessService(BaseService):
             sender_name: User's name.
         """
         try:
-            from app.integrations.firebase import save_feedback_with_context
+            from app.integrations.whatsapp_store import save_feedback_with_context
 
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(
-                None,
-                save_feedback_with_context,
+            await save_feedback_with_context(
                 from_number,
                 feedback,
                 sender_name,

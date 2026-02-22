@@ -38,14 +38,14 @@ Available Clients:
     - WhatsAppAPIClient: Client for WhatsApp Cloud API
 
 Available Integrations:
-    - firebase: Firebase/Firestore operations for WhatsApp user data
+    - whatsapp_store: SQL-backed operations for WhatsApp user data
 
 Note:
     All clients should handle their own error cases and raise
     appropriate exceptions that services can catch and handle.
 """
 
-from app.integrations.firebase import (
+from app.integrations.whatsapp_store import (
     get_all_feedback_summary,
     get_user_feedback_history,
     get_user_last_five_conversation_pairs,
@@ -85,7 +85,7 @@ __all__ = [
     "WhatsAppAPIClient",
     "get_whatsapp_api_client",
     "reset_whatsapp_api_client",
-    # Firebase
+    # WhatsApp Store (SQL)
     "get_user_preference",
     "save_user_preference",
     "update_feedback",
