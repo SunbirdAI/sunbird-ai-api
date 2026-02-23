@@ -80,6 +80,11 @@ WHATSAPP_TTS_ENABLED = os.getenv("WHATSAPP_TTS_ENABLED", "true").lower() in {
     "on",
 }
 WHATSAPP_TTS_MAX_CHARS = int(os.getenv("WHATSAPP_TTS_MAX_CHARS", "600"))
+WHATSAPP_ASR_TIMEOUT_SECONDS = int(os.getenv("WHATSAPP_ASR_TIMEOUT_SECONDS", "150"))
+WHATSAPP_ASR_RETRY_TIMEOUT_SECONDS = int(
+    os.getenv("WHATSAPP_ASR_RETRY_TIMEOUT_SECONDS", "240")
+)
+WHATSAPP_RETRY_DELAY_SECONDS = float(os.getenv("WHATSAPP_RETRY_DELAY_SECONDS", "2"))
 
 # Initialize services
 whatsapp_service = get_whatsapp_service()
@@ -584,17 +589,13 @@ class OptimizedMessageProcessor:
                 }
             }
 
-            try:
-                request_response = await asyncio.to_thread(
-                    lambda: endpoint.run_sync(transcription_data, timeout=150)
-                )
-            except Exception as e:
-                logging.error(f"Transcription error: {str(e)}")
-                whatsapp_service.send_message(
-                    recipient_id=from_number,
-                    message="An error occurred during transcription. \n\n Please try again later.",
-                    phone_number_id=phone_number_id,
-                )
+            request_response = await self._run_asr_with_retry(
+                endpoint=endpoint,
+                transcription_data=transcription_data,
+                from_number=from_number,
+                phone_number_id=phone_number_id,
+            )
+            if not request_response:
                 return
 
             # Step 7: Validate transcription
@@ -1149,6 +1150,60 @@ class OptimizedMessageProcessor:
         response = await self._call_ug40_optimized(translate_messages)
         return self._clean_response(response)
 
+    async def _run_asr_with_retry(
+        self,
+        endpoint: runpod.Endpoint,
+        transcription_data: Dict,
+        from_number: str,
+        phone_number_id: str,
+    ) -> Optional[Dict]:
+        """Run ASR with one retry and user notification on delay/failure."""
+        attempt_timeouts = [
+            WHATSAPP_ASR_TIMEOUT_SECONDS,
+            WHATSAPP_ASR_RETRY_TIMEOUT_SECONDS,
+        ]
+
+        for idx, timeout_seconds in enumerate(attempt_timeouts):
+            attempt_num = idx + 1
+            is_last_attempt = attempt_num == len(attempt_timeouts)
+            try:
+                return await asyncio.to_thread(
+                    lambda: endpoint.run_sync(
+                        transcription_data, timeout=timeout_seconds
+                    )
+                )
+            except Exception as asr_error:
+                logging.error(
+                    "ASR attempt %s/%s failed: %s",
+                    attempt_num,
+                    len(attempt_timeouts),
+                    asr_error,
+                )
+
+                if not is_last_attempt:
+                    whatsapp_service.send_message(
+                        recipient_id=from_number,
+                        message=(
+                            "⏳ I’m still processing your voice note. It took longer "
+                            "than expected, so I’m retrying now."
+                        ),
+                        phone_number_id=phone_number_id,
+                    )
+                    await asyncio.sleep(WHATSAPP_RETRY_DELAY_SECONDS)
+                    continue
+
+                whatsapp_service.send_message(
+                    recipient_id=from_number,
+                    message=(
+                        "I couldn't transcribe your audio after retrying. Please try "
+                        "again with a shorter or clearer voice note."
+                    ),
+                    phone_number_id=phone_number_id,
+                )
+                return None
+
+        return None
+
     def _resolve_tts_speaker_id(
         self, target_language: Optional[str], text: Optional[str] = None
     ) -> SpeakerID:
@@ -1202,58 +1257,98 @@ class OptimizedMessageProcessor:
 
         tts_service = get_tts_service()
         speaker_id = self._resolve_tts_speaker_id(target_language, clean_text)
-        wav_path = ""
-        media_path = ""
+        notified_retry = False
+        max_attempts = 2
 
-        try:
-            audio_bytes = await tts_service.generate_audio(clean_text, speaker_id)
-
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as wav_file:
-                wav_file.write(audio_bytes)
-                wav_path = wav_file.name
-
-            # WhatsApp accepts mpeg/ogg/amr/mp4 audio; convert wav -> mp3.
+        for attempt_num in range(1, max_attempts + 1):
+            wav_path = ""
+            media_path = ""
+            is_last_attempt = attempt_num == max_attempts
             try:
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as mp3_file:
-                    media_path = mp3_file.name
-                audio_segment = AudioSegment.from_file(wav_path)
-                audio_segment.export(media_path, format="mp3", bitrate="96k")
-            except Exception as conversion_error:
-                logging.warning(
-                    "TTS wav->mp3 conversion failed (%s); falling back to wav upload.",
-                    conversion_error,
+                audio_bytes = await tts_service.generate_audio(clean_text, speaker_id)
+
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as wav_file:
+                    wav_file.write(audio_bytes)
+                    wav_path = wav_file.name
+
+                # WhatsApp accepts mpeg/ogg/amr/mp4 audio; convert wav -> mp3.
+                try:
+                    with tempfile.NamedTemporaryFile(
+                        delete=False, suffix=".mp3"
+                    ) as mp3_file:
+                        media_path = mp3_file.name
+                    audio_segment = AudioSegment.from_file(wav_path)
+                    audio_segment.export(media_path, format="mp3", bitrate="96k")
+                except Exception as conversion_error:
+                    logging.warning(
+                        "TTS wav->mp3 conversion failed (%s); falling back to wav upload.",
+                        conversion_error,
+                    )
+                    media_path = wav_path
+
+                upload_response = await asyncio.to_thread(
+                    lambda: whatsapp_service.upload_media(media_path, phone_number_id)
                 )
-                media_path = wav_path
+                media_id = (upload_response or {}).get("id")
+                if not media_id:
+                    raise RuntimeError(
+                        f"Failed to upload TTS media to WhatsApp: {upload_response}"
+                    )
 
-            upload_response = await asyncio.to_thread(
-                lambda: whatsapp_service.upload_media(media_path, phone_number_id)
-            )
-            media_id = (upload_response or {}).get("id")
-            if not media_id:
-                logging.error("Failed to upload TTS media to WhatsApp: %s", upload_response)
+                send_audio_response = await asyncio.to_thread(
+                    lambda: whatsapp_service.send_audio(
+                        recipient_id=from_number,
+                        audio=media_id,
+                        link=False,
+                        phone_number_id=phone_number_id,
+                    )
+                )
+                if (send_audio_response or {}).get("error"):
+                    raise RuntimeError(
+                        f"Failed to send TTS audio message: {send_audio_response}"
+                    )
                 return
+            except Exception as tts_error:
+                logging.error(
+                    "TTS attempt %s/%s failed for %s: %s",
+                    attempt_num,
+                    max_attempts,
+                    from_number,
+                    tts_error,
+                )
+                if not is_last_attempt:
+                    if not notified_retry:
+                        whatsapp_service.send_message(
+                            recipient_id=from_number,
+                            message=(
+                                "⏳ Voice reply is taking longer than expected. I’m "
+                                "retrying and will send it shortly."
+                            ),
+                            phone_number_id=phone_number_id,
+                        )
+                        notified_retry = True
+                    await asyncio.sleep(WHATSAPP_RETRY_DELAY_SECONDS)
+                    continue
 
-            await asyncio.to_thread(
-                lambda: whatsapp_service.send_audio(
+                whatsapp_service.send_message(
                     recipient_id=from_number,
-                    audio=media_id,
-                    link=False,
+                    message=(
+                        "I couldn't deliver the voice reply this time after retrying, "
+                        "but the text response above is ready."
+                    ),
                     phone_number_id=phone_number_id,
                 )
-            )
-        except Exception as e:
-            logging.error("Failed to send WhatsApp TTS response: %s", e)
-        finally:
-            for temp_path in {wav_path, media_path}:
-                if temp_path and os.path.exists(temp_path):
-                    try:
-                        os.remove(temp_path)
-                    except Exception as cleanup_error:
-                        logging.warning(
-                            "Could not remove temp TTS file %s: %s",
-                            temp_path,
-                            cleanup_error,
-                        )
+            finally:
+                for temp_path in {wav_path, media_path}:
+                    if temp_path and os.path.exists(temp_path):
+                        try:
+                            os.remove(temp_path)
+                        except Exception as cleanup_error:
+                            logging.warning(
+                                "Could not remove temp TTS file %s: %s",
+                                temp_path,
+                                cleanup_error,
+                            )
 
     def _build_memory_note_fallback(self, older_pairs: list) -> str:
         """Fallback memory compression when no model summary is available yet."""
