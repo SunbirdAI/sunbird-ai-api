@@ -33,6 +33,7 @@ Note:
 import asyncio
 import logging
 import os
+import re
 import tempfile
 import time
 from dataclasses import dataclass
@@ -1247,7 +1248,7 @@ class OptimizedMessageProcessor:
         if not WHATSAPP_TTS_ENABLED:
             return
 
-        clean_text = (response_text or "").strip()
+        clean_text = self._clean_text_for_tts(response_text or "")
         if not clean_text:
             return
 
@@ -1349,6 +1350,18 @@ class OptimizedMessageProcessor:
                                 temp_path,
                                 cleanup_error,
                             )
+
+    def _clean_text_for_tts(self, text: str) -> str:
+        """Normalize response text for TTS by removing markdown and emoji noise."""
+        cleaned = (text or "").replace("\n", " ")
+        cleaned = re.sub(r"[*_~`#>|[\]{}()]+", " ", cleaned)
+        cleaned = re.sub(
+            r"[\U0001F300-\U0001FAFF\U00002700-\U000027BF\U0001F1E6-\U0001F1FF]",
+            "",
+            cleaned,
+        )
+        cleaned = re.sub(r"\s+", " ", cleaned)
+        return cleaned.strip()
 
     def _build_memory_note_fallback(self, older_pairs: list) -> str:
         """Fallback memory compression when no model summary is available yet."""
