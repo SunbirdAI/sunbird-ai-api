@@ -423,14 +423,14 @@ class OptimizedMessageProcessor:
         if not audio_info:
             logging.error("No audio information provided.")
             whatsapp_service.send_message(
-                "Failed to process audio message.",
-                WHATSAPP_TOKEN,
-                from_number,
-                phone_number_id,
+                recipient_id=from_number,
+                message="Failed to process audio message.",
+                phone_number_id=phone_number_id,
             )
             return
 
-        target_lang_name = self.language_mapping.get(target_language, "English")
+        audio_message_id = self._get_payload_message_id(payload)
+
         if not target_language:
             target_language = "eng"
 
@@ -446,32 +446,25 @@ class OptimizedMessageProcessor:
             if not audio_url:
                 logging.error("Failed to fetch media URL from WhatsApp API")
                 whatsapp_service.send_message(
-                    "Failed to retrieve audio file. Please try sending the audio again.",
-                    WHATSAPP_TOKEN,
-                    from_number,
-                    phone_number_id,
+                    recipient_id=from_number,
+                    message="Failed to retrieve audio file. Please try sending the audio again.",
+                    phone_number_id=phone_number_id,
                 )
                 return
 
             # Step 3: Download audio file
-            whatsapp_service.send_message(
-                "Downloading audio file...",
-                WHATSAPP_TOKEN,
-                from_number,
-                phone_number_id,
-            )
-
             local_audio_path = whatsapp_service.download_whatsapp_audio(
                 audio_url, WHATSAPP_TOKEN
             )
             if not local_audio_path:
                 logging.error("Failed to download audio from WhatsApp")
                 whatsapp_service.send_message(
-                    "Failed to download audio file. Please check your internet "
-                    "connection and try again.",
-                    WHATSAPP_TOKEN,
-                    from_number,
-                    phone_number_id,
+                    recipient_id=from_number,
+                    message=(
+                        "Failed to download audio file. Please check your internet "
+                        "connection and try again."
+                    ),
+                    phone_number_id=phone_number_id,
                 )
                 return
 
@@ -494,10 +487,9 @@ class OptimizedMessageProcessor:
             except CouldntDecodeError:
                 logging.error("Downloaded audio file is corrupted")
                 whatsapp_service.send_message(
-                    "Audio file appears to be corrupted. Please try sending again.",
-                    WHATSAPP_TOKEN,
-                    from_number,
-                    phone_number_id,
+                    recipient_id=from_number,
+                    message="Audio file appears to be corrupted. Please try sending again.",
+                    phone_number_id=phone_number_id,
                 )
                 return
 
@@ -510,21 +502,13 @@ class OptimizedMessageProcessor:
             except Exception as e:
                 logging.error(f"Cloud storage upload error: {str(e)}")
                 whatsapp_service.send_message(
-                    "Failed to upload audio. \n\n Please try again.",
-                    WHATSAPP_TOKEN,
-                    from_number,
-                    phone_number_id,
+                    recipient_id=from_number,
+                    message="Failed to upload audio. \n\n Please try again.",
+                    phone_number_id=phone_number_id,
                 )
                 return
 
             # Step 6: Transcribe
-            whatsapp_service.send_message(
-                f"Starting transcription in {target_lang_name}...",
-                WHATSAPP_TOKEN,
-                from_number,
-                phone_number_id,
-            )
-
             endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
             transcription_data = {
                 "input": {
@@ -544,10 +528,9 @@ class OptimizedMessageProcessor:
             except Exception as e:
                 logging.error(f"Transcription error: {str(e)}")
                 whatsapp_service.send_message(
-                    "An error occurred during transcription. \n\n Please try again later.",
-                    WHATSAPP_TOKEN,
-                    from_number,
-                    phone_number_id,
+                    recipient_id=from_number,
+                    message="An error occurred during transcription. \n\n Please try again later.",
+                    phone_number_id=phone_number_id,
                 )
                 return
 
@@ -555,30 +538,47 @@ class OptimizedMessageProcessor:
             transcribed_text = request_response.get("audio_transcription", "").strip()
             if not transcribed_text:
                 whatsapp_service.send_message(
-                    "*No speech detected*. \n\n Please ensure you're speaking "
-                    "clearly and try again.",
-                    WHATSAPP_TOKEN,
-                    from_number,
-                    phone_number_id,
+                    recipient_id=from_number,
+                    message=(
+                        "*No speech detected*. \n\n Please ensure you're speaking "
+                        "clearly and try again."
+                    ),
+                    phone_number_id=phone_number_id,
                 )
                 return
 
-            whatsapp_service.send_message(
-                f'*You said*: "{transcribed_text}"',
-                WHATSAPP_TOKEN,
-                from_number,
-                phone_number_id,
-            )
+            # Send transcription as a threaded reply to the original audio message.
+            transcription_message = f'🎙️ *Transcription:*\n"{transcribed_text}"'
+            if audio_message_id:
+                try:
+                    whatsapp_service.reply_to_message(
+                        message_id=audio_message_id,
+                        recipient_id=from_number,
+                        message=transcription_message,
+                        phone_number_id=phone_number_id,
+                    )
+                except Exception as reply_error:
+                    logging.warning(
+                        f"Could not send threaded transcription reply: {reply_error}"
+                    )
+                    whatsapp_service.send_message(
+                        recipient_id=from_number,
+                        message=transcription_message,
+                        phone_number_id=phone_number_id,
+                    )
+            else:
+                logging.warning(
+                    "Missing inbound audio message id; sending transcription "
+                    "without threaded context."
+                )
+                whatsapp_service.send_message(
+                    recipient_id=from_number,
+                    message=transcription_message,
+                    phone_number_id=phone_number_id,
+                )
 
             # Step 8: Process with UG40 using messages format
             if transcribed_text:
-                whatsapp_service.send_message(
-                    "Processing with language model...",
-                    WHATSAPP_TOKEN,
-                    from_number,
-                    phone_number_id,
-                )
-
                 try:
                     logging.info(f"Sending to UG40 for processing: {transcribed_text}")
                     # Build messages for audio transcription
@@ -594,40 +594,44 @@ class OptimizedMessageProcessor:
                     logging.info(f"Final UG40 Response: {final_response}")
                     if final_response:
                         whatsapp_service.send_message(
-                            final_response, WHATSAPP_TOKEN, from_number, phone_number_id
+                            recipient_id=from_number,
+                            message=final_response,
+                            phone_number_id=phone_number_id,
                         )
                         # Save the audio transcription and response
                         await save_response(
                             from_number, f"[AUDIO]: {transcribed_text}", final_response
                         )
                     else:
-                        # Fallback to just showing transcription
                         whatsapp_service.send_message(
-                            f'Audio Transcription: "{transcribed_text}"\n\n'
-                            "Your message has been transcribed successfully!",
-                            WHATSAPP_TOKEN,
-                            from_number,
-                            phone_number_id,
+                            recipient_id=from_number,
+                            message=(
+                                "I transcribed your audio, but couldn't generate a model response. "
+                                "Please try again."
+                            ),
+                            phone_number_id=phone_number_id,
                         )
 
                 except Exception as ug40_error:
                     logging.error(f"UG40 processing error: {str(ug40_error)}")
                     whatsapp_service.send_message(
-                        f'Audio Transcription: "{transcribed_text}"\n\n'
-                        "Your message has been transcribed successfully!",
-                        WHATSAPP_TOKEN,
-                        from_number,
-                        phone_number_id,
+                        recipient_id=from_number,
+                        message=(
+                            "I transcribed your audio, but ran into an issue generating "
+                            "the model response. Please try again."
+                        ),
+                        phone_number_id=phone_number_id,
                     )
 
         except Exception as e:
             logging.error(f"Unexpected error in audio processing: {str(e)}")
             whatsapp_service.send_message(
-                "An unexpected error occurred while processing your audio. "
-                "\n\n Please try again.",
-                WHATSAPP_TOKEN,
-                from_number,
-                phone_number_id,
+                recipient_id=from_number,
+                message=(
+                    "An unexpected error occurred while processing your audio. "
+                    "\n\n Please try again."
+                ),
+                phone_number_id=phone_number_id,
             )
         finally:
             # Cleanup
@@ -665,18 +669,22 @@ class OptimizedMessageProcessor:
             input_text = self._get_message_text(payload)
             message_id = self._get_message_id(payload)
 
+            # Determine whether this is a new or returning user before command handling.
+            user_preference = await get_user_preference(from_number)
+            is_new_user = user_preference is None
+
             # Save message in background
             asyncio.create_task(self._save_message_async(from_number, input_text))
 
             # Quick command check first (most performance gain)
             command_result = self._handle_quick_commands(
-                input_text, target_language, sender_name
+                input_text, target_language, sender_name, is_new_user
             )
             if command_result:
+                if is_new_user:
+                    asyncio.create_task(self._set_default_preference_async(from_number))
                 return command_result
 
-            # Check if new user using preference lookup
-            user_preference = await get_user_preference(from_number)
             if not user_preference:
                 # Do not block model processing for new users or transient DB failures.
                 # Default to English and initialize preference in the background.
@@ -719,7 +727,11 @@ class OptimizedMessageProcessor:
             )
 
     def _handle_quick_commands(
-        self, input_text: str, target_language: str, sender_name: str
+        self,
+        input_text: str,
+        target_language: str,
+        sender_name: str,
+        is_new_user: bool = False,
     ) -> Optional[ProcessingResult]:
         """Handle most common commands quickly.
 
@@ -733,14 +745,18 @@ class OptimizedMessageProcessor:
         """
         text_lower = input_text.lower().strip()
 
-        # Greeting messages - show welcome template
+        # Greeting messages:
+        # - New users get onboarding button.
+        # - Returning users continue to model processing.
         if text_lower in ["hello", "hi", "hey", "hola", "greetings"]:
-            return ProcessingResult(
-                "",
-                ResponseType.TEMPLATE,
-                template_name="welcome_message",
-                should_save=False,
-            )
+            if is_new_user:
+                return ProcessingResult(
+                    "",
+                    ResponseType.TEMPLATE,
+                    template_name="welcome_message",
+                    should_save=False,
+                )
+            return None
 
         # Most common commands - return immediately without UG40 calls
         elif text_lower in ["help", "commands"]:
@@ -890,6 +906,16 @@ class OptimizedMessageProcessor:
             return payload["entry"][0]["changes"][0]["value"]["messages"][0]["id"]
         except (KeyError, IndexError):
             return f"unknown_{int(time.time())}"
+
+    def _get_payload_message_id(self, payload: Dict) -> Optional[str]:
+        """Extract the inbound WhatsApp message ID, if present."""
+        try:
+            message_id = payload["entry"][0]["changes"][0]["value"]["messages"][0].get(
+                "id"
+            )
+            return message_id if isinstance(message_id, str) and message_id else None
+        except (KeyError, IndexError):
+            return None
 
     def _get_message_text(self, payload: Dict) -> str:
         """Extract message text from payload.

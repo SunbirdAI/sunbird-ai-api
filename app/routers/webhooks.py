@@ -40,7 +40,6 @@ logging.basicConfig(level=logging.INFO)
 router = APIRouter()
 
 # Access token for your app
-whatsapp_token = os.getenv("WHATSAPP_TOKEN")
 verify_token = os.getenv("VERIFY_TOKEN")
 
 # Initialize WhatsApp service using singleton
@@ -237,16 +236,19 @@ async def webhook(
                 logging.error(f"Error sending button: {e}")
                 # Fallback to text message
                 whatsapp_service.send_message(
-                    result.message
-                    or "I'm having trouble with interactive buttons. Please try typing your request.",
-                    whatsapp_token,
-                    from_number,
-                    phone_number_id,
+                    recipient_id=from_number,
+                    message=(
+                        result.message
+                        or "I'm having trouble with interactive buttons. Please try typing your request."
+                    ),
+                    phone_number_id=phone_number_id,
                 )
         elif result.response_type == ResponseType.TEXT and result.message:
             try:
                 whatsapp_service.send_message(
-                    result.message, whatsapp_token, from_number, phone_number_id
+                    recipient_id=from_number,
+                    message=result.message,
+                    phone_number_id=phone_number_id,
                 )
             except Exception as e:
                 logging.error(f"Error sending message: {e}")
@@ -270,10 +272,9 @@ async def webhook(
         try:
             if "from_number" in locals() and "phone_number_id" in locals():
                 whatsapp_service.send_message(
-                    "I'm experiencing technical difficulties. Please try again.",
-                    whatsapp_token,
-                    from_number,
-                    phone_number_id,
+                    recipient_id=from_number,
+                    message="I'm experiencing technical difficulties. Please try again.",
+                    phone_number_id=phone_number_id,
                 )
         except:
             pass
