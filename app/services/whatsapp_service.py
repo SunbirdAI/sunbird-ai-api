@@ -1324,6 +1324,17 @@ class WhatsAppBusinessService(BaseService):
             recipient_id, button, phone_number_id=phone_number_id
         )
 
+    def send_reply_button(
+        self,
+        recipient_id: str,
+        button: Dict[str, Any],
+        phone_number_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Send interactive one-tap reply buttons (max 3)."""
+        return self.api_client.send_reply_button(
+            recipient_id, button, phone_number_id=phone_number_id
+        )
+
     def reply_to_message(
         self,
         message_id: str,
