@@ -1324,6 +1324,23 @@ class WhatsAppBusinessService(BaseService):
             recipient_id, button, phone_number_id=phone_number_id
         )
 
+    def reply_to_message(
+        self,
+        message_id: str,
+        recipient_id: str,
+        message: str,
+        phone_number_id: Optional[str] = None,
+        preview_url: bool = True,
+    ) -> Dict[str, Any]:
+        """Reply to a specific WhatsApp message using context threading."""
+        return self.api_client.reply_to_message(
+            message_id=message_id,
+            recipient_id=recipient_id,
+            message=message,
+            preview_url=preview_url,
+            phone_number_id=phone_number_id,
+        )
+
     def send_template(
         self,
         recipient_id: str,
