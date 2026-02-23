@@ -49,16 +49,36 @@ async def get_user_preference(user_id: str) -> Optional[str]:
         return None
 
 
+async def get_user_mode(user_id: str) -> Optional[str]:
+    try:
+        async with async_session_maker() as db:
+            return await whatsapp_crud.get_user_mode(db, user_id)
+    except Exception as e:
+        logger.error("Error getting user mode for %s: %s", user_id, e)
+        return None
+
+
 async def save_user_preference(
-    user_id: str, source_language: str, target_language: str
+    user_id: str,
+    source_language: str,
+    target_language: str,
+    mode: Optional[str] = None,
 ) -> None:
     try:
         async with async_session_maker() as db:
             await whatsapp_crud.save_user_preference(
-                db, user_id, source_language, target_language
+                db, user_id, source_language, target_language, mode
             )
     except Exception as e:
         logger.error("Error saving user preference for %s: %s", user_id, e)
+
+
+async def save_user_mode(user_id: str, mode: str) -> None:
+    try:
+        async with async_session_maker() as db:
+            await whatsapp_crud.save_user_mode(db, user_id, mode)
+    except Exception as e:
+        logger.error("Error saving user mode for %s: %s", user_id, e)
 
 
 async def update_feedback(message_id: str, feedback: str) -> bool:
@@ -168,9 +188,44 @@ async def get_user_last_five_conversation_pairs(user_id: str) -> list:
         return []
 
 
+async def get_user_conversation_pairs(user_id: str, limit_pairs: int = 30) -> list:
+    try:
+        async with async_session_maker() as db:
+            return await whatsapp_crud.get_user_conversation_pairs(
+                db, user_id, limit_pairs
+            )
+    except Exception as e:
+        logger.error(
+            "Error retrieving conversation pairs (limit=%s) for %s: %s",
+            limit_pairs,
+            user_id,
+            e,
+        )
+        return []
+
+
+async def get_user_memory_note(user_id: str) -> Optional[str]:
+    try:
+        async with async_session_maker() as db:
+            return await whatsapp_crud.get_user_memory_note(db, user_id)
+    except Exception as e:
+        logger.error("Error retrieving memory note for %s: %s", user_id, e)
+        return None
+
+
+async def upsert_user_memory_note(user_id: str, memory_note: str) -> None:
+    try:
+        async with async_session_maker() as db:
+            await whatsapp_crud.upsert_user_memory_note(db, user_id, memory_note)
+    except Exception as e:
+        logger.error("Error saving memory note for %s: %s", user_id, e)
+
+
 __all__ = [
     "get_user_preference",
+    "get_user_mode",
     "save_user_preference",
+    "save_user_mode",
     "update_feedback",
     "save_detailed_feedback",
     "save_feedback_with_context",
@@ -181,4 +236,7 @@ __all__ = [
     "get_user_messages",
     "get_user_last_five_messages",
     "get_user_last_five_conversation_pairs",
+    "get_user_conversation_pairs",
+    "get_user_memory_note",
+    "upsert_user_memory_note",
 ]

@@ -1,9 +1,15 @@
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.whatsapp import WhatsAppFeedback, WhatsAppMessage, WhatsAppUserPreference
+from app.models.whatsapp import (
+    WhatsAppFeedback,
+    WhatsAppMessage,
+    WhatsAppUserMemory,
+    WhatsAppUserPreference,
+)
 
 
 async def get_user_preference(db: AsyncSession, user_id: str) -> Optional[str]:
@@ -14,8 +20,20 @@ async def get_user_preference(db: AsyncSession, user_id: str) -> Optional[str]:
     return preference.target_language if preference else None
 
 
+async def get_user_mode(db: AsyncSession, user_id: str) -> Optional[str]:
+    result = await db.execute(
+        select(WhatsAppUserPreference).where(WhatsAppUserPreference.user_id == user_id)
+    )
+    preference = result.scalars().first()
+    return preference.mode if preference else None
+
+
 async def save_user_preference(
-    db: AsyncSession, user_id: str, source_language: str, target_language: str
+    db: AsyncSession,
+    user_id: str,
+    source_language: str,
+    target_language: str,
+    mode: Optional[str] = None,
 ) -> None:
     result = await db.execute(
         select(WhatsAppUserPreference).where(WhatsAppUserPreference.user_id == user_id)
@@ -24,11 +42,32 @@ async def save_user_preference(
     if preference:
         preference.source_language = source_language
         preference.target_language = target_language
+        if mode:
+            preference.mode = mode
     else:
         preference = WhatsAppUserPreference(
             user_id=user_id,
             source_language=source_language,
             target_language=target_language,
+            mode=mode or "chat",
+        )
+        db.add(preference)
+    await db.commit()
+
+
+async def save_user_mode(db: AsyncSession, user_id: str, mode: str) -> None:
+    result = await db.execute(
+        select(WhatsAppUserPreference).where(WhatsAppUserPreference.user_id == user_id)
+    )
+    preference = result.scalars().first()
+    if preference:
+        preference.mode = mode
+    else:
+        preference = WhatsAppUserPreference(
+            user_id=user_id,
+            source_language="English",
+            target_language="eng",
+            mode=mode,
         )
         db.add(preference)
     await db.commit()
@@ -86,11 +125,17 @@ async def get_user_last_five_messages(db: AsyncSession, user_id: str) -> List[Wh
 
 
 async def get_user_last_five_conversation_pairs(db: AsyncSession, user_id: str) -> list:
+    return await get_user_conversation_pairs(db, user_id, limit_pairs=5)
+
+
+async def get_user_conversation_pairs(
+    db: AsyncSession, user_id: str, limit_pairs: int = 30
+) -> list:
     result = await db.execute(
         select(WhatsAppMessage)
         .where(WhatsAppMessage.user_id == user_id)
         .order_by(desc(WhatsAppMessage.timestamp))
-        .limit(10)
+        .limit(max(limit_pairs * 4, 40))
     )
     all_messages = list(reversed(result.scalars().all()))
 
@@ -109,7 +154,7 @@ async def get_user_last_five_conversation_pairs(db: AsyncSession, user_id: str) 
             )
             current_user_msg = None
 
-    return conversation_pairs[-5:]
+    return conversation_pairs[-limit_pairs:]
 
 
 async def save_detailed_feedback(
@@ -182,3 +227,35 @@ async def get_all_feedback_summary(db: AsyncSession, limit: int = 100) -> List[W
         select(WhatsAppFeedback).order_by(desc(WhatsAppFeedback.timestamp)).limit(limit)
     )
     return result.scalars().all()
+
+
+async def get_user_memory_note(db: AsyncSession, user_id: str) -> Optional[str]:
+    result = await db.execute(
+        select(WhatsAppUserMemory).where(WhatsAppUserMemory.user_id == user_id)
+    )
+    row = result.scalars().first()
+    if not row:
+        return None
+    return row.memory_note or None
+
+
+async def upsert_user_memory_note(
+    db: AsyncSession,
+    user_id: str,
+    memory_note: str,
+) -> None:
+    result = await db.execute(
+        select(WhatsAppUserMemory).where(WhatsAppUserMemory.user_id == user_id)
+    )
+    row = result.scalars().first()
+    if row:
+        row.memory_note = memory_note
+        row.last_summarized_at = datetime.now(timezone.utc)
+    else:
+        row = WhatsAppUserMemory(
+            user_id=user_id,
+            memory_note=memory_note,
+            last_summarized_at=datetime.now(timezone.utc),
+        )
+        db.add(row)
+    await db.commit()

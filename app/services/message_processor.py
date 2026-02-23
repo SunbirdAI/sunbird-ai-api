@@ -44,13 +44,17 @@ from pydub import AudioSegment
 from pydub.exceptions import CouldntDecodeError
 
 from app.integrations.whatsapp_store import (
-    get_user_last_five_conversation_pairs,
+    get_user_conversation_pairs,
+    get_user_memory_note,
+    get_user_mode,
     get_user_preference,
     save_detailed_feedback,
     save_feedback_with_context,
     save_message,
     save_response,
+    save_user_mode,
     save_user_preference,
+    upsert_user_memory_note,
     update_feedback,
 )
 from app.services.inference_service import run_inference
@@ -170,6 +174,12 @@ class OptimizedMessageProcessor:
             "made by Sunbird AI. You specialise in accurate translations, "
             "explanations, summaries and other cross-lingual tasks."
         )
+        self.valid_modes = {"chat", "translate", "transcribe"}
+        self.mode_labels = {
+            "chat": "Chat",
+            "translate": "Translate",
+            "transcribe": "Transcribe",
+        }
 
     async def process_message(
         self,
@@ -209,6 +219,7 @@ class OptimizedMessageProcessor:
 
             # Determine message type quickly
             message_type = self._determine_message_type(payload)
+            user_mode = await get_user_mode(from_number) or "chat"
 
             # Route to appropriate handler
             if message_type == MessageType.REACTION:
@@ -220,11 +231,16 @@ class OptimizedMessageProcessor:
             elif message_type == MessageType.AUDIO:
                 # Keep original audio pipeline - return processing message immediately
                 result = await self._handle_audio_immediate_response(
-                    payload, target_language, from_number, sender_name, phone_number_id
+                    payload,
+                    target_language,
+                    from_number,
+                    sender_name,
+                    phone_number_id,
+                    user_mode,
                 )
             else:  # TEXT
                 result = await self._handle_text_optimized(
-                    payload, target_language, from_number, sender_name
+                    payload, target_language, from_number, sender_name, user_mode
                 )
 
             result.processing_time = time.time() - start_time
@@ -321,7 +337,7 @@ class OptimizedMessageProcessor:
                     interactive_response["list_reply"], from_number, sender_name
                 )
             elif "button_reply" in interactive_response:
-                return self._handle_button_reply(
+                return await self._handle_button_reply(
                     interactive_response["button_reply"], from_number, sender_name
                 )
             else:
@@ -367,6 +383,7 @@ class OptimizedMessageProcessor:
         from_number: str,
         sender_name: str,
         phone_number_id: str,
+        user_mode: str,
     ) -> ProcessingResult:
         """Handle audio - return immediate response and process in background.
 
@@ -383,7 +400,12 @@ class OptimizedMessageProcessor:
         # Start background processing immediately
         asyncio.create_task(
             self._handle_audio_with_ug40_background(
-                payload, target_language, from_number, sender_name, phone_number_id
+                payload,
+                target_language,
+                from_number,
+                sender_name,
+                phone_number_id,
+                user_mode,
             )
         )
 
@@ -400,6 +422,7 @@ class OptimizedMessageProcessor:
         from_number: str,
         sender_name: str,
         phone_number_id: str,
+        user_mode: str,
     ) -> None:
         """Background audio processing pipeline.
 
@@ -430,6 +453,7 @@ class OptimizedMessageProcessor:
             return
 
         audio_message_id = self._get_payload_message_id(payload)
+        user_mode = self._normalize_mode(user_mode)
 
         if not target_language:
             target_language = "eng"
@@ -548,7 +572,7 @@ class OptimizedMessageProcessor:
                 return
 
             # Send transcription as a threaded reply to the original audio message.
-            transcription_message = f'🎙️ *Transcription:*\n"{transcribed_text}"'
+            transcription_message = f'*Transcription:*\n"{transcribed_text}"'
             if audio_message_id:
                 try:
                     whatsapp_service.reply_to_message(
@@ -577,51 +601,102 @@ class OptimizedMessageProcessor:
                     phone_number_id=phone_number_id,
                 )
 
-            # Step 8: Process with UG40 using messages format
-            if transcribed_text:
+            # Step 8: Mode-specific handling after transcription
+            if user_mode == "transcribe":
+                await save_response(
+                    from_number,
+                    "[AUDIO]",
+                    f"[TRANSCRIPTION]: {transcribed_text}",
+                )
+                return
+
+            if user_mode == "translate":
                 try:
-                    logging.info(f"Sending to UG40 for processing: {transcribed_text}")
-                    # Build messages for audio transcription
-                    messages = [
-                        {"role": "system", "content": self.system_message},
-                        {"role": "user", "content": transcribed_text},
-                    ]
-
-                    logging.info(f"UG40 Messages: {messages}")
-                    # Call UG40 model with timeout
-                    response = await self._call_ug40_optimized(messages)
-                    final_response = self._clean_response(response)
-                    logging.info(f"Final UG40 Response: {final_response}")
-                    if final_response:
-                        whatsapp_service.send_message(
-                            recipient_id=from_number,
-                            message=final_response,
-                            phone_number_id=phone_number_id,
-                        )
-                        # Save the audio transcription and response
-                        await save_response(
-                            from_number, f"[AUDIO]: {transcribed_text}", final_response
-                        )
-                    else:
-                        whatsapp_service.send_message(
-                            recipient_id=from_number,
-                            message=(
-                                "I transcribed your audio, but couldn't generate a model response. "
-                                "Please try again."
-                            ),
-                            phone_number_id=phone_number_id,
-                        )
-
-                except Exception as ug40_error:
-                    logging.error(f"UG40 processing error: {str(ug40_error)}")
+                    translated_text = await self._generate_translation_response(
+                        transcribed_text, target_language
+                    )
+                    whatsapp_service.send_message(
+                        recipient_id=from_number,
+                        message=translated_text,
+                        phone_number_id=phone_number_id,
+                    )
+                    await save_response(
+                        from_number,
+                        f"[AUDIO-TRANSCRIBED]: {transcribed_text}",
+                        translated_text,
+                    )
+                except Exception as translate_error:
+                    logging.error(
+                        f"Translation mode audio processing error: {translate_error}"
+                    )
                     whatsapp_service.send_message(
                         recipient_id=from_number,
                         message=(
-                            "I transcribed your audio, but ran into an issue generating "
-                            "the model response. Please try again."
+                            "I transcribed your audio, but couldn't translate it right "
+                            "now. Please try again."
                         ),
                         phone_number_id=phone_number_id,
                     )
+                return
+
+            try:
+                logging.info(f"Sending to UG40 for processing: {transcribed_text}")
+                conversation_pairs = await get_user_conversation_pairs(
+                    from_number, limit_pairs=30
+                )
+                recent_pairs = conversation_pairs[-5:]
+                older_pairs = conversation_pairs[:-5]
+                memory_note = await get_user_memory_note(from_number)
+                if older_pairs and not memory_note:
+                    memory_note = self._build_memory_note_fallback(older_pairs)
+                if older_pairs:
+                    asyncio.create_task(
+                        self._refresh_memory_note_async(
+                            from_number=from_number,
+                            older_pairs=older_pairs,
+                            existing_memory=memory_note,
+                        )
+                    )
+
+                messages = self._build_optimized_prompt(
+                    input_text=transcribed_text,
+                    context=recent_pairs,
+                    memory_note=memory_note,
+                )
+
+                logging.info(f"UG40 Messages: {messages}")
+                response = await self._call_ug40_optimized(messages)
+                final_response = self._clean_response(response)
+                logging.info(f"Final UG40 Response: {final_response}")
+                if final_response:
+                    whatsapp_service.send_message(
+                        recipient_id=from_number,
+                        message=final_response,
+                        phone_number_id=phone_number_id,
+                    )
+                    await save_response(
+                        from_number, f"[AUDIO]: {transcribed_text}", final_response
+                    )
+                else:
+                    whatsapp_service.send_message(
+                        recipient_id=from_number,
+                        message=(
+                            "I transcribed your audio, but couldn't generate a model response. "
+                            "Please try again."
+                        ),
+                        phone_number_id=phone_number_id,
+                    )
+
+            except Exception as ug40_error:
+                logging.error(f"UG40 processing error: {str(ug40_error)}")
+                whatsapp_service.send_message(
+                    recipient_id=from_number,
+                    message=(
+                        "I transcribed your audio, but ran into an issue generating "
+                        "the model response. Please try again."
+                    ),
+                    phone_number_id=phone_number_id,
+                )
 
         except Exception as e:
             logging.error(f"Unexpected error in audio processing: {str(e)}")
@@ -652,7 +727,12 @@ class OptimizedMessageProcessor:
                     )
 
     async def _handle_text_optimized(
-        self, payload: Dict, target_language: str, from_number: str, sender_name: str
+        self,
+        payload: Dict,
+        target_language: str,
+        from_number: str,
+        sender_name: str,
+        user_mode: str,
     ) -> ProcessingResult:
         """Optimized text processing without caching.
 
@@ -668,6 +748,7 @@ class OptimizedMessageProcessor:
         try:
             input_text = self._get_message_text(payload)
             message_id = self._get_message_id(payload)
+            user_mode = self._normalize_mode(user_mode)
 
             # Determine whether this is a new or returning user before command handling.
             user_preference = await get_user_preference(from_number)
@@ -677,11 +758,16 @@ class OptimizedMessageProcessor:
             asyncio.create_task(self._save_message_async(from_number, input_text))
 
             # Quick command check first (most performance gain)
-            command_result = self._handle_quick_commands(
-                input_text, target_language, sender_name, is_new_user
+            command_result = await self._handle_quick_commands(
+                input_text=input_text,
+                target_language=target_language,
+                sender_name=sender_name,
+                from_number=from_number,
+                user_mode=user_mode,
+                is_new_user=is_new_user,
             )
             if command_result:
-                if is_new_user:
+                if is_new_user and command_result.template_name == "welcome_message":
                     asyncio.create_task(self._set_default_preference_async(from_number))
                 return command_result
 
@@ -695,15 +781,53 @@ class OptimizedMessageProcessor:
                     f"continuing with default '{user_preference}'."
                 )
 
-            # Get conversation context for existing users
-            conversation_pairs = await get_user_last_five_conversation_pairs(from_number)
+            if user_mode == "transcribe":
+                return ProcessingResult(
+                    "📝 *Transcribe mode is active.* Send a voice note and I will "
+                    "return the transcription.",
+                    ResponseType.TEXT,
+                    should_save=False,
+                )
 
-            # Build optimized prompt (limit context for speed)
+            if user_mode == "translate":
+                translated_text = await self._generate_translation_response(
+                    input_text, target_language
+                )
+                asyncio.create_task(
+                    self._save_response_async(
+                        from_number, input_text, translated_text, message_id
+                    )
+                )
+                return ProcessingResult(translated_text, ResponseType.TEXT)
+
+            # Chat mode context strategy:
+            # - Keep the latest 5 conversation pairs as raw context.
+            # - Compress older turns into a compact memory note.
+            conversation_pairs = await get_user_conversation_pairs(
+                from_number, limit_pairs=30
+            )
+            recent_pairs = conversation_pairs[-5:]
+            older_pairs = conversation_pairs[:-5]
+
+            memory_note = await get_user_memory_note(from_number)
+            if older_pairs and not memory_note:
+                memory_note = self._build_memory_note_fallback(older_pairs)
+
+            if older_pairs:
+                asyncio.create_task(
+                    self._refresh_memory_note_async(
+                        from_number=from_number,
+                        older_pairs=older_pairs,
+                        existing_memory=memory_note,
+                    )
+                )
+
             messages = self._build_optimized_prompt(
-                input_text, conversation_pairs[-2:]
-            )  # Only last 2
+                input_text=input_text,
+                context=recent_pairs,
+                memory_note=memory_note,
+            )
 
-            # Call UG40 model with timeout
             response = await self._call_ug40_optimized(messages)
             response_content = self._clean_response(response)
 
@@ -726,11 +850,13 @@ class OptimizedMessageProcessor:
                 "I'm experiencing issues. Please try again.", ResponseType.TEXT
             )
 
-    def _handle_quick_commands(
+    async def _handle_quick_commands(
         self,
         input_text: str,
         target_language: str,
         sender_name: str,
+        from_number: str,
+        user_mode: str,
         is_new_user: bool = False,
     ) -> Optional[ProcessingResult]:
         """Handle most common commands quickly.
@@ -739,6 +865,8 @@ class OptimizedMessageProcessor:
             input_text: The user's input text.
             target_language: The user's preferred language.
             sender_name: The sender's display name.
+            from_number: The sender's phone number.
+            user_mode: The current conversation mode.
 
         Returns:
             ProcessingResult if command matched, None otherwise.
@@ -763,7 +891,8 @@ class OptimizedMessageProcessor:
             return ProcessingResult(self._get_help_text(), ResponseType.TEXT)
         elif text_lower == "status":
             return ProcessingResult(
-                self._get_status_text(target_language, sender_name), ResponseType.TEXT
+                self._get_status_text(target_language, sender_name, user_mode),
+                ResponseType.TEXT,
             )
         elif text_lower in ["languages", "language"]:
             return ProcessingResult(self._get_languages_text(), ResponseType.TEXT)
@@ -771,10 +900,43 @@ class OptimizedMessageProcessor:
             return ProcessingResult(
                 "", ResponseType.TEMPLATE, template_name="choose_language"
             )
+        elif text_lower in ["mode", "switch mode", "change mode"]:
+            return ProcessingResult(
+                "",
+                ResponseType.BUTTON,
+                should_save=False,
+                button_data={
+                    "interactive_type": "reply",
+                    "payload": self.create_mode_selection_reply_button(user_mode),
+                },
+            )
+        elif text_lower in ["mode chat", "chat mode", "set mode chat"]:
+            await self._set_user_mode_async(from_number, "chat")
+            return ProcessingResult(
+                "✅ Mode switched to *Chat*.\nI will answer normally using conversation context.",
+                ResponseType.TEXT,
+                should_save=False,
+            )
+        elif text_lower in ["mode translate", "translate mode", "set mode translate"]:
+            await self._set_user_mode_async(from_number, "translate")
+            return ProcessingResult(
+                "✅ Mode switched to *Translate*.\nSend text or audio and I will return translation only.",
+                ResponseType.TEXT,
+                should_save=False,
+            )
+        elif text_lower in ["mode transcribe", "transcribe mode", "set mode transcribe"]:
+            await self._set_user_mode_async(from_number, "transcribe")
+            return ProcessingResult(
+                "✅ Mode switched to *Transcribe*.\nSend a voice note and I will return transcription only.",
+                ResponseType.TEXT,
+                should_save=False,
+            )
 
         return None
 
-    def _build_optimized_prompt(self, input_text: str, context: list) -> list:
+    def _build_optimized_prompt(
+        self, input_text: str, context: list, memory_note: Optional[str] = None
+    ) -> list:
         """Build messages array with conversation context.
 
         Args:
@@ -787,6 +949,17 @@ class OptimizedMessageProcessor:
         messages = [
             {"role": "system", "content": self.system_message},
         ]
+
+        if memory_note:
+            messages.append(
+                {
+                    "role": "system",
+                    "content": (
+                        "Conversation memory from earlier turns "
+                        f"(use as context): {memory_note}"
+                    ),
+                }
+            )
 
         # Add conversation context
         for conv in context:
@@ -840,6 +1013,101 @@ class OptimizedMessageProcessor:
 
         return content
 
+    async def _generate_translation_response(
+        self, input_text: str, target_language: str
+    ) -> str:
+        """Generate translation-only output for text/audio in translate mode."""
+        target_language_name = self.language_mapping.get(target_language, target_language)
+        translate_messages = [
+            {
+                "role": "system",
+                "content": (
+                    "You are a strict translation engine. Translate the input to "
+                    f"{target_language_name}. Return only the translated text, with "
+                    "no preamble, no notes, and no extra formatting."
+                ),
+            },
+            {"role": "user", "content": input_text},
+        ]
+        response = await self._call_ug40_optimized(translate_messages)
+        return self._clean_response(response)
+
+    def _build_memory_note_fallback(self, older_pairs: list) -> str:
+        """Fallback memory compression when no model summary is available yet."""
+        recent_older_pairs = older_pairs[-4:]
+        lines = []
+        for pair in recent_older_pairs:
+            user = (pair.get("user_message") or "").strip().replace("\n", " ")
+            bot = (pair.get("bot_response") or "").strip().replace("\n", " ")
+            lines.append(
+                f"- User: {user[:120]} | Assistant: {bot[:120]}"
+            )
+        return "Earlier context highlights:\n" + "\n".join(lines)
+
+    async def _refresh_memory_note_async(
+        self,
+        from_number: str,
+        older_pairs: list,
+        existing_memory: Optional[str],
+    ) -> None:
+        """Refresh compact memory note in the background."""
+        try:
+            condensed_pairs = older_pairs[-12:]
+            serialized_pairs = []
+            for pair in condensed_pairs:
+                user_text = (pair.get("user_message") or "").strip().replace("\n", " ")
+                bot_text = (pair.get("bot_response") or "").strip().replace("\n", " ")
+                serialized_pairs.append(
+                    f"User: {user_text[:280]}\nAssistant: {bot_text[:280]}"
+                )
+
+            if not serialized_pairs:
+                return
+
+            memory_prompt = [
+                {
+                    "role": "system",
+                    "content": (
+                        "Summarize older conversation context into a compact memory "
+                        "note for a chatbot. Keep facts, user preferences, unresolved "
+                        "tasks, and constraints. Be concise and specific."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        f"Existing memory note:\n{existing_memory or 'None'}\n\n"
+                        "Older conversation pairs:\n"
+                        f"{chr(10).join(serialized_pairs)}\n\n"
+                        "Write an updated compact memory note in <= 120 words."
+                    ),
+                },
+            ]
+
+            summary_response = await asyncio.to_thread(
+                lambda: run_inference(messages=memory_prompt, model_type="qwen")
+            )
+            memory_note = self._clean_response(summary_response)
+            if memory_note:
+                await upsert_user_memory_note(from_number, memory_note[:800])
+        except Exception as e:
+            logging.warning("Background memory refresh failed for %s: %s", from_number, e)
+
+    async def _set_user_mode_async(self, from_number: str, mode: str) -> None:
+        """Persist user mode safely."""
+        normalized_mode = self._normalize_mode(mode)
+        try:
+            await save_user_mode(from_number, normalized_mode)
+            logging.info("User mode set: %s -> %s", from_number, normalized_mode)
+        except Exception as e:
+            logging.error("Error saving user mode for %s: %s", from_number, e)
+
+    def _normalize_mode(self, mode: Optional[str]) -> str:
+        if not mode:
+            return "chat"
+        normalized = str(mode).strip().lower()
+        return normalized if normalized in self.valid_modes else "chat"
+
     async def _set_default_preference_async(self, from_number: str) -> None:
         """Set default user preference asynchronously.
 
@@ -847,7 +1115,7 @@ class OptimizedMessageProcessor:
             from_number: The user's phone number.
         """
         try:
-            await save_user_preference(from_number, "English", "eng")
+            await save_user_preference(from_number, "English", "eng", "chat")
             logging.info(f"Default preference set for new user: {from_number}")
         except Exception as e:
             logging.error(f"Error setting default preference: {e}")
@@ -1068,7 +1336,7 @@ class OptimizedMessageProcessor:
                 should_save=False,
             )
 
-    def _handle_button_reply(
+    async def _handle_button_reply(
         self, button_reply: Dict, from_number: str, sender_name: str
     ) -> ProcessingResult:
         """Handle button reply responses.
@@ -1081,7 +1349,17 @@ class OptimizedMessageProcessor:
         Returns:
             ProcessingResult for the button response.
         """
-        # Default handling for button replies
+        button_id = (button_reply.get("id") or "").strip().lower()
+        if button_id in {"mode_chat", "mode_translate", "mode_transcribe"}:
+            selected_mode = button_id.replace("mode_", "")
+            await self._set_user_mode_async(from_number, selected_mode)
+            mode_label = self.mode_labels.get(selected_mode, selected_mode.title())
+            return ProcessingResult(
+                f"✅ Mode switched to *{mode_label}*.",
+                ResponseType.TEXT,
+                should_save=False,
+            )
+
         return ProcessingResult(
             f"Thanks {sender_name}! I received your response.",
             ResponseType.TEXT,
@@ -1267,6 +1545,39 @@ class OptimizedMessageProcessor:
             logging.error(f"Error saving detailed feedback: {e}")
 
     # Button creation methods
+    def create_mode_selection_reply_button(self, current_mode: Optional[str] = None) -> Dict:
+        """Create one-tap reply buttons for mode switching."""
+        normalized_mode = self._normalize_mode(current_mode)
+        current_mode_label = self.mode_labels.get(normalized_mode, "Chat")
+        return {
+            "type": "button",
+            "body": {
+                "text": (
+                    "Choose how I should handle your next messages:\n"
+                    "• Chat: normal assistant mode\n"
+                    "• Translate: translation-only output\n"
+                    "• Transcribe: audio transcription-only"
+                )
+            },
+            "footer": {"text": f"Current mode: {current_mode_label}"},
+            "action": {
+                "buttons": [
+                    {
+                        "type": "reply",
+                        "reply": {"id": "mode_chat", "title": "Chat"},
+                    },
+                    {
+                        "type": "reply",
+                        "reply": {"id": "mode_translate", "title": "Translate"},
+                    },
+                    {
+                        "type": "reply",
+                        "reply": {"id": "mode_transcribe", "title": "Transcribe"},
+                    },
+                ]
+            },
+        }
+
     def create_language_selection_button(self) -> Dict:
         """Create interactive button for language selection.
 
@@ -1395,6 +1706,11 @@ class OptimizedMessageProcessor:
             "• *languages* – Show supported languages\n\n"
             "*Language Commands:*\n"
             "• *set language* – Set your preferred language for audio commands\n\n"
+            "*Mode Commands:*\n"
+            "• *mode* – Open one-tap mode switch buttons\n"
+            "• *mode chat* – Standard conversational assistant\n"
+            "• *mode translate* – Translation-only output\n"
+            "• *mode transcribe* – Audio transcription-only\n\n"
             "*Natural Questions:*\n"
             "You can also ask naturally:\n"
             "• *What can you do?*\n"
@@ -1402,20 +1718,25 @@ class OptimizedMessageProcessor:
             "Just type your message normally – *I'm here to help!*"
         )
 
-    def _get_status_text(self, target_language: str, sender_name: str) -> str:
+    def _get_status_text(
+        self, target_language: str, sender_name: str, user_mode: str
+    ) -> str:
         """Get status text showing current settings.
 
         Args:
             target_language: The user's preferred language code.
             sender_name: The sender's display name.
+            user_mode: The user's active mode.
 
         Returns:
             Formatted status text string.
         """
         language_name = self.language_mapping.get(target_language, target_language)
+        mode_label = self.mode_labels.get(self._normalize_mode(user_mode), "Chat")
         return (
             f"*🌻 Status for {sender_name}*\n\n"
             f"*Current Language:* *{language_name}* ({target_language})\n"
+            f"*Current Mode:* *{mode_label}*\n"
             "*Assistant:* Sunflower by Sunbird AI\n"
             "*Platform:* WhatsApp\n\n"
             "Type *help* for available commands or just *chat naturally!*"
