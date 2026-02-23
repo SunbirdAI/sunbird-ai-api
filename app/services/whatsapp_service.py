@@ -1335,6 +1335,36 @@ class WhatsAppBusinessService(BaseService):
             recipient_id, button, phone_number_id=phone_number_id
         )
 
+    def send_audio(
+        self,
+        recipient_id: str,
+        audio: str,
+        link: bool = True,
+        phone_number_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Send audio message by URL (link=True) or WhatsApp media ID (link=False)."""
+        return self.api_client.send_audio(
+            recipient_id=recipient_id,
+            audio=audio,
+            link=link,
+            phone_number_id=phone_number_id,
+        )
+
+    def upload_media(
+        self,
+        media_path: str,
+        phone_number_id: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Upload media file to WhatsApp and return upload metadata."""
+        return self.api_client.upload_media(
+            media_path=media_path,
+            phone_number_id=phone_number_id,
+        )
+
+    def delete_media(self, media_id: str) -> Optional[Dict[str, Any]]:
+        """Delete media object from WhatsApp."""
+        return self.api_client.delete_media(media_id)
+
     def reply_to_message(
         self,
         message_id: str,

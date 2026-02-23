@@ -28,12 +28,23 @@ async def get_user_mode(db: AsyncSession, user_id: str) -> Optional[str]:
     return preference.mode if preference else None
 
 
+async def get_user_tts_enabled(db: AsyncSession, user_id: str) -> Optional[bool]:
+    result = await db.execute(
+        select(WhatsAppUserPreference).where(WhatsAppUserPreference.user_id == user_id)
+    )
+    preference = result.scalars().first()
+    if preference is None:
+        return None
+    return bool(preference.tts_enabled)
+
+
 async def save_user_preference(
     db: AsyncSession,
     user_id: str,
     source_language: str,
     target_language: str,
     mode: Optional[str] = None,
+    tts_enabled: Optional[bool] = None,
 ) -> None:
     result = await db.execute(
         select(WhatsAppUserPreference).where(WhatsAppUserPreference.user_id == user_id)
@@ -44,12 +55,15 @@ async def save_user_preference(
         preference.target_language = target_language
         if mode:
             preference.mode = mode
+        if tts_enabled is not None:
+            preference.tts_enabled = tts_enabled
     else:
         preference = WhatsAppUserPreference(
             user_id=user_id,
             source_language=source_language,
             target_language=target_language,
             mode=mode or "chat",
+            tts_enabled=True if tts_enabled is None else bool(tts_enabled),
         )
         db.add(preference)
     await db.commit()
@@ -68,6 +82,28 @@ async def save_user_mode(db: AsyncSession, user_id: str, mode: str) -> None:
             source_language="English",
             target_language="eng",
             mode=mode,
+            tts_enabled=True,
+        )
+        db.add(preference)
+    await db.commit()
+
+
+async def save_user_tts_enabled(
+    db: AsyncSession, user_id: str, tts_enabled: bool
+) -> None:
+    result = await db.execute(
+        select(WhatsAppUserPreference).where(WhatsAppUserPreference.user_id == user_id)
+    )
+    preference = result.scalars().first()
+    if preference:
+        preference.tts_enabled = bool(tts_enabled)
+    else:
+        preference = WhatsAppUserPreference(
+            user_id=user_id,
+            source_language="English",
+            target_language="eng",
+            mode="chat",
+            tts_enabled=bool(tts_enabled),
         )
         db.add(preference)
     await db.commit()
