@@ -11,7 +11,7 @@ class WhatsAppUserPreference(Base):
     source_language = Column(String(64), nullable=False, default="English")
     target_language = Column(String(16), nullable=False, default="eng")
     mode = Column(String(16), nullable=False, default="chat")
-    tts_enabled = Column(Boolean, nullable=False, default=True)
+    tts_enabled = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(
         DateTime(timezone=True),
