@@ -33,6 +33,7 @@ Note:
 import asyncio
 import logging
 import os
+import tempfile
 import time
 from dataclasses import dataclass
 from enum import Enum
@@ -48,16 +49,20 @@ from app.integrations.whatsapp_store import (
     get_user_memory_note,
     get_user_mode,
     get_user_preference,
+    get_user_tts_enabled,
     save_detailed_feedback,
     save_feedback_with_context,
     save_message,
     save_response,
     save_user_mode,
     save_user_preference,
+    save_user_tts_enabled,
     upsert_user_memory_note,
     update_feedback,
 )
+from app.models.enums import SpeakerID
 from app.services.inference_service import run_inference
+from app.services.tts_service import get_tts_service
 from app.services.whatsapp_service import get_whatsapp_service
 from app.utils.upload_audio_file_gcp import delete_audio_file, upload_audio_file
 
@@ -68,6 +73,13 @@ logging.basicConfig(level=logging.INFO)
 WHATSAPP_TOKEN = os.getenv("WHATSAPP_TOKEN")
 PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID")
 RUNPOD_ENDPOINT_ID = os.getenv("RUNPOD_ENDPOINT_ID")
+WHATSAPP_TTS_ENABLED = os.getenv("WHATSAPP_TTS_ENABLED", "true").lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
+WHATSAPP_TTS_MAX_CHARS = int(os.getenv("WHATSAPP_TTS_MAX_CHARS", "600"))
 
 # Initialize services
 whatsapp_service = get_whatsapp_service()
@@ -119,6 +131,7 @@ class ProcessingResult:
         should_save: Whether to save this interaction to the database.
         processing_time: Time taken to process the message in seconds.
         button_data: Button data if response_type is BUTTON.
+        send_tts: Whether to also send a TTS audio response.
     """
 
     message: str
@@ -127,6 +140,7 @@ class ProcessingResult:
     should_save: bool = True
     processing_time: float = 0.0
     button_data: Optional[Dict] = None
+    send_tts: bool = False
 
 
 def clear_processed_messages() -> None:
@@ -180,6 +194,18 @@ class OptimizedMessageProcessor:
             "translate": "Translate",
             "transcribe": "Transcribe",
         }
+        self.tts_speaker_by_language = {
+            "ach": SpeakerID.ACHOLI_FEMALE,
+            "teo": SpeakerID.ATESO_FEMALE,
+            "nyn": SpeakerID.RUNYANKORE_FEMALE,
+            "lgg": SpeakerID.LUGBARA_FEMALE,
+            "swa": SpeakerID.SWAHILI_MALE,
+            "sw": SpeakerID.SWAHILI_MALE,
+            "swh": SpeakerID.SWAHILI_MALE,
+            "lug": SpeakerID.LUGANDA_FEMALE,
+            # Product requirement: English defaults to Luganda voice.
+            "eng": SpeakerID.LUGANDA_FEMALE,
+        }
 
     async def process_message(
         self,
@@ -220,6 +246,9 @@ class OptimizedMessageProcessor:
             # Determine message type quickly
             message_type = self._determine_message_type(payload)
             user_mode = await get_user_mode(from_number) or "chat"
+            tts_enabled = await get_user_tts_enabled(from_number)
+            if tts_enabled is None:
+                tts_enabled = True
 
             # Route to appropriate handler
             if message_type == MessageType.REACTION:
@@ -237,10 +266,16 @@ class OptimizedMessageProcessor:
                     sender_name,
                     phone_number_id,
                     user_mode,
+                    tts_enabled,
                 )
             else:  # TEXT
                 result = await self._handle_text_optimized(
-                    payload, target_language, from_number, sender_name, user_mode
+                    payload,
+                    target_language,
+                    from_number,
+                    sender_name,
+                    user_mode,
+                    tts_enabled,
                 )
 
             result.processing_time = time.time() - start_time
@@ -384,6 +419,7 @@ class OptimizedMessageProcessor:
         sender_name: str,
         phone_number_id: str,
         user_mode: str,
+        tts_enabled: bool,
     ) -> ProcessingResult:
         """Handle audio - return immediate response and process in background.
 
@@ -406,6 +442,7 @@ class OptimizedMessageProcessor:
                 sender_name,
                 phone_number_id,
                 user_mode,
+                tts_enabled,
             )
         )
 
@@ -423,6 +460,7 @@ class OptimizedMessageProcessor:
         sender_name: str,
         phone_number_id: str,
         user_mode: str,
+        tts_enabled: bool,
     ) -> None:
         """Background audio processing pipeline.
 
@@ -454,6 +492,7 @@ class OptimizedMessageProcessor:
 
         audio_message_id = self._get_payload_message_id(payload)
         user_mode = self._normalize_mode(user_mode)
+        tts_enabled = bool(tts_enabled)
 
         if not target_language:
             target_language = "eng"
@@ -620,6 +659,15 @@ class OptimizedMessageProcessor:
                         message=translated_text,
                         phone_number_id=phone_number_id,
                     )
+                    if tts_enabled:
+                        asyncio.create_task(
+                            self.send_tts_audio_response(
+                                response_text=translated_text,
+                                target_language=target_language,
+                                from_number=from_number,
+                                phone_number_id=phone_number_id,
+                            )
+                        )
                     await save_response(
                         from_number,
                         f"[AUDIO-TRANSCRIBED]: {transcribed_text}",
@@ -674,6 +722,15 @@ class OptimizedMessageProcessor:
                         message=final_response,
                         phone_number_id=phone_number_id,
                     )
+                    if tts_enabled:
+                        asyncio.create_task(
+                            self.send_tts_audio_response(
+                                response_text=final_response,
+                                target_language=target_language,
+                                from_number=from_number,
+                                phone_number_id=phone_number_id,
+                            )
+                        )
                     await save_response(
                         from_number, f"[AUDIO]: {transcribed_text}", final_response
                     )
@@ -733,6 +790,7 @@ class OptimizedMessageProcessor:
         from_number: str,
         sender_name: str,
         user_mode: str,
+        tts_enabled: bool,
     ) -> ProcessingResult:
         """Optimized text processing without caching.
 
@@ -749,6 +807,7 @@ class OptimizedMessageProcessor:
             input_text = self._get_message_text(payload)
             message_id = self._get_message_id(payload)
             user_mode = self._normalize_mode(user_mode)
+            tts_enabled = bool(tts_enabled)
 
             # Determine whether this is a new or returning user before command handling.
             user_preference = await get_user_preference(from_number)
@@ -764,6 +823,7 @@ class OptimizedMessageProcessor:
                 sender_name=sender_name,
                 from_number=from_number,
                 user_mode=user_mode,
+                tts_enabled=tts_enabled,
                 is_new_user=is_new_user,
             )
             if command_result:
@@ -798,7 +858,11 @@ class OptimizedMessageProcessor:
                         from_number, input_text, translated_text, message_id
                     )
                 )
-                return ProcessingResult(translated_text, ResponseType.TEXT)
+                return ProcessingResult(
+                    translated_text,
+                    ResponseType.TEXT,
+                    send_tts=tts_enabled,
+                )
 
             # Chat mode context strategy:
             # - Keep the latest 5 conversation pairs as raw context.
@@ -842,7 +906,15 @@ class OptimizedMessageProcessor:
                     )
                 )
 
-            return ProcessingResult(response_content, ResponseType.TEXT)
+            send_tts_for_response = response_content not in {
+                "I'm having technical difficulties. \n\n Please try again.",
+                "I'm running a bit slow right now. \n\n Please try again.",
+            }
+            return ProcessingResult(
+                response_content,
+                ResponseType.TEXT,
+                send_tts=send_tts_for_response and tts_enabled,
+            )
 
         except Exception as e:
             logging.error(f"Error in text processing: {str(e)}")
@@ -857,6 +929,7 @@ class OptimizedMessageProcessor:
         sender_name: str,
         from_number: str,
         user_mode: str,
+        tts_enabled: bool,
         is_new_user: bool = False,
     ) -> Optional[ProcessingResult]:
         """Handle most common commands quickly.
@@ -867,6 +940,7 @@ class OptimizedMessageProcessor:
             sender_name: The sender's display name.
             from_number: The sender's phone number.
             user_mode: The current conversation mode.
+            tts_enabled: Whether voice replies are enabled for this user.
 
         Returns:
             ProcessingResult if command matched, None otherwise.
@@ -891,7 +965,9 @@ class OptimizedMessageProcessor:
             return ProcessingResult(self._get_help_text(), ResponseType.TEXT)
         elif text_lower == "status":
             return ProcessingResult(
-                self._get_status_text(target_language, sender_name, user_mode),
+                self._get_status_text(
+                    target_language, sender_name, user_mode, tts_enabled
+                ),
                 ResponseType.TEXT,
             )
         elif text_lower in ["languages", "language"]:
@@ -928,6 +1004,47 @@ class OptimizedMessageProcessor:
             await self._set_user_mode_async(from_number, "transcribe")
             return ProcessingResult(
                 "✅ Mode switched to *Transcribe*.\nSend a voice note and I will return transcription only.",
+                ResponseType.TEXT,
+                should_save=False,
+            )
+        elif text_lower in [
+            "voice",
+            "voice settings",
+            "audio settings",
+            "tts settings",
+            "audio replies",
+        ]:
+            return ProcessingResult(
+                "",
+                ResponseType.BUTTON,
+                should_save=False,
+                button_data={
+                    "interactive_type": "reply",
+                    "payload": self.create_tts_selection_reply_button(tts_enabled),
+                },
+            )
+        elif text_lower in [
+            "voice on",
+            "audio on",
+            "tts on",
+            "audio replies on",
+        ]:
+            await self._set_user_tts_enabled_async(from_number, True)
+            return ProcessingResult(
+                "🔊 Voice replies are now *ON* for Chat/Translate modes.",
+                ResponseType.TEXT,
+                should_save=False,
+            )
+        elif text_lower in [
+            "voice off",
+            "audio off",
+            "tts off",
+            "audio replies off",
+            "text only",
+        ]:
+            await self._set_user_tts_enabled_async(from_number, False)
+            return ProcessingResult(
+                "🔇 Voice replies are now *OFF*. You will receive text only.",
                 ResponseType.TEXT,
                 should_save=False,
             )
@@ -1032,6 +1149,112 @@ class OptimizedMessageProcessor:
         response = await self._call_ug40_optimized(translate_messages)
         return self._clean_response(response)
 
+    def _resolve_tts_speaker_id(
+        self, target_language: Optional[str], text: Optional[str] = None
+    ) -> SpeakerID:
+        """Resolve speaker ID from language code, with English defaulting to Luganda."""
+        if not target_language:
+            return SpeakerID.LUGANDA_FEMALE
+
+        normalized = str(target_language).strip().lower()
+        if normalized in self.tts_speaker_by_language:
+            return self.tts_speaker_by_language[normalized]
+
+        # Support full language names if they appear.
+        language_alias_map = {
+            "acholi": "ach",
+            "ateso": "teo",
+            "runyankore": "nyn",
+            "runyankole": "nyn",
+            "lugbara": "lgg",
+            "swahili": "swa",
+            "luganda": "lug",
+            "english": "eng",
+        }
+        alias_code = language_alias_map.get(normalized)
+        if alias_code and alias_code in self.tts_speaker_by_language:
+            return self.tts_speaker_by_language[alias_code]
+
+        logging.info(
+            "Unknown target language '%s' for TTS; defaulting to Luganda speaker.",
+            target_language,
+        )
+        return SpeakerID.LUGANDA_FEMALE
+
+    async def send_tts_audio_response(
+        self,
+        response_text: str,
+        target_language: str,
+        from_number: str,
+        phone_number_id: str,
+    ) -> None:
+        """Generate TTS audio for response text and send it through WhatsApp."""
+        if not WHATSAPP_TTS_ENABLED:
+            return
+
+        clean_text = (response_text or "").strip()
+        if not clean_text:
+            return
+
+        # Keep TTS payload bounded to avoid long generation times/timeouts.
+        if len(clean_text) > WHATSAPP_TTS_MAX_CHARS:
+            clean_text = clean_text[: WHATSAPP_TTS_MAX_CHARS].rstrip() + "..."
+
+        tts_service = get_tts_service()
+        speaker_id = self._resolve_tts_speaker_id(target_language, clean_text)
+        wav_path = ""
+        media_path = ""
+
+        try:
+            audio_bytes = await tts_service.generate_audio(clean_text, speaker_id)
+
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as wav_file:
+                wav_file.write(audio_bytes)
+                wav_path = wav_file.name
+
+            # WhatsApp accepts mpeg/ogg/amr/mp4 audio; convert wav -> mp3.
+            try:
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as mp3_file:
+                    media_path = mp3_file.name
+                audio_segment = AudioSegment.from_file(wav_path)
+                audio_segment.export(media_path, format="mp3", bitrate="96k")
+            except Exception as conversion_error:
+                logging.warning(
+                    "TTS wav->mp3 conversion failed (%s); falling back to wav upload.",
+                    conversion_error,
+                )
+                media_path = wav_path
+
+            upload_response = await asyncio.to_thread(
+                lambda: whatsapp_service.upload_media(media_path, phone_number_id)
+            )
+            media_id = (upload_response or {}).get("id")
+            if not media_id:
+                logging.error("Failed to upload TTS media to WhatsApp: %s", upload_response)
+                return
+
+            await asyncio.to_thread(
+                lambda: whatsapp_service.send_audio(
+                    recipient_id=from_number,
+                    audio=media_id,
+                    link=False,
+                    phone_number_id=phone_number_id,
+                )
+            )
+        except Exception as e:
+            logging.error("Failed to send WhatsApp TTS response: %s", e)
+        finally:
+            for temp_path in {wav_path, media_path}:
+                if temp_path and os.path.exists(temp_path):
+                    try:
+                        os.remove(temp_path)
+                    except Exception as cleanup_error:
+                        logging.warning(
+                            "Could not remove temp TTS file %s: %s",
+                            temp_path,
+                            cleanup_error,
+                        )
+
     def _build_memory_note_fallback(self, older_pairs: list) -> str:
         """Fallback memory compression when no model summary is available yet."""
         recent_older_pairs = older_pairs[-4:]
@@ -1102,6 +1325,20 @@ class OptimizedMessageProcessor:
         except Exception as e:
             logging.error("Error saving user mode for %s: %s", from_number, e)
 
+    async def _set_user_tts_enabled_async(
+        self, from_number: str, tts_enabled: bool
+    ) -> None:
+        """Persist user TTS preference safely."""
+        try:
+            await save_user_tts_enabled(from_number, bool(tts_enabled))
+            logging.info(
+                "User tts preference set: %s -> %s",
+                from_number,
+                bool(tts_enabled),
+            )
+        except Exception as e:
+            logging.error("Error saving user tts preference for %s: %s", from_number, e)
+
     def _normalize_mode(self, mode: Optional[str]) -> str:
         if not mode:
             return "chat"
@@ -1115,7 +1352,9 @@ class OptimizedMessageProcessor:
             from_number: The user's phone number.
         """
         try:
-            await save_user_preference(from_number, "English", "eng", "chat")
+            await save_user_preference(
+                from_number, "English", "eng", "chat", tts_enabled=True
+            )
             logging.info(f"Default preference set for new user: {from_number}")
         except Exception as e:
             logging.error(f"Error setting default preference: {e}")
@@ -1359,6 +1598,20 @@ class OptimizedMessageProcessor:
                 ResponseType.TEXT,
                 should_save=False,
             )
+        if button_id == "tts_on":
+            await self._set_user_tts_enabled_async(from_number, True)
+            return ProcessingResult(
+                "🔊 Voice replies are now *ON* for Chat/Translate modes.",
+                ResponseType.TEXT,
+                should_save=False,
+            )
+        if button_id == "tts_off":
+            await self._set_user_tts_enabled_async(from_number, False)
+            return ProcessingResult(
+                "🔇 Voice replies are now *OFF*. You will receive text only.",
+                ResponseType.TEXT,
+                should_save=False,
+            )
 
         return ProcessingResult(
             f"Thanks {sender_name}! I received your response.",
@@ -1578,6 +1831,33 @@ class OptimizedMessageProcessor:
             },
         }
 
+    def create_tts_selection_reply_button(self, tts_enabled: bool) -> Dict:
+        """Create one-tap reply buttons for voice reply preference."""
+        voice_status = "ON" if tts_enabled else "OFF"
+        return {
+            "type": "button",
+            "body": {
+                "text": (
+                    "Choose reply format for Chat/Translate modes:\n"
+                    "• Text + Voice\n"
+                    "• Text only"
+                )
+            },
+            "footer": {"text": f"Current voice replies: {voice_status}"},
+            "action": {
+                "buttons": [
+                    {
+                        "type": "reply",
+                        "reply": {"id": "tts_on", "title": "Text + Voice"},
+                    },
+                    {
+                        "type": "reply",
+                        "reply": {"id": "tts_off", "title": "Text Only"},
+                    },
+                ]
+            },
+        }
+
     def create_language_selection_button(self) -> Dict:
         """Create interactive button for language selection.
 
@@ -1711,6 +1991,10 @@ class OptimizedMessageProcessor:
             "• *mode chat* – Standard conversational assistant\n"
             "• *mode translate* – Translation-only output\n"
             "• *mode transcribe* – Audio transcription-only\n\n"
+            "*Voice Reply Commands:*\n"
+            "• *voice* – Open one-tap voice reply options\n"
+            "• *voice on* – Enable text + voice replies\n"
+            "• *voice off* – Text only replies\n\n"
             "*Natural Questions:*\n"
             "You can also ask naturally:\n"
             "• *What can you do?*\n"
@@ -1719,7 +2003,11 @@ class OptimizedMessageProcessor:
         )
 
     def _get_status_text(
-        self, target_language: str, sender_name: str, user_mode: str
+        self,
+        target_language: str,
+        sender_name: str,
+        user_mode: str,
+        tts_enabled: bool,
     ) -> str:
         """Get status text showing current settings.
 
@@ -1727,16 +2015,19 @@ class OptimizedMessageProcessor:
             target_language: The user's preferred language code.
             sender_name: The sender's display name.
             user_mode: The user's active mode.
+            tts_enabled: Whether voice replies are enabled.
 
         Returns:
             Formatted status text string.
         """
         language_name = self.language_mapping.get(target_language, target_language)
         mode_label = self.mode_labels.get(self._normalize_mode(user_mode), "Chat")
+        voice_label = "ON (Text + Voice)" if tts_enabled else "OFF (Text Only)"
         return (
             f"*🌻 Status for {sender_name}*\n\n"
             f"*Current Language:* *{language_name}* ({target_language})\n"
             f"*Current Mode:* *{mode_label}*\n"
+            f"*Voice Replies:* *{voice_label}*\n"
             "*Assistant:* Sunflower by Sunbird AI\n"
             "*Platform:* WhatsApp\n\n"
             "Type *help* for available commands or just *chat naturally!*"
