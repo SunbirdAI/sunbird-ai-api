@@ -265,6 +265,14 @@ async def webhook(
                         from_number,
                         phone_number_id,
                     )
+                if result.post_template_name:
+                    background_tasks.add_task(
+                        send_template_response,
+                        result.post_template_name,
+                        phone_number_id,
+                        from_number,
+                        sender_name,
+                    )
             except Exception as e:
                 logging.error(f"Error sending message: {e}")
 

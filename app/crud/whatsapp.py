@@ -63,7 +63,7 @@ async def save_user_preference(
             source_language=source_language,
             target_language=target_language,
             mode=mode or "chat",
-            tts_enabled=True if tts_enabled is None else bool(tts_enabled),
+            tts_enabled=False if tts_enabled is None else bool(tts_enabled),
         )
         db.add(preference)
     await db.commit()
@@ -82,7 +82,7 @@ async def save_user_mode(db: AsyncSession, user_id: str, mode: str) -> None:
             source_language="English",
             target_language="eng",
             mode=mode,
-            tts_enabled=True,
+            tts_enabled=False,
         )
         db.add(preference)
     await db.commit()

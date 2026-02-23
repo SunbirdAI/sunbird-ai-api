@@ -138,6 +138,7 @@ class ProcessingResult:
         processing_time: Time taken to process the message in seconds.
         button_data: Button data if response_type is BUTTON.
         send_tts: Whether to also send a TTS audio response.
+        post_template_name: Optional template to send after the main response.
     """
 
     message: str
@@ -147,6 +148,7 @@ class ProcessingResult:
     processing_time: float = 0.0
     button_data: Optional[Dict] = None
     send_tts: bool = False
+    post_template_name: str = ""
 
 
 def clear_processed_messages() -> None:
@@ -254,7 +256,7 @@ class OptimizedMessageProcessor:
             user_mode = await get_user_mode(from_number) or "chat"
             tts_enabled = await get_user_tts_enabled(from_number)
             if tts_enabled is None:
-                tts_enabled = True
+                tts_enabled = False
 
             # Route to appropriate handler
             if message_type == MessageType.REACTION:
@@ -692,7 +694,7 @@ class OptimizedMessageProcessor:
             try:
                 logging.info(f"Sending to UG40 for processing: {transcribed_text}")
                 conversation_pairs = await get_user_conversation_pairs(
-                    from_number, limit_pairs=30
+                    from_number, limit_pairs=10
                 )
                 recent_pairs = conversation_pairs[-5:]
                 older_pairs = conversation_pairs[:-5]
@@ -829,8 +831,13 @@ class OptimizedMessageProcessor:
                 is_new_user=is_new_user,
             )
             if command_result:
-                if is_new_user and command_result.template_name == "welcome_message":
+                if is_new_user:
                     asyncio.create_task(self._set_default_preference_async(from_number))
+                    if (
+                        command_result.response_type == ResponseType.TEXT
+                        and not command_result.post_template_name
+                    ):
+                        command_result.post_template_name = "welcome_message"
                 return command_result
 
             if not user_preference:
@@ -849,6 +856,7 @@ class OptimizedMessageProcessor:
                     "return the transcription.",
                     ResponseType.TEXT,
                     should_save=False,
+                    post_template_name="welcome_message" if is_new_user else "",
                 )
 
             if user_mode == "translate":
@@ -864,6 +872,7 @@ class OptimizedMessageProcessor:
                     translated_text,
                     ResponseType.TEXT,
                     send_tts=tts_enabled,
+                    post_template_name="welcome_message" if is_new_user else "",
                 )
 
             # Chat mode context strategy:
@@ -916,6 +925,7 @@ class OptimizedMessageProcessor:
                 response_content,
                 ResponseType.TEXT,
                 send_tts=send_tts_for_response and tts_enabled,
+                post_template_name="welcome_message" if is_new_user else "",
             )
 
         except Exception as e:
@@ -949,17 +959,8 @@ class OptimizedMessageProcessor:
         """
         text_lower = input_text.lower().strip()
 
-        # Greeting messages:
-        # - New users get onboarding button.
-        # - Returning users continue to model processing.
+        # Greeting messages should continue to normal model processing.
         if text_lower in ["hello", "hi", "hey", "hola", "greetings"]:
-            if is_new_user:
-                return ProcessingResult(
-                    "",
-                    ResponseType.TEMPLATE,
-                    template_name="welcome_message",
-                    should_save=False,
-                )
             return None
 
         # Most common commands - return immediately without UG40 calls
@@ -1461,7 +1462,7 @@ class OptimizedMessageProcessor:
         """
         try:
             await save_user_preference(
-                from_number, "English", "eng", "chat", tts_enabled=True
+                from_number, "English", "eng", "chat", tts_enabled=False
             )
             logging.info(f"Default preference set for new user: {from_number}")
         except Exception as e:
