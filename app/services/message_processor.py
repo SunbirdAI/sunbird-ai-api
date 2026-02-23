@@ -254,7 +254,7 @@ class OptimizedMessageProcessor:
             user_mode = await get_user_mode(from_number) or "chat"
             tts_enabled = await get_user_tts_enabled(from_number)
             if tts_enabled is None:
-                tts_enabled = True
+                tts_enabled = False
 
             # Route to appropriate handler
             if message_type == MessageType.REACTION:
@@ -692,7 +692,7 @@ class OptimizedMessageProcessor:
             try:
                 logging.info(f"Sending to UG40 for processing: {transcribed_text}")
                 conversation_pairs = await get_user_conversation_pairs(
-                    from_number, limit_pairs=30
+                    from_number, limit_pairs=10
                 )
                 recent_pairs = conversation_pairs[-5:]
                 older_pairs = conversation_pairs[:-5]
@@ -1461,7 +1461,7 @@ class OptimizedMessageProcessor:
         """
         try:
             await save_user_preference(
-                from_number, "English", "eng", "chat", tts_enabled=True
+                from_number, "English", "eng", "chat", tts_enabled=False
             )
             logging.info(f"Default preference set for new user: {from_number}")
         except Exception as e:

@@ -206,7 +206,7 @@ async def get_user_last_five_conversation_pairs(user_id: str) -> list:
         return []
 
 
-async def get_user_conversation_pairs(user_id: str, limit_pairs: int = 30) -> list:
+async def get_user_conversation_pairs(user_id: str, limit_pairs: int = 10) -> list:
     try:
         async with async_session_maker() as db:
             return await whatsapp_crud.get_user_conversation_pairs(
