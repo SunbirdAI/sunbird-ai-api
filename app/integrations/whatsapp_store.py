@@ -58,16 +58,26 @@ async def get_user_mode(user_id: str) -> Optional[str]:
         return None
 
 
+async def get_user_tts_enabled(user_id: str) -> Optional[bool]:
+    try:
+        async with async_session_maker() as db:
+            return await whatsapp_crud.get_user_tts_enabled(db, user_id)
+    except Exception as e:
+        logger.error("Error getting user tts preference for %s: %s", user_id, e)
+        return None
+
+
 async def save_user_preference(
     user_id: str,
     source_language: str,
     target_language: str,
     mode: Optional[str] = None,
+    tts_enabled: Optional[bool] = None,
 ) -> None:
     try:
         async with async_session_maker() as db:
             await whatsapp_crud.save_user_preference(
-                db, user_id, source_language, target_language, mode
+                db, user_id, source_language, target_language, mode, tts_enabled
             )
     except Exception as e:
         logger.error("Error saving user preference for %s: %s", user_id, e)
@@ -79,6 +89,14 @@ async def save_user_mode(user_id: str, mode: str) -> None:
             await whatsapp_crud.save_user_mode(db, user_id, mode)
     except Exception as e:
         logger.error("Error saving user mode for %s: %s", user_id, e)
+
+
+async def save_user_tts_enabled(user_id: str, tts_enabled: bool) -> None:
+    try:
+        async with async_session_maker() as db:
+            await whatsapp_crud.save_user_tts_enabled(db, user_id, tts_enabled)
+    except Exception as e:
+        logger.error("Error saving user tts preference for %s: %s", user_id, e)
 
 
 async def update_feedback(message_id: str, feedback: str) -> bool:
@@ -224,8 +242,10 @@ async def upsert_user_memory_note(user_id: str, memory_note: str) -> None:
 __all__ = [
     "get_user_preference",
     "get_user_mode",
+    "get_user_tts_enabled",
     "save_user_preference",
     "save_user_mode",
+    "save_user_tts_enabled",
     "update_feedback",
     "save_detailed_feedback",
     "save_feedback_with_context",

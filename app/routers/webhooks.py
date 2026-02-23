@@ -257,6 +257,14 @@ async def webhook(
                     message=result.message,
                     phone_number_id=phone_number_id,
                 )
+                if result.send_tts:
+                    background_tasks.add_task(
+                        processor.send_tts_audio_response,
+                        result.message,
+                        target_language,
+                        from_number,
+                        phone_number_id,
+                    )
             except Exception as e:
                 logging.error(f"Error sending message: {e}")
 

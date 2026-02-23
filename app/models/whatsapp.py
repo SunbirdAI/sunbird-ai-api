@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text
 from sqlalchemy.sql import func
 
 from app.database.db import Base
@@ -11,6 +11,7 @@ class WhatsAppUserPreference(Base):
     source_language = Column(String(64), nullable=False, default="English")
     target_language = Column(String(16), nullable=False, default="eng")
     mode = Column(String(16), nullable=False, default="chat")
+    tts_enabled = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(
         DateTime(timezone=True),
