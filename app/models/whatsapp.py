@@ -10,6 +10,7 @@ class WhatsAppUserPreference(Base):
     user_id = Column(String(32), primary_key=True, index=True)
     source_language = Column(String(64), nullable=False, default="English")
     target_language = Column(String(16), nullable=False, default="eng")
+    mode = Column(String(16), nullable=False, default="chat")
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(
         DateTime(timezone=True),
@@ -43,3 +44,19 @@ class WhatsAppFeedback(Base):
     feedback = Column(String(64), nullable=False)
     feedback_type = Column(String(32), nullable=False, default="reaction")
     timestamp = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class WhatsAppUserMemory(Base):
+    __tablename__ = "whatsapp_user_memory"
+
+    user_id = Column(String(32), primary_key=True, index=True)
+    memory_note = Column(Text, nullable=False, default="")
+    last_summarized_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )

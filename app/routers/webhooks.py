@@ -227,11 +227,18 @@ async def webhook(
             )
         elif result.response_type == ResponseType.BUTTON and result.button_data:
             try:
-                whatsapp_service.send_button(
-                    button=result.button_data,
-                    phone_number_id=phone_number_id,
-                    recipient_id=from_number,
-                )
+                if result.button_data.get("interactive_type") == "reply":
+                    whatsapp_service.send_reply_button(
+                        button=result.button_data.get("payload", {}),
+                        phone_number_id=phone_number_id,
+                        recipient_id=from_number,
+                    )
+                else:
+                    whatsapp_service.send_button(
+                        button=result.button_data,
+                        phone_number_id=phone_number_id,
+                        recipient_id=from_number,
+                    )
             except Exception as e:
                 logging.error(f"Error sending button: {e}")
                 # Fallback to text message
