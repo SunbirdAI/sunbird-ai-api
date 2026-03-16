@@ -48,9 +48,7 @@ from pydub.exceptions import CouldntDecodeError
 from app.integrations.whatsapp_store import (
     get_user_conversation_pairs,
     get_user_memory_note,
-    get_user_mode,
-    get_user_preference,
-    get_user_tts_enabled,
+    get_user_settings,
     save_detailed_feedback,
     save_feedback_with_context,
     save_message,
@@ -149,6 +147,8 @@ class ProcessingResult:
     button_data: Optional[Dict] = None
     send_tts: bool = False
     post_template_name: str = ""
+    resolved_target_language: str = "eng"
+    user_message: str = ""
 
 
 def clear_processed_messages() -> None:
@@ -253,10 +253,21 @@ class OptimizedMessageProcessor:
 
             # Determine message type quickly
             message_type = self._determine_message_type(payload)
-            user_mode = await get_user_mode(from_number) or "chat"
-            tts_enabled = await get_user_tts_enabled(from_number)
+            user_settings = await get_user_settings(from_number)
+            lookup_failed = bool(user_settings.get("lookup_failed"))
+            is_new_user = bool(user_settings.get("found") is False and not lookup_failed)
+            target_language = (
+                user_settings.get("target_language") or target_language or "eng"
+            )
+            user_mode = self._normalize_mode(user_settings.get("mode"))
+            tts_enabled = user_settings.get("tts_enabled")
             if tts_enabled is None:
                 tts_enabled = False
+            if lookup_failed:
+                logging.warning(
+                    "User settings lookup failed for %s; continuing with defaults.",
+                    from_number,
+                )
 
             # Route to appropriate handler
             if message_type == MessageType.REACTION:
@@ -284,9 +295,12 @@ class OptimizedMessageProcessor:
                     sender_name,
                     user_mode,
                     tts_enabled,
+                    is_new_user,
+                    lookup_failed,
                 )
 
             result.processing_time = time.time() - start_time
+            result.resolved_target_language = target_language
             return result
 
         except Exception as e:
@@ -616,19 +630,23 @@ class OptimizedMessageProcessor:
 
             # Send transcription as a threaded reply to the original audio message.
             transcription_message = f'*Transcription:*\n"{transcribed_text}"'
+            transcription_response_id = None
             if audio_message_id:
                 try:
-                    whatsapp_service.reply_to_message(
+                    reply_response = whatsapp_service.reply_to_message(
                         message_id=audio_message_id,
                         recipient_id=from_number,
                         message=transcription_message,
                         phone_number_id=phone_number_id,
                     )
+                    transcription_response_id = (reply_response or {}).get(
+                        "messages", [{}]
+                    )[0].get("id")
                 except Exception as reply_error:
                     logging.warning(
                         f"Could not send threaded transcription reply: {reply_error}"
                     )
-                    whatsapp_service.send_message(
+                    transcription_response_id = whatsapp_service.send_message(
                         recipient_id=from_number,
                         message=transcription_message,
                         phone_number_id=phone_number_id,
@@ -638,7 +656,7 @@ class OptimizedMessageProcessor:
                     "Missing inbound audio message id; sending transcription "
                     "without threaded context."
                 )
-                whatsapp_service.send_message(
+                transcription_response_id = whatsapp_service.send_message(
                     recipient_id=from_number,
                     message=transcription_message,
                     phone_number_id=phone_number_id,
@@ -650,6 +668,7 @@ class OptimizedMessageProcessor:
                     from_number,
                     "[AUDIO]",
                     f"[TRANSCRIPTION]: {transcribed_text}",
+                    transcription_response_id,
                 )
                 return
 
@@ -658,7 +677,7 @@ class OptimizedMessageProcessor:
                     translated_text = await self._generate_translation_response(
                         transcribed_text, target_language
                     )
-                    whatsapp_service.send_message(
+                    response_message_id = whatsapp_service.send_message(
                         recipient_id=from_number,
                         message=translated_text,
                         phone_number_id=phone_number_id,
@@ -676,6 +695,7 @@ class OptimizedMessageProcessor:
                         from_number,
                         f"[AUDIO-TRANSCRIBED]: {transcribed_text}",
                         translated_text,
+                        response_message_id,
                     )
                 except Exception as translate_error:
                     logging.error(
@@ -721,7 +741,7 @@ class OptimizedMessageProcessor:
                 final_response = self._clean_response(response)
                 logging.info(f"Final UG40 Response: {final_response}")
                 if final_response:
-                    whatsapp_service.send_message(
+                    response_message_id = whatsapp_service.send_message(
                         recipient_id=from_number,
                         message=final_response,
                         phone_number_id=phone_number_id,
@@ -736,7 +756,10 @@ class OptimizedMessageProcessor:
                             )
                         )
                     await save_response(
-                        from_number, f"[AUDIO]: {transcribed_text}", final_response
+                        from_number,
+                        f"[AUDIO]: {transcribed_text}",
+                        final_response,
+                        response_message_id,
                     )
                 else:
                     whatsapp_service.send_message(
@@ -795,6 +818,8 @@ class OptimizedMessageProcessor:
         sender_name: str,
         user_mode: str,
         tts_enabled: bool,
+        is_new_user: bool,
+        lookup_failed: bool,
     ) -> ProcessingResult:
         """Optimized text processing without caching.
 
@@ -813,12 +838,10 @@ class OptimizedMessageProcessor:
             user_mode = self._normalize_mode(user_mode)
             tts_enabled = bool(tts_enabled)
 
-            # Determine whether this is a new or returning user before command handling.
-            user_preference = await get_user_preference(from_number)
-            is_new_user = user_preference is None
-
             # Save message in background
-            asyncio.create_task(self._save_message_async(from_number, input_text))
+            asyncio.create_task(
+                self._save_message_async(from_number, input_text, message_id)
+            )
 
             # Quick command check first (most performance gain)
             command_result = await self._handle_quick_commands(
@@ -831,6 +854,7 @@ class OptimizedMessageProcessor:
                 is_new_user=is_new_user,
             )
             if command_result:
+                command_result.user_message = input_text
                 if is_new_user:
                     asyncio.create_task(self._set_default_preference_async(from_number))
                     if (
@@ -840,14 +864,16 @@ class OptimizedMessageProcessor:
                         command_result.post_template_name = "welcome_message"
                 return command_result
 
-            if not user_preference:
-                # Do not block model processing for new users or transient DB failures.
-                # Default to English and initialize preference in the background.
-                user_preference = target_language or "eng"
+            if is_new_user:
                 asyncio.create_task(self._set_default_preference_async(from_number))
                 logging.info(
                     f"No stored language preference for {from_number}; "
-                    f"continuing with default '{user_preference}'."
+                    f"continuing with default '{target_language or 'eng'}'."
+                )
+            elif lookup_failed:
+                logging.info(
+                    "Skipping onboarding initialization for %s because settings lookup failed.",
+                    from_number,
                 )
 
             if user_mode == "transcribe":
@@ -857,22 +883,19 @@ class OptimizedMessageProcessor:
                     ResponseType.TEXT,
                     should_save=False,
                     post_template_name="welcome_message" if is_new_user else "",
+                    user_message=input_text,
                 )
 
             if user_mode == "translate":
                 translated_text = await self._generate_translation_response(
                     input_text, target_language
                 )
-                asyncio.create_task(
-                    self._save_response_async(
-                        from_number, input_text, translated_text, message_id
-                    )
-                )
                 return ProcessingResult(
                     translated_text,
                     ResponseType.TEXT,
                     send_tts=tts_enabled,
                     post_template_name="welcome_message" if is_new_user else "",
+                    user_message=input_text,
                 )
 
             # Chat mode context strategy:
@@ -906,17 +929,6 @@ class OptimizedMessageProcessor:
             response = await self._call_ug40_optimized(messages)
             response_content = self._clean_response(response)
 
-            # Save response in background only if not a technical error
-            if (
-                response_content
-                != "I'm having technical difficulties. \n\n Please try again."
-            ):
-                asyncio.create_task(
-                    self._save_response_async(
-                        from_number, input_text, response_content, message_id
-                    )
-                )
-
             send_tts_for_response = response_content not in {
                 "I'm having technical difficulties. \n\n Please try again.",
                 "I'm running a bit slow right now. \n\n Please try again.",
@@ -926,6 +938,7 @@ class OptimizedMessageProcessor:
                 ResponseType.TEXT,
                 send_tts=send_tts_for_response and tts_enabled,
                 post_template_name="welcome_message" if is_new_user else "",
+                user_message=input_text,
             )
 
         except Exception as e:
@@ -1091,6 +1104,50 @@ class OptimizedMessageProcessor:
 
         return messages
 
+    def _build_compact_retry_messages(self, messages: list) -> list:
+        """Build a minimal prompt for UG40 retry when full context fails."""
+        if not messages:
+            return []
+
+        first_system = next(
+            (
+                msg
+                for msg in messages
+                if msg.get("role") == "system" and msg.get("content")
+            ),
+            None,
+        )
+        last_user = next(
+            (
+                msg
+                for msg in reversed(messages)
+                if msg.get("role") == "user" and msg.get("content")
+            ),
+            None,
+        )
+
+        compact_messages = [
+            first_system
+            if first_system
+            else {"role": "system", "content": self.system_message}
+        ]
+
+        if last_user:
+            compact_messages.append(last_user)
+        else:
+            last_content_message = next(
+                (msg for msg in reversed(messages) if msg.get("content")), None
+            )
+            if last_content_message:
+                compact_messages.append(
+                    {
+                        "role": last_content_message.get("role", "user"),
+                        "content": last_content_message.get("content", ""),
+                    }
+                )
+
+        return compact_messages
+
     async def _call_ug40_optimized(self, messages: list) -> Dict:
         """Call UG40 language model with optimized settings.
 
@@ -1104,7 +1161,9 @@ class OptimizedMessageProcessor:
             logging.info(
                 f"Calling UG40 model with optimized settings. Messages: {messages}"
             )
-            response = run_inference(messages=messages, model_type="qwen")
+            response = await asyncio.to_thread(
+                run_inference, messages=messages, model_type="qwen"
+            )
             return response
         except asyncio.TimeoutError:
             logging.error("UG40 call timed out")
@@ -1112,6 +1171,39 @@ class OptimizedMessageProcessor:
                 "content": "I'm running a bit slow right now. \n\n Please try again."
             }
         except Exception as e:
+            error_text = str(e).lower()
+            should_compact_retry = any(
+                marker in error_text
+                for marker in [
+                    "no response choices available",
+                    "context length",
+                    "prompt is too long",
+                    "too many tokens",
+                    "request timed out",
+                    "model is still loading",
+                ]
+            )
+            if should_compact_retry:
+                compact_messages = self._build_compact_retry_messages(messages)
+                if compact_messages and compact_messages != messages:
+                    logging.warning(
+                        "UG40 call failed (%s). Retrying with compact context (%s -> %s messages).",
+                        e,
+                        len(messages),
+                        len(compact_messages),
+                    )
+                    try:
+                        return await asyncio.to_thread(
+                            run_inference,
+                            messages=compact_messages,
+                            model_type="qwen",
+                        )
+                    except Exception as compact_retry_error:
+                        logging.error(
+                            "UG40 compact-context retry failed: %s",
+                            compact_retry_error,
+                        )
+
             logging.error(f"UG40 call error: {e}")
             return {
                 "content": "I'm having technical difficulties. \n\n Please try again."
@@ -1461,14 +1553,14 @@ class OptimizedMessageProcessor:
             from_number: The user's phone number.
         """
         try:
-            await save_user_preference(
-                from_number, "English", "eng", "chat", tts_enabled=False
-            )
+            await save_user_preference(from_number, "English", "eng")
             logging.info(f"Default preference set for new user: {from_number}")
         except Exception as e:
             logging.error(f"Error setting default preference: {e}")
 
-    async def _save_message_async(self, from_number: str, message: str) -> None:
+    async def _save_message_async(
+        self, from_number: str, message: str, message_id: Optional[str] = None
+    ) -> None:
         """Save message asynchronously.
 
         Args:
@@ -1476,25 +1568,9 @@ class OptimizedMessageProcessor:
             message: The message text.
         """
         try:
-            await save_message(from_number, message)
+            await save_message(from_number, message, message_id)
         except Exception as e:
             logging.error(f"Error saving message: {e}")
-
-    async def _save_response_async(
-        self, from_number: str, user_message: str, response: str, message_id: str
-    ) -> None:
-        """Save response asynchronously.
-
-        Args:
-            from_number: The user's phone number.
-            user_message: The original user message.
-            response: The bot's response.
-            message_id: The WhatsApp message ID.
-        """
-        try:
-            await save_response(from_number, user_message, response, message_id)
-        except Exception as e:
-            logging.error(f"Error saving response: {e}")
 
     async def _update_feedback_async(self, message_id: str, emoji: str) -> None:
         """Update feedback asynchronously.

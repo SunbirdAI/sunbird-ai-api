@@ -23,13 +23,12 @@ Note:
 import logging
 import os
 import time
-from inspect import isawaitable
 
 from dotenv import load_dotenv
 from fastapi import APIRouter, BackgroundTasks, Request, Response
 
 from app.core.exceptions import AuthorizationError, BadRequestError
-from app.integrations.whatsapp_store import get_user_preference
+from app.integrations.whatsapp_store import save_response
 from app.schemas.webhooks import WebhookResponse
 from app.services.message_processor import OptimizedMessageProcessor, ResponseType
 from app.services.whatsapp_service import get_whatsapp_service
@@ -184,16 +183,14 @@ async def webhook(
 
         # Extract message details
         try:
-            phone_number_id = payload["entry"][0]["changes"][0]["value"]["metadata"][
-                "phone_number_id"
-            ]
-            from_number = payload["entry"][0]["changes"][0]["value"]["messages"][0][
-                "from"
-            ]
-            sender_name = payload["entry"][0]["changes"][0]["value"]["contacts"][0][
-                "profile"
-            ]["name"]
-        except (KeyError, IndexError) as e:
+            value = payload["entry"][0]["changes"][0]["value"]
+            phone_number_id = value["metadata"]["phone_number_id"]
+            from_number = value["messages"][0]["from"]
+            sender_name = (
+                value.get("contacts", [{}])[0].get("profile", {}).get("name")
+                or from_number
+            )
+        except (KeyError, IndexError, TypeError) as e:
             logging.error(f"Error extracting message details: {e}")
             return WebhookResponse(
                 status="invalid_message_format",
@@ -201,17 +198,9 @@ async def webhook(
                 message="Invalid message format",
             )
 
-        # Get user preference
-        target_language = get_user_preference(from_number)
-        if isawaitable(target_language):
-            target_language = await target_language
-
-        if not target_language:
-            target_language = "eng"  # Default to English if no preference set
-
         # Process message
         result = await processor.process_message(
-            payload, from_number, sender_name, target_language, phone_number_id
+            payload, from_number, sender_name, "eng", phone_number_id
         )
 
         # Handle response
@@ -250,18 +239,29 @@ async def webhook(
                     ),
                     phone_number_id=phone_number_id,
                 )
+                raise
         elif result.response_type == ResponseType.TEXT and result.message:
             try:
-                whatsapp_service.send_message(
+                outbound_message_id = whatsapp_service.send_message(
                     recipient_id=from_number,
                     message=result.message,
                     phone_number_id=phone_number_id,
                 )
+                if not outbound_message_id:
+                    raise RuntimeError("Failed to send WhatsApp text response")
+                if result.should_save and result.user_message:
+                    background_tasks.add_task(
+                        save_response,
+                        from_number,
+                        result.user_message,
+                        result.message,
+                        outbound_message_id,
+                    )
                 if result.send_tts:
                     background_tasks.add_task(
                         processor.send_tts_audio_response,
                         result.message,
-                        target_language,
+                        result.resolved_target_language,
                         from_number,
                         phone_number_id,
                     )
@@ -275,6 +275,7 @@ async def webhook(
                     )
             except Exception as e:
                 logging.error(f"Error sending message: {e}")
+                raise
 
         # Log performance
         total_time = time.time() - start_time

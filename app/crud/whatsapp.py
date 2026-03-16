@@ -20,6 +20,15 @@ async def get_user_preference(db: AsyncSession, user_id: str) -> Optional[str]:
     return preference.target_language if preference else None
 
 
+async def get_user_settings(
+    db: AsyncSession, user_id: str
+) -> Optional[WhatsAppUserPreference]:
+    result = await db.execute(
+        select(WhatsAppUserPreference).where(WhatsAppUserPreference.user_id == user_id)
+    )
+    return result.scalars().first()
+
+
 async def get_user_mode(db: AsyncSession, user_id: str) -> Optional[str]:
     result = await db.execute(
         select(WhatsAppUserPreference).where(WhatsAppUserPreference.user_id == user_id)
@@ -109,11 +118,17 @@ async def save_user_tts_enabled(
     await db.commit()
 
 
-async def save_message(db: AsyncSession, user_id: str, message_text: str) -> WhatsAppMessage:
+async def save_message(
+    db: AsyncSession,
+    user_id: str,
+    message_text: str,
+    message_id: Optional[str] = None,
+) -> WhatsAppMessage:
     message = WhatsAppMessage(
         user_id=user_id,
         message_text=message_text,
         message_type="user_message",
+        message_id=message_id,
     )
     db.add(message)
     await db.commit()
@@ -170,25 +185,21 @@ async def get_user_conversation_pairs(
     result = await db.execute(
         select(WhatsAppMessage)
         .where(WhatsAppMessage.user_id == user_id)
+        .where(WhatsAppMessage.message_type == "bot_response")
         .order_by(desc(WhatsAppMessage.timestamp))
-        .limit(max(limit_pairs * 4, 40))
+        .limit(max(limit_pairs * 2, 40))
     )
-    all_messages = list(reversed(result.scalars().all()))
+    bot_responses = list(reversed(result.scalars().all()))
 
     conversation_pairs = []
-    current_user_msg = None
-    for msg in all_messages:
-        if msg.message_type == "user_message":
-            current_user_msg = msg
-        elif msg.message_type == "bot_response" and current_user_msg:
-            conversation_pairs.append(
-                {
-                    "user_message": current_user_msg.message_text or "",
-                    "bot_response": msg.message_text or "",
-                    "timestamp": msg.timestamp,
-                }
-            )
-            current_user_msg = None
+    for msg in bot_responses:
+        conversation_pairs.append(
+            {
+                "user_message": msg.user_message or "",
+                "bot_response": msg.message_text or "",
+                "timestamp": msg.timestamp,
+            }
+        )
 
     return conversation_pairs[-limit_pairs:]
 
