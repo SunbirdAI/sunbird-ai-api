@@ -22,7 +22,7 @@ conf = ConnectionConfig(
     MAIL_PORT=SMTP_PORT,
     MAIL_SERVER=SMTP_SERVER,
     MAIL_STARTTLS=True,
-    MAIL_SSL_TLS=True,
+    MAIL_SSL_TLS=False,
     USE_CREDENTIALS=True,
     VALIDATE_CERTS=True,
 )
