@@ -519,6 +519,46 @@ class InferenceService(BaseService):
         cleaned = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
         return cleaned
 
+    def _extract_response_payload(self, response: Any) -> Optional[Dict[str, Any]]:
+        """Best-effort extraction of raw response payload for diagnostics."""
+        if isinstance(response, dict):
+            return response
+
+        if hasattr(response, "model_dump"):
+            try:
+                payload = response.model_dump()
+                if isinstance(payload, dict):
+                    return payload
+            except Exception:
+                return None
+
+        return None
+
+    def _extract_error_text_from_payload(
+        self, payload: Optional[Dict[str, Any]]
+    ) -> Optional[str]:
+        """Extract error text from non-standard OpenAI-compatible responses."""
+        if not payload:
+            return None
+
+        error_obj = payload.get("error")
+        if isinstance(error_obj, str):
+            return error_obj
+        if isinstance(error_obj, dict):
+            error_text = error_obj.get("message") or error_obj.get("error")
+            if error_text:
+                return str(error_text)
+
+        details = payload.get("detail")
+        if details:
+            return str(details)
+
+        message = payload.get("message")
+        if message:
+            return str(message)
+
+        return None
+
     @exponential_backoff_retry(
         max_retries=4,
         base_delay=3.0,
@@ -648,8 +688,28 @@ class InferenceService(BaseService):
                 return result
 
             else:
-                self.log_error("No choices in response")
-                raise ValueError("No response choices available")
+                payload_data = self._extract_response_payload(response)
+                payload_error_text = self._extract_error_text_from_payload(payload_data)
+
+                if payload_error_text:
+                    self.log_error(
+                        f"No choices in response. Payload error: {payload_error_text}"
+                    )
+                    raise classify_error(
+                        ValueError(payload_error_text), payload_error_text
+                    )
+
+                if payload_data:
+                    payload_preview = json.dumps(payload_data, default=str)[:800]
+                    self.log_error(
+                        f"No choices in response. Payload preview: {payload_preview}"
+                    )
+                else:
+                    self.log_error("No choices in response")
+
+                # Treat empty-choice responses as transient; endpoint can occasionally
+                # return an incomplete 200 payload.
+                raise InferenceTimeoutError("No response choices available")
 
         except (ModelLoadingError, InferenceTimeoutError):
             # Re-raise retryable errors
