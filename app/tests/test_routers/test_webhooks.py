@@ -52,15 +52,13 @@ class TestWebhookHandler:
         """Test successful webhook processing."""
         with patch("app.routers.webhooks.whatsapp_service") as mock_whatsapp, patch(
             "app.routers.webhooks.processor"
-        ) as mock_processor, patch(
-            "app.routers.webhooks.get_user_preference"
-        ) as mock_preference:
+        ) as mock_processor:
             # Setup mocks
             mock_whatsapp.valid_payload.return_value = True
             mock_whatsapp.get_messages_from_payload.return_value = [
                 {"from": "1234567890"}
             ]
-            mock_preference.return_value = "eng"
+            mock_whatsapp.send_message.return_value = "wamid.outbound123"
 
             # Mock processor result
             mock_result = ProcessingResult(
@@ -146,15 +144,12 @@ class TestWebhookHandler:
         """Test webhook with button response."""
         with patch("app.routers.webhooks.whatsapp_service") as mock_whatsapp, patch(
             "app.routers.webhooks.processor"
-        ) as mock_processor, patch(
-            "app.routers.webhooks.get_user_preference"
-        ) as mock_preference:
+        ) as mock_processor:
             # Setup mocks
             mock_whatsapp.valid_payload.return_value = True
             mock_whatsapp.get_messages_from_payload.return_value = [
                 {"from": "1234567890"}
             ]
-            mock_preference.return_value = "eng"
 
             # Mock processor result with button
             mock_result = ProcessingResult(
@@ -184,15 +179,12 @@ class TestWebhookHandler:
         """Test webhook with template response."""
         with patch("app.routers.webhooks.whatsapp_service") as mock_whatsapp, patch(
             "app.routers.webhooks.processor"
-        ) as mock_processor, patch(
-            "app.routers.webhooks.get_user_preference"
-        ) as mock_preference:
+        ) as mock_processor:
             # Setup mocks
             mock_whatsapp.valid_payload.return_value = True
             mock_whatsapp.get_messages_from_payload.return_value = [
                 {"from": "1234567890"}
             ]
-            mock_preference.return_value = "eng"
 
             # Mock processor result with template
             mock_result = ProcessingResult(
@@ -221,15 +213,12 @@ class TestWebhookHandler:
         """Test webhook error handling."""
         with patch("app.routers.webhooks.whatsapp_service") as mock_whatsapp, patch(
             "app.routers.webhooks.processor"
-        ) as mock_processor, patch(
-            "app.routers.webhooks.get_user_preference"
-        ) as mock_preference:
+        ) as mock_processor:
             # Setup mocks
             mock_whatsapp.valid_payload.return_value = True
             mock_whatsapp.get_messages_from_payload.return_value = [
                 {"from": "1234567890"}
             ]
-            mock_preference.return_value = "eng"
 
             # Mock processor to raise exception
             mock_processor.process_message = AsyncMock(
@@ -245,6 +234,60 @@ class TestWebhookHandler:
             data = response.json()
             assert data["status"] == "error"
             assert "processing_time" in data
+
+    @pytest.mark.asyncio
+    async def test_webhook_falls_back_to_sender_number_when_contact_name_missing(
+        self,
+        async_client: AsyncClient,
+    ) -> None:
+        """Test webhook processing when contact profile name is missing."""
+        payload = {
+            "entry": [
+                {
+                    "changes": [
+                        {
+                            "value": {
+                                "messages": [
+                                    {
+                                        "from": "1234567890",
+                                        "text": {"body": "Hello"},
+                                    }
+                                ],
+                                "metadata": {"phone_number_id": "9876543210"},
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+
+        with patch("app.routers.webhooks.whatsapp_service") as mock_whatsapp, patch(
+            "app.routers.webhooks.processor"
+        ) as mock_processor:
+            mock_whatsapp.valid_payload.return_value = True
+            mock_whatsapp.get_messages_from_payload.return_value = [
+                {"from": "1234567890"}
+            ]
+            mock_whatsapp.send_message.return_value = "wamid.outbound123"
+            mock_processor.process_message = AsyncMock(
+                return_value=ProcessingResult(
+                    message="Test response",
+                    response_type=ResponseType.TEXT,
+                    processing_time=1.0,
+                )
+            )
+
+            response = await async_client.post("/tasks/webhook", json=payload)
+
+            assert response.status_code == 200
+            assert response.json()["status"] == "success"
+            mock_processor.process_message.assert_awaited_once_with(
+                payload,
+                "1234567890",
+                "1234567890",
+                "eng",
+                "9876543210",
+            )
 
 
 class TestWebhookVerification:

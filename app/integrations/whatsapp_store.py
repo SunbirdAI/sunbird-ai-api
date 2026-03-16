@@ -49,6 +49,36 @@ async def get_user_preference(user_id: str) -> Optional[str]:
         return None
 
 
+async def get_user_settings(user_id: str) -> Dict[str, Any]:
+    try:
+        async with async_session_maker() as db:
+            preference = await whatsapp_crud.get_user_settings(db, user_id)
+            if preference is None:
+                return {
+                    "found": False,
+                    "lookup_failed": False,
+                    "target_language": None,
+                    "mode": None,
+                    "tts_enabled": None,
+                }
+            return {
+                "found": True,
+                "lookup_failed": False,
+                "target_language": preference.target_language,
+                "mode": preference.mode,
+                "tts_enabled": bool(preference.tts_enabled),
+            }
+    except Exception as e:
+        logger.error("Error getting user settings for %s: %s", user_id, e)
+        return {
+            "found": False,
+            "lookup_failed": True,
+            "target_language": None,
+            "mode": None,
+            "tts_enabled": None,
+        }
+
+
 async def get_user_mode(user_id: str) -> Optional[str]:
     try:
         async with async_session_maker() as db:
@@ -153,10 +183,14 @@ async def get_all_feedback_summary(limit: int = 100) -> List[Dict[str, Any]]:
         return []
 
 
-async def save_message(user_id: str, message_text: str) -> str:
+async def save_message(
+    user_id: str, message_text: str, message_id: Optional[str] = None
+) -> str:
     try:
         async with async_session_maker() as db:
-            message = await whatsapp_crud.save_message(db, user_id, message_text)
+            message = await whatsapp_crud.save_message(
+                db, user_id, message_text, message_id
+            )
             return str(message.id)
     except Exception as e:
         logger.error("Error saving message for %s: %s", user_id, e)
@@ -241,6 +275,7 @@ async def upsert_user_memory_note(user_id: str, memory_note: str) -> None:
 
 __all__ = [
     "get_user_preference",
+    "get_user_settings",
     "get_user_mode",
     "get_user_tts_enabled",
     "save_user_preference",
