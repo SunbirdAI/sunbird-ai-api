@@ -31,3 +31,4 @@ pydub==0.25.1
 aiofiles==23.2.1
 # OpenAI for API calls (lightweight)
 openai==1.98.0
+resend==2.24.0
