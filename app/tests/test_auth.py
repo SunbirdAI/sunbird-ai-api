@@ -7,6 +7,9 @@ user registration, login, password management, and token validation.
 Tests use fixtures from conftest.py for database and client setup.
 """
 
+from unittest.mock import AsyncMock
+from urllib.parse import parse_qs, urlparse
+
 import pytest
 from httpx import AsyncClient
 
@@ -440,3 +443,108 @@ class TestRegistrationWithProfileFields:
         assert data["full_name"] is None
         assert data["organization_type"] is None
         assert data["sector"] is None
+
+
+class TestGoogleOAuthCallback:
+    """Tests for Google OAuth callback redirect logic."""
+
+    @pytest.mark.asyncio
+    async def test_google_callback_new_user_redirects_to_complete_profile(
+        self, async_client: AsyncClient, test_db, monkeypatch
+    ):
+        """New Google user (incomplete profile) should redirect to /login with next=/complete-profile."""
+        mock_token = {
+            "userinfo": {
+                "email": "newgoogle@example.com",
+                "name": "New Google User",
+            }
+        }
+
+        mock_authorize = AsyncMock(return_value=mock_token)
+        monkeypatch.setattr(
+            "app.routers.auth.oauth.google.authorize_access_token",
+            mock_authorize,
+        )
+
+        response = await async_client.get(
+            "/auth/google/callback", follow_redirects=False
+        )
+
+        assert response.status_code == 307
+        location = response.headers["location"]
+        parsed = urlparse(location)
+        params = parse_qs(parsed.query)
+
+        assert parsed.path == "/login"
+        assert "token" in params
+        assert params["next"] == ["/complete-profile"]
+
+    @pytest.mark.asyncio
+    async def test_google_callback_complete_user_redirects_to_dashboard(
+        self, async_client: AsyncClient, test_db, db_session, monkeypatch
+    ):
+        """Existing Google user with complete profile should redirect to /login with next=/dashboard."""
+        from app.models.users import User as UserModel
+
+        db_user = UserModel(
+            username="completegoogle",
+            email="completegoogle@example.com",
+            hashed_password=None,
+            organization="Test Org",
+            account_type="Free",
+            oauth_type="Google",
+            full_name="Complete User",
+            organization_type="NGO",
+            sector=["Health"],
+        )
+        db_session.add(db_user)
+        await db_session.commit()
+
+        mock_token = {
+            "userinfo": {
+                "email": "completegoogle@example.com",
+                "name": "Complete User",
+            }
+        }
+
+        mock_authorize = AsyncMock(return_value=mock_token)
+        monkeypatch.setattr(
+            "app.routers.auth.oauth.google.authorize_access_token",
+            mock_authorize,
+        )
+
+        response = await async_client.get(
+            "/auth/google/callback", follow_redirects=False
+        )
+
+        assert response.status_code == 307
+        location = response.headers["location"]
+        parsed = urlparse(location)
+        params = parse_qs(parsed.query)
+
+        assert parsed.path == "/login"
+        assert "token" in params
+        assert params["next"] == ["/dashboard"]
+
+    @pytest.mark.asyncio
+    async def test_google_callback_error_redirects_to_login_with_error(
+        self, async_client: AsyncClient, test_db, monkeypatch
+    ):
+        """Failed Google OAuth should redirect to /login with error param."""
+        mock_authorize = AsyncMock(side_effect=Exception("OAuth failed"))
+        monkeypatch.setattr(
+            "app.routers.auth.oauth.google.authorize_access_token",
+            mock_authorize,
+        )
+
+        response = await async_client.get(
+            "/auth/google/callback", follow_redirects=False
+        )
+
+        assert response.status_code == 307
+        location = response.headers["location"]
+        parsed = urlparse(location)
+        params = parse_qs(parsed.query)
+
+        assert parsed.path == "/login"
+        assert "error" in params

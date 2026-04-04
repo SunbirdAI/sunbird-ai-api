@@ -22,8 +22,9 @@ export default function Login() {
     if (token) {
       localStorage.setItem('access_token', token);
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      const nextUrl = params.get('next') || '/dashboard';
       checkAuth().then(() => {
-        navigate('/dashboard');
+        navigate(nextUrl);
       });
     }
 
