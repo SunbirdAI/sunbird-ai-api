@@ -281,7 +281,7 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
             expires_delta=access_token_expires,
         )
 
-        # Determine redirect URL - redirect to profile completion if profile is incomplete
+        # Determine post-login destination based on profile completeness
         profile_incomplete = (
             not db_user.full_name
             or not db_user.organization
@@ -289,12 +289,10 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
             or not db_user.organization_type
             or not db_user.sector
         )
-        redirect_url = "/complete-profile" if profile_incomplete else "/login"
+        next_url = "/complete-profile" if profile_incomplete else "/dashboard"
 
-        # Append token to redirect URL for frontend to capture
-        redirect_url = (
-            f"{redirect_url}?token={access_token}&alert=Successfully%20Logged%20In"
-        )
+        # Always redirect through /login so the frontend captures the token
+        redirect_url = f"/login?token={access_token}&next={next_url}&alert=Successfully%20Logged%20In"
 
         return RedirectResponse(url=redirect_url)
 
