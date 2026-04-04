@@ -283,10 +283,15 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
             expires_delta=access_token_expires,
         )
 
-        # Determine redirect URL
-        redirect_url = (
-            f"/setup-organization" if db_user.organization == "Unknown" else "/login"
+        # Determine redirect URL - redirect to profile completion if profile is incomplete
+        profile_incomplete = (
+            not db_user.full_name
+            or not db_user.organization
+            or db_user.organization == "Unknown"
+            or not db_user.organization_type
+            or not db_user.sector
         )
+        redirect_url = "/complete-profile" if profile_incomplete else "/login"
 
         # Append token to redirect URL for frontend to capture
         redirect_url = (
