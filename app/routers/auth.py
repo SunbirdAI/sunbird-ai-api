@@ -200,9 +200,7 @@ async def update_profile(
         if not isinstance(profile_data.sector, list) or any(
             not isinstance(s, str) or not s.strip() for s in profile_data.sector
         ):
-            raise BadRequestError(
-                message="Sector must be a list of non-empty strings"
-            )
+            raise BadRequestError(message="Sector must be a list of non-empty strings")
 
     update_data = profile_data.model_dump(exclude_unset=True)
     updated_user = await update_user_profile(db, current_user.id, update_data)
