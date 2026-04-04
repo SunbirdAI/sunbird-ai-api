@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, JSON, String
 
 from app.database.db import Base
 
@@ -14,3 +14,6 @@ class User(Base):
     account_type = Column(String, nullable=False, default="Free")
     password_reset_token = Column(String, nullable=True)
     oauth_type = Column(String, nullable=True, default="Credentials")
+    full_name = Column(String, nullable=True, default=None)
+    organization_type = Column(String, nullable=True, default=None)
+    sector = Column(JSON, nullable=True, default=None)
