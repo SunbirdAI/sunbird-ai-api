@@ -12,6 +12,7 @@ import Register from './pages/Register';
 import Login from './pages/Login';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import CompleteProfile from './pages/CompleteProfile';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfService from './pages/TermsOfService';
 import { Loader2 } from 'lucide-react';
@@ -45,6 +46,16 @@ function AppRoutes() {
       <Route path="/privacy_policy" element={<PageTitle title="Privacy Policy"><PrivacyPolicy /></PageTitle>} />
       <Route path="/terms_of_service" element={<PageTitle title="Terms of Service"><TermsOfService /></PageTitle>} />
       <Route path="/setup-organization" element={<PageTitle title="Setup Organization"><Login /></PageTitle>} /> {/* Handle token redirect via Login component logic */}
+      <Route
+        path="/complete-profile"
+        element={
+          <RequireAuth>
+            <PageTitle title="Complete Profile">
+              <CompleteProfile />
+            </PageTitle>
+          </RequireAuth>
+        }
+      />
       <Route
         path="/dashboard"
         element={

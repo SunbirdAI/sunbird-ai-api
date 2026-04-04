@@ -5,6 +5,7 @@ import MultiSelect from '../components/MultiSelect';
 import { useDashboardData } from '../hooks/useDashboardData';
 import { Activity, Clock, TrendingUp } from 'lucide-react';
 import { Skeleton } from '../components/ui/Skeleton';
+import ProfileBanner from '../components/ProfileBanner';
 
 import {
   Chart as ChartJS,
@@ -213,6 +214,8 @@ export default function Dashboard() {
   if (loading) {
     return (
       <div className="space-y-6 ">
+        <ProfileBanner />
+
         {/* Header Skeleton */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
@@ -292,6 +295,8 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
+      <ProfileBanner />
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>

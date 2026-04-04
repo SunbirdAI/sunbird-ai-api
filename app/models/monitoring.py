@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, Float, Integer, String
+from sqlalchemy import JSON, Column, DateTime, Float, Integer, String
 from sqlalchemy.sql import func
 
 from app.database.db import Base
@@ -13,3 +13,5 @@ class EndpointLog(Base):
     endpoint = Column(String, index=True)
     time_taken = Column(Float)
     date = Column(DateTime(timezone=True), default=func.now())
+    organization_type = Column(String, nullable=True, default=None)
+    sector = Column(JSON, nullable=True, default=None)

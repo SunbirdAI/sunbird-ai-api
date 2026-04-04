@@ -1,16 +1,23 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { User, Mail, Building, Lock, Loader2, Eye, EyeOff } from 'lucide-react';
+import { User, Mail, Building, Lock, Loader2, Eye, EyeOff, Briefcase } from 'lucide-react';
 import axios from 'axios';
+
+const ORGANIZATION_TYPES = ['NGO', 'Government', 'Private Sector', 'Research', 'Individual', 'Other'];
+const PRESET_SECTORS = ['Health', 'Agriculture', 'Energy', 'Environment', 'Education', 'Governance'];
 
 export default function Register() {
   const [formData, setFormData] = useState({
     username: '',
     email: '',
+    full_name: '',
     organization: '',
+    organization_type: '',
     password: '',
     confirmPassword: '',
   });
+  const [selectedSectors, setSelectedSectors] = useState<string[]>([]);
+  const [customSector, setCustomSector] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -34,6 +41,9 @@ export default function Register() {
         email: formData.email,
         organization: formData.organization,
         password: formData.password,
+        full_name: formData.full_name || undefined,
+        organization_type: formData.organization_type || undefined,
+        sector: selectedSectors.length > 0 ? selectedSectors : undefined,
       });
 
       // Redirect to login after successful registration
@@ -42,6 +52,20 @@ export default function Register() {
       setError(err.response?.data?.detail || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const toggleSector = (sector: string) => {
+    setSelectedSectors((prev) =>
+      prev.includes(sector) ? prev.filter((s) => s !== sector) : [...prev, sector]
+    );
+  };
+
+  const addCustomSector = () => {
+    const trimmed = customSector.trim();
+    if (trimmed && !selectedSectors.includes(trimmed)) {
+      setSelectedSectors((prev) => [...prev, trimmed]);
+      setCustomSector('');
     }
   };
 
@@ -95,6 +119,23 @@ export default function Register() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Full Name <span className="text-gray-400 font-normal">(optional)</span>
+              </label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  value={formData.full_name}
+                  onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                  className="w-full pl-10 pr-4 py-2 bg-white dark:bg-black/50 border border-gray-200 dark:border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:text-white placeholder-gray-400 dark:placeholder-gray-600"
+                  placeholder="John Doe"
+                  disabled={loading}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Email address
               </label>
               <div className="relative">
@@ -126,6 +167,69 @@ export default function Register() {
                   placeholder="Company Name"
                   disabled={loading}
                 />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Organization Type
+              </label>
+              <div className="relative">
+                <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <select
+                  required
+                  value={formData.organization_type}
+                  onChange={(e) => setFormData({ ...formData, organization_type: e.target.value })}
+                  className="w-full pl-10 pr-4 py-2 bg-white dark:bg-black/50 border border-gray-200 dark:border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:text-white appearance-none"
+                  disabled={loading}
+                >
+                  <option value="">Select type...</option>
+                  {ORGANIZATION_TYPES.map((type) => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Impact Sectors <span className="text-gray-400 font-normal">(select all that apply)</span>
+              </label>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {[...PRESET_SECTORS, ...selectedSectors.filter((s) => !PRESET_SECTORS.includes(s))].map((sector) => (
+                  <button
+                    key={sector}
+                    type="button"
+                    onClick={() => toggleSector(sector)}
+                    disabled={loading}
+                    className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                      selectedSectors.includes(sector)
+                        ? 'border-primary-500 bg-primary-500/10 text-primary-600 dark:text-primary-400'
+                        : 'border-gray-200 dark:border-white/10 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5'
+                    }`}
+                  >
+                    {sector} {selectedSectors.includes(sector) && '✓'}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-2 mt-2">
+                <input
+                  type="text"
+                  value={customSector}
+                  onChange={(e) => setCustomSector(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCustomSector())}
+                  className="flex-1 px-3 py-1.5 bg-white dark:bg-black/50 border border-gray-200 dark:border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:text-white text-sm placeholder-gray-400 dark:placeholder-gray-600"
+                  placeholder="Add custom sector..."
+                  disabled={loading}
+                />
+                <button
+                  type="button"
+                  onClick={addCustomSector}
+                  disabled={loading}
+                  className="px-3 py-1.5 text-sm border border-gray-200 dark:border-white/10 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+                >
+                  Add
+                </button>
               </div>
             </div>
 

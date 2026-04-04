@@ -330,3 +330,113 @@ class TestPasswordChange:
         )
 
         assert response.status_code == 401  # AuthenticationError returns 401
+
+
+class TestProfileUpdate:
+    """Tests for profile update and status endpoints."""
+
+    @pytest.mark.asyncio
+    async def test_update_profile(self, authenticated_client, test_user):
+        response = await authenticated_client.put(
+            "/auth/profile",
+            json={
+                "full_name": "Test User Full Name",
+                "organization": "Updated Org",
+                "organization_type": "Research",
+                "sector": ["Health", "Education"],
+            },
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["full_name"] == "Test User Full Name"
+        assert data["organization"] == "Updated Org"
+        assert data["organization_type"] == "Research"
+        assert data["sector"] == ["Health", "Education"]
+
+    @pytest.mark.asyncio
+    async def test_update_profile_partial(self, authenticated_client, test_user):
+        response = await authenticated_client.put(
+            "/auth/profile",
+            json={"full_name": "Just A Name"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["full_name"] == "Just A Name"
+        assert data["organization_type"] is None
+
+    @pytest.mark.asyncio
+    async def test_update_profile_invalid_org_type(
+        self, authenticated_client, test_user
+    ):
+        response = await authenticated_client.put(
+            "/auth/profile",
+            json={"organization_type": "InvalidType"},
+        )
+        assert response.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_profile_status_incomplete(self, authenticated_client, test_user):
+        response = await authenticated_client.get("/auth/profile/status")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["is_complete"] is False
+        assert "full_name" in data["missing_fields"]
+        assert "organization_type" in data["missing_fields"]
+        assert "sector" in data["missing_fields"]
+
+    @pytest.mark.asyncio
+    async def test_profile_status_complete(self, authenticated_client, test_user):
+        await authenticated_client.put(
+            "/auth/profile",
+            json={
+                "full_name": "Complete User",
+                "organization_type": "NGO",
+                "sector": ["Health"],
+            },
+        )
+        response = await authenticated_client.get("/auth/profile/status")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["is_complete"] is True
+        assert data["missing_fields"] == []
+
+
+class TestRegistrationWithProfileFields:
+    """Tests for registration with new profile fields."""
+
+    @pytest.mark.asyncio
+    async def test_register_with_profile_fields(self, async_client, test_db):
+        response = await async_client.post(
+            "/auth/register",
+            json={
+                "username": "newuser",
+                "email": "newuser@example.com",
+                "organization": "New Org",
+                "password": "securepass123",
+                "full_name": "New User",
+                "organization_type": "NGO",
+                "sector": ["Health", "Agriculture"],
+            },
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert data["full_name"] == "New User"
+        assert data["organization_type"] == "NGO"
+        assert data["sector"] == ["Health", "Agriculture"]
+
+    @pytest.mark.asyncio
+    async def test_register_backward_compat(self, async_client, test_db):
+        response = await async_client.post(
+            "/auth/register",
+            json={
+                "username": "olduser",
+                "email": "olduser@example.com",
+                "organization": "Old Org",
+                "password": "securepass123",
+            },
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert data["full_name"] is None
+        assert data["organization_type"] is None
+        assert data["sector"] is None

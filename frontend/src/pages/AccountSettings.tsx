@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { User, Mail, Lock, Moon, Sun, Laptop, CreditCard, Eye, EyeOff } from 'lucide-react';
+import { User, Mail, Lock, Moon, Sun, Laptop, CreditCard, Eye, EyeOff, Building, Briefcase } from 'lucide-react';
 import axios from 'axios';
+
+const ORGANIZATION_TYPES = ['NGO', 'Government', 'Private Sector', 'Research', 'Individual', 'Other'];
+const PRESET_SECTORS = ['Health', 'Agriculture', 'Energy', 'Environment', 'Education', 'Governance'];
 
 export default function AccountSettings() {
   const { user } = useAuth();
@@ -10,8 +13,15 @@ export default function AccountSettings() {
   const [formData, setFormData] = useState({
     username: user?.username || '',
     email: user?.email || '',
+    full_name: user?.full_name || '',
+    organization: user?.organization || '',
+    organization_type: user?.organization_type || '',
   });
-  console.log(user);
+  const [selectedSectors, setSelectedSectors] = useState<string[]>(user?.sector || []);
+  const [customSector, setCustomSector] = useState('');
+  const [profileSuccess, setProfileSuccess] = useState('');
+  const [profileError, setProfileError] = useState('');
+  const [profileLoading, setProfileLoading] = useState(false);
   const [passwordData, setPasswordData] = useState({
     oldPassword: '',
     newPassword: '',
@@ -24,10 +34,39 @@ export default function AccountSettings() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const toggleSector = (sector: string) => {
+    setSelectedSectors((prev) =>
+      prev.includes(sector) ? prev.filter((s) => s !== sector) : [...prev, sector]
+    );
+  };
+
+  const addCustomSector = () => {
+    const trimmed = customSector.trim();
+    if (trimmed && !selectedSectors.includes(trimmed)) {
+      setSelectedSectors((prev) => [...prev, trimmed]);
+      setCustomSector('');
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle update logic
-    alert('Profile updated successfully!');
+    setProfileError('');
+    setProfileSuccess('');
+    setProfileLoading(true);
+
+    try {
+      await axios.put('/auth/profile', {
+        full_name: formData.full_name || undefined,
+        organization: formData.organization || undefined,
+        organization_type: formData.organization_type || undefined,
+        sector: selectedSectors.length > 0 ? selectedSectors : undefined,
+      });
+      setProfileSuccess('Profile updated successfully!');
+    } catch (err: any) {
+      setProfileError(err.response?.data?.detail || 'Failed to update profile.');
+    } finally {
+      setProfileLoading(false);
+    }
   };
 
   const handlePasswordChange = async (e: React.FormEvent) => {
@@ -78,6 +117,17 @@ export default function AccountSettings() {
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Profile Information</h2>
         
         <form onSubmit={handleSubmit} className="space-y-4">
+          {profileError && (
+            <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-3 rounded-lg text-sm">
+              {profileError}
+            </div>
+          )}
+          {profileSuccess && (
+            <div className="bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 p-3 rounded-lg text-sm">
+              {profileSuccess}
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Username
@@ -89,6 +139,23 @@ export default function AccountSettings() {
                 value={formData.username}
                 onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                 className="w-full pl-9 pr-4 py-2 bg-white dark:bg-black/50 border border-gray-200 dark:border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:text-white"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Full Name
+            </label>
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                value={formData.full_name}
+                onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                className="w-full pl-9 pr-4 py-2 bg-white dark:bg-black/50 border border-gray-200 dark:border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:text-white"
+                placeholder="John Doe"
+                disabled={profileLoading}
               />
             </div>
           </div>
@@ -112,6 +179,85 @@ export default function AccountSettings() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Organization
+            </label>
+            <div className="relative">
+              <Building className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                value={formData.organization}
+                onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
+                className="w-full pl-9 pr-4 py-2 bg-white dark:bg-black/50 border border-gray-200 dark:border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:text-white"
+                placeholder="Organization Name"
+                disabled={profileLoading}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Organization Type
+            </label>
+            <div className="relative">
+              <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <select
+                value={formData.organization_type}
+                onChange={(e) => setFormData({ ...formData, organization_type: e.target.value })}
+                className="w-full pl-9 pr-4 py-2 bg-white dark:bg-black/50 border border-gray-200 dark:border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:text-white appearance-none"
+                disabled={profileLoading}
+              >
+                <option value="">Select type...</option>
+                {ORGANIZATION_TYPES.map((type) => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Impact Sectors
+            </label>
+            <div className="flex flex-wrap gap-2 mt-1">
+              {[...PRESET_SECTORS, ...selectedSectors.filter((s) => !PRESET_SECTORS.includes(s))].map((sector) => (
+                <button
+                  key={sector}
+                  type="button"
+                  onClick={() => toggleSector(sector)}
+                  disabled={profileLoading}
+                  className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                    selectedSectors.includes(sector)
+                      ? 'border-primary-500 bg-primary-500/10 text-primary-600 dark:text-primary-400'
+                      : 'border-gray-200 dark:border-white/10 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5'
+                  }`}
+                >
+                  {sector} {selectedSectors.includes(sector) && '✓'}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2 mt-2">
+              <input
+                type="text"
+                value={customSector}
+                onChange={(e) => setCustomSector(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCustomSector())}
+                className="flex-1 px-3 py-1.5 bg-white dark:bg-black/50 border border-gray-200 dark:border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:text-white text-sm placeholder-gray-400 dark:placeholder-gray-600"
+                placeholder="Add custom sector..."
+                disabled={profileLoading}
+              />
+              <button
+                type="button"
+                onClick={addCustomSector}
+                disabled={profileLoading}
+                className="px-3 py-1.5 text-sm border border-gray-200 dark:border-white/10 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+              >
+                Add
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Account Type
             </label>
             <div className="relative">
@@ -128,9 +274,10 @@ export default function AccountSettings() {
           <div className="pt-2">
             <button
               type="submit"
-              className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition-colors"
+              disabled={profileLoading}
+              className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Save Changes
+              {profileLoading ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
         </form>
