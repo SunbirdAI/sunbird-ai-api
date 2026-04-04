@@ -38,6 +38,8 @@ async def create_endpoint_log(log: schemas.EndpointLog, db: AsyncSession):
         endpoint=log.endpoint,
         time_taken=log.time_taken,
         organization=log.organization,
+        organization_type=log.organization_type,
+        sector=log.sector,
     )
     db.add(db_log)
     await db.commit()
@@ -47,11 +49,14 @@ async def log_endpoint(
     db: AsyncSession, user: User, request: Request, start_time: float, end_time: float
 ):
     try:
+        endpoint_path = request.url.path if request else "unknown"
         endpoint_log = EndpointLog(
             username=user.username,
-            endpoint=request.url.path,
+            endpoint=endpoint_path,
             organization=user.organization,
             time_taken=(end_time - start_time),
+            organization_type=getattr(user, "organization_type", None),
+            sector=getattr(user, "sector", None),
         )
         await create_endpoint_log(endpoint_log, db)
     except Exception as e:

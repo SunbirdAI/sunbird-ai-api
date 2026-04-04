@@ -7,6 +7,9 @@ interface User {
   organization?: string;
   account_type?: string;
   oauth_type?: string;
+  full_name?: string;
+  organization_type?: string;
+  sector?: string[];
 }
 
 interface AuthContextType {

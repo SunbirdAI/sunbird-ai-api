@@ -24,12 +24,16 @@ from app.crud.users import (  # update_user_organization,
     get_user_by_email,
     get_user_by_username,
     update_user_password_reset_token,
+    update_user_profile,
 )
 from app.deps import get_current_user, get_db
 from app.models.users import User as DBUser
 from app.schemas.users import (
+    ALLOWED_ORGANIZATION_TYPES,
     ChangePassword,
     ForgotPassword,
+    ProfileCompletionStatus,
+    ProfileUpdate,
     ResetPassword,
     Token,
     User,
@@ -178,6 +182,49 @@ async def change_password(
     return {"message": "Password change failed", "success": False}
 
 
+@router.put("/profile", response_model=User)
+async def update_profile(
+    profile_data: ProfileUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if (
+        profile_data.organization_type is not None
+        and profile_data.organization_type not in ALLOWED_ORGANIZATION_TYPES
+    ):
+        raise BadRequestError(
+            message=f"Invalid organization type. Must be one of: {', '.join(ALLOWED_ORGANIZATION_TYPES)}"
+        )
+
+    if profile_data.sector is not None:
+        if not isinstance(profile_data.sector, list) or any(
+            not isinstance(s, str) or not s.strip() for s in profile_data.sector
+        ):
+            raise BadRequestError(message="Sector must be a list of non-empty strings")
+
+    update_data = profile_data.model_dump(exclude_unset=True)
+    updated_user = await update_user_profile(db, current_user.id, update_data)
+    return updated_user
+
+
+@router.get("/profile/status", response_model=ProfileCompletionStatus)
+async def profile_status(current_user: User = Depends(get_current_user)):
+    missing_fields = []
+    if not current_user.full_name:
+        missing_fields.append("full_name")
+    if not current_user.organization or current_user.organization == "Unknown":
+        missing_fields.append("organization")
+    if not current_user.organization_type:
+        missing_fields.append("organization_type")
+    if not current_user.sector:
+        missing_fields.append("sector")
+
+    return ProfileCompletionStatus(
+        is_complete=len(missing_fields) == 0,
+        missing_fields=missing_fields,
+    )
+
+
 @router.get("/google/login", name="auth:google_login")
 async def google_login(request: Request):
     # Get the redirect URI from the request
@@ -234,10 +281,15 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
             expires_delta=access_token_expires,
         )
 
-        # Determine redirect URL
-        redirect_url = (
-            f"/setup-organization" if db_user.organization == "Unknown" else "/login"
+        # Determine redirect URL - redirect to profile completion if profile is incomplete
+        profile_incomplete = (
+            not db_user.full_name
+            or not db_user.organization
+            or db_user.organization == "Unknown"
+            or not db_user.organization_type
+            or not db_user.sector
         )
+        redirect_url = "/complete-profile" if profile_incomplete else "/login"
 
         # Append token to redirect URL for frontend to capture
         redirect_url = (
