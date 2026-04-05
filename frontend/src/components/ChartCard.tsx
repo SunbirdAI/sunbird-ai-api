@@ -39,8 +39,17 @@ export default function ChartCard({
             onChange={(e) => onTimeRangeChange(e.target.value)}
             className="px-3 py-1.5 text-sm bg-white dark:bg-black/50 border border-gray-200 dark:border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:text-white"
           >
+            <option value="5m">Last 5 Minutes</option>
+            <option value="15m">Last 15 Minutes</option>
+            <option value="30m">Last 30 Minutes</option>
+            <option value="1h">Last 1 Hour</option>
+            <option value="2h">Last 2 Hours</option>
+            <option value="6h">Last 6 Hours</option>
+            <option value="12h">Last 12 Hours</option>
+            <option value="24h">Last 24 Hours</option>
             <option value="7d">Last 7 Days</option>
             <option value="30d">Last 30 Days</option>
+            <option value="60d">Last 60 Days</option>
             <option value="90d">Last 90 Days</option>
           </select>
         )}

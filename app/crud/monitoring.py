@@ -46,10 +46,16 @@ async def create_endpoint_log(log: schemas.EndpointLog, db: AsyncSession):
 
 
 async def log_endpoint(
-    db: AsyncSession, user: User, request: Request, start_time: float, end_time: float
+    db: AsyncSession,
+    user: User,
+    request: Request,
+    start_time: float,
+    end_time: float,
+    endpoint_path: str = None,
 ):
     try:
-        endpoint_path = request.url.path if request else "unknown"
+        if endpoint_path is None:
+            endpoint_path = request.url.path if request else "unknown"
         endpoint_log = EndpointLog(
             username=user.username,
             endpoint=endpoint_path,
