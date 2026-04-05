@@ -110,9 +110,10 @@ async def get_dashboard_stats(db: AsyncSession, username: str, time_range: str =
 
     # 1. Total usage counts (all time)
     aggregates = await aggregate_usage_for_user(db, username)
+    print(f"Aggregates for {username}: {aggregates}")
 
     # 2. Recent activity
-    recent_logs_db = await get_recent_logs_by_username(db, username, limit=50)
+    recent_logs_db = await get_recent_logs_by_username(db, username, limit=200)
     recent_activity = [EndpointLog.model_validate(log) for log in recent_logs_db]
 
     # 3. Time-range data
