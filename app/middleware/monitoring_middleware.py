@@ -240,9 +240,10 @@ class MonitoringMiddleware(BaseHTTPMiddleware):
                 await log_endpoint(
                     db=db,
                     user=user,
-                    request=None,  # Not used by log_endpoint
+                    request=None,
                     start_time=start_time,
                     end_time=end_time,
+                    endpoint_path=endpoint,
                 )
 
                 logger.info(
