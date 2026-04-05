@@ -1,4 +1,5 @@
 import { ViewType, FilterOptions } from '../../hooks/useAdminAnalytics';
+import SearchableSelect from '../ui/SearchableSelect';
 
 interface FilterBarProps {
   view: ViewType;
@@ -66,19 +67,13 @@ export default function FilterBar({
 
       {/* Filter value dropdown */}
       {showFilterDropdown && (
-        <select
+        <SearchableSelect
           value={filterValue}
-          onChange={(e) => onFilterValueChange(e.target.value)}
+          onChange={onFilterValueChange}
+          options={filterOptions}
+          placeholder={`Select ${getFilterLabel()}...`}
           disabled={filtersLoading || filterOptions.length === 0}
-          className="px-3 py-2 text-sm bg-white dark:bg-secondary border border-gray-200 dark:border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:text-white min-w-[200px]"
-        >
-          <option value="">Select {getFilterLabel()}...</option>
-          {filterOptions.map((opt) => (
-            <option key={opt} value={opt}>
-              {opt}
-            </option>
-          ))}
-        </select>
+        />
       )}
     </div>
   );
