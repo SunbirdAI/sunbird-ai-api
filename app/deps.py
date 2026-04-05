@@ -31,6 +31,7 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import AuthorizationError
 from app.crud.users import get_user_by_username
 from app.database.db import async_session_maker
 # Integration imports
@@ -151,6 +152,31 @@ async def get_current_user(
     return User.model_validate(user)
 
 
+async def get_current_admin(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """Verify that the authenticated user has Admin privileges.
+
+    Args:
+        current_user: The authenticated user (resolved via get_current_user).
+
+    Returns:
+        User: The admin user.
+
+    Raises:
+        AuthorizationError: If the user is not an Admin.
+    """
+    if current_user.account_type.value != "Admin":
+        raise AuthorizationError(message="Admin access required")
+    return current_user
+
+
+# Core dependency type aliases
+CurrentUserDep = Annotated[User, Depends(get_current_user)]
+CurrentAdminDep = Annotated[User, Depends(get_current_admin)]
+DbDep = Annotated[AsyncSession, Depends(get_db)]
+
+
 # ============================================================================
 # Exports
 # ============================================================================
@@ -159,7 +185,11 @@ __all__ = [
     # Core dependencies
     "get_db",
     "get_current_user",
+    "get_current_admin",
     "oauth2_scheme",
+    "CurrentUserDep",
+    "CurrentAdminDep",
+    "DbDep",
     # Service dependencies
     "STTServiceDep",
     "ModalSTTServiceDep",
