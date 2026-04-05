@@ -56,8 +56,8 @@ from app.integrations.whatsapp_store import (
     save_user_mode,
     save_user_preference,
     save_user_tts_enabled,
-    upsert_user_memory_note,
     update_feedback,
+    upsert_user_memory_note,
 )
 from app.models.enums import SpeakerID
 from app.services.inference_service import run_inference
@@ -255,7 +255,9 @@ class OptimizedMessageProcessor:
             message_type = self._determine_message_type(payload)
             user_settings = await get_user_settings(from_number)
             lookup_failed = bool(user_settings.get("lookup_failed"))
-            is_new_user = bool(user_settings.get("found") is False and not lookup_failed)
+            is_new_user = bool(
+                user_settings.get("found") is False and not lookup_failed
+            )
             target_language = (
                 user_settings.get("target_language") or target_language or "eng"
             )
@@ -273,7 +275,9 @@ class OptimizedMessageProcessor:
             if message_type == MessageType.REACTION:
                 result = self._handle_reaction(payload)
             elif message_type == MessageType.INTERACTIVE:
-                result = await self._handle_interactive(payload, sender_name, from_number)
+                result = await self._handle_interactive(
+                    payload, sender_name, from_number
+                )
             elif message_type == MessageType.UNSUPPORTED:
                 result = self._handle_unsupported(sender_name)
             elif message_type == MessageType.AUDIO:
@@ -639,9 +643,9 @@ class OptimizedMessageProcessor:
                         message=transcription_message,
                         phone_number_id=phone_number_id,
                     )
-                    transcription_response_id = (reply_response or {}).get(
-                        "messages", [{}]
-                    )[0].get("id")
+                    transcription_response_id = (
+                        (reply_response or {}).get("messages", [{}])[0].get("id")
+                    )
                 except Exception as reply_error:
                     logging.warning(
                         f"Could not send threaded transcription reply: {reply_error}"
@@ -1016,7 +1020,11 @@ class OptimizedMessageProcessor:
                 ResponseType.TEXT,
                 should_save=False,
             )
-        elif text_lower in ["mode transcribe", "transcribe mode", "set mode transcribe"]:
+        elif text_lower in [
+            "mode transcribe",
+            "transcribe mode",
+            "set mode transcribe",
+        ]:
             await self._set_user_mode_async(from_number, "transcribe")
             return ProcessingResult(
                 "✅ Mode switched to *Transcribe*.\nSend a voice note and I will return transcription only.",
@@ -1229,7 +1237,9 @@ class OptimizedMessageProcessor:
         self, input_text: str, target_language: str
     ) -> str:
         """Generate translation-only output for text/audio in translate mode."""
-        target_language_name = self.language_mapping.get(target_language, target_language)
+        target_language_name = self.language_mapping.get(
+            target_language, target_language
+        )
         translate_messages = [
             {
                 "role": "system",
@@ -1347,7 +1357,7 @@ class OptimizedMessageProcessor:
 
         # Keep TTS payload bounded to avoid long generation times/timeouts.
         if len(clean_text) > WHATSAPP_TTS_MAX_CHARS:
-            clean_text = clean_text[: WHATSAPP_TTS_MAX_CHARS].rstrip() + "..."
+            clean_text = clean_text[:WHATSAPP_TTS_MAX_CHARS].rstrip() + "..."
 
         tts_service = get_tts_service()
         speaker_id = self._resolve_tts_speaker_id(target_language, clean_text)
@@ -1361,7 +1371,9 @@ class OptimizedMessageProcessor:
             try:
                 audio_bytes = await tts_service.generate_audio(clean_text, speaker_id)
 
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as wav_file:
+                with tempfile.NamedTemporaryFile(
+                    delete=False, suffix=".wav"
+                ) as wav_file:
                     wav_file.write(audio_bytes)
                     wav_path = wav_file.name
 
@@ -1463,9 +1475,7 @@ class OptimizedMessageProcessor:
         for pair in recent_older_pairs:
             user = (pair.get("user_message") or "").strip().replace("\n", " ")
             bot = (pair.get("bot_response") or "").strip().replace("\n", " ")
-            lines.append(
-                f"- User: {user[:120]} | Assistant: {bot[:120]}"
-            )
+            lines.append(f"- User: {user[:120]} | Assistant: {bot[:120]}")
         return "Earlier context highlights:\n" + "\n".join(lines)
 
     async def _refresh_memory_note_async(
@@ -1515,7 +1525,9 @@ class OptimizedMessageProcessor:
             if memory_note:
                 await upsert_user_memory_note(from_number, memory_note[:800])
         except Exception as e:
-            logging.warning("Background memory refresh failed for %s: %s", from_number, e)
+            logging.warning(
+                "Background memory refresh failed for %s: %s", from_number, e
+            )
 
     async def _set_user_mode_async(self, from_number: str, mode: str) -> None:
         """Persist user mode safely."""
@@ -1983,7 +1995,9 @@ class OptimizedMessageProcessor:
             logging.error(f"Error saving detailed feedback: {e}")
 
     # Button creation methods
-    def create_mode_selection_reply_button(self, current_mode: Optional[str] = None) -> Dict:
+    def create_mode_selection_reply_button(
+        self, current_mode: Optional[str] = None
+    ) -> Dict:
         """Create one-tap reply buttons for mode switching."""
         normalized_mode = self._normalize_mode(current_mode)
         current_mode_label = self.mode_labels.get(normalized_mode, "Chat")

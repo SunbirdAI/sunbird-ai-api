@@ -165,7 +165,9 @@ async def get_user_messages(db: AsyncSession, user_id: str) -> List[WhatsAppMess
     return result.scalars().all()
 
 
-async def get_user_last_five_messages(db: AsyncSession, user_id: str) -> List[WhatsAppMessage]:
+async def get_user_last_five_messages(
+    db: AsyncSession, user_id: str
+) -> List[WhatsAppMessage]:
     result = await db.execute(
         select(WhatsAppMessage)
         .where(WhatsAppMessage.user_id == user_id)
@@ -269,7 +271,9 @@ async def get_user_feedback_history(
     return result.scalars().all()
 
 
-async def get_all_feedback_summary(db: AsyncSession, limit: int = 100) -> List[WhatsAppFeedback]:
+async def get_all_feedback_summary(
+    db: AsyncSession, limit: int = 100
+) -> List[WhatsAppFeedback]:
     result = await db.execute(
         select(WhatsAppFeedback).order_by(desc(WhatsAppFeedback.timestamp)).limit(limit)
     )

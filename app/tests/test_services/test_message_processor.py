@@ -83,9 +83,7 @@ class TestOptimizedMessageProcessor:
         ) as mock_save_preference:
             await processor._set_default_preference_async("256700000001")
 
-        mock_save_preference.assert_awaited_once_with(
-            "256700000001", "English", "eng"
-        )
+        mock_save_preference.assert_awaited_once_with("256700000001", "English", "eng")
 
     @pytest.mark.asyncio
     async def test_quick_command_carries_user_message_for_router_persistence(
@@ -99,7 +97,9 @@ class TestOptimizedMessageProcessor:
         ), patch.object(
             processor,
             "_handle_quick_commands",
-            new=AsyncMock(return_value=ProcessingResult("Help text", ResponseType.TEXT)),
+            new=AsyncMock(
+                return_value=ProcessingResult("Help text", ResponseType.TEXT)
+            ),
         ):
             result = await processor._handle_text_optimized(
                 payload=sample_text_payload,
