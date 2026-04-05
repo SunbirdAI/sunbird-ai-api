@@ -28,6 +28,7 @@ from app.core.exceptions import (
 )
 from app.docs import description, tags_metadata
 from app.middleware import MonitoringMiddleware
+from app.routers.admin_analytics import router as admin_analytics_router
 from app.routers.auth import router as auth_router
 from app.routers.dashboard import router as dashboard_router
 from app.routers.frontend import router as frontend_router
@@ -218,4 +219,9 @@ app.include_router(runpod_tts_router, prefix="/tasks/runpod", tags=["TTS (RunPod
 # Frontend routes
 # app.include_router(frontend_router, prefix="", tags=["Frontend Routes"]) # Replaced by SPA
 app.include_router(dashboard_router, prefix="/api/dashboard", tags=["Dashboard"])
+app.include_router(
+    admin_analytics_router,
+    prefix="/api/admin/analytics",
+    tags=["Admin Analytics"],
+)
 app.include_router(spa_router, prefix="", tags=["Dashboard"])

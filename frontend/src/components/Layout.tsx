@@ -9,7 +9,8 @@ import {
   Menu,
   X, User,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  BarChart3
 } from 'lucide-react';
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -19,8 +20,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   // const { theme, setTheme } = useTheme();
   const location = useLocation();
 
+  const isAdmin = user?.account_type === 'Admin';
+
   const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+    ...(isAdmin
+      ? [{ name: 'Analytics', href: '/admin/analytics', icon: BarChart3 }]
+      : [{ name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard }]),
     { name: 'API Keys', href: '/keys', icon: Key },
     { name: 'Account', href: '/account', icon: Settings },
   ];
