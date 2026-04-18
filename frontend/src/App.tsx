@@ -16,6 +16,7 @@ import ResetPassword from './pages/ResetPassword';
 import CompleteProfile from './pages/CompleteProfile';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfService from './pages/TermsOfService';
+import Tutorial from './pages/Tutorial';
 import { Loader2 } from 'lucide-react';
 import PageTitle from './components/PageTitle';
 
@@ -54,6 +55,7 @@ function AppRoutes() {
       <Route path="/reset-password" element={<PageTitle title="Reset Password"><ResetPassword /></PageTitle>} />
       <Route path="/privacy_policy" element={<PageTitle title="Privacy Policy"><PrivacyPolicy /></PageTitle>} />
       <Route path="/terms_of_service" element={<PageTitle title="Terms of Service"><TermsOfService /></PageTitle>} />
+      <Route path="/tutorial" element={<PageTitle title="Tutorial"><Tutorial /></PageTitle>} />
       <Route path="/setup-organization" element={<PageTitle title="Setup Organization"><Login /></PageTitle>} /> {/* Handle token redirect via Login component logic */}
       <Route
         path="/complete-profile"
