@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard';
 import ApiKeys from './pages/ApiKeys';
 import AccountSettings from './pages/AccountSettings';
 import AdminAnalytics from './pages/AdminAnalytics';
+import GoogleAnalytics from './pages/GoogleAnalytics';
 import LandingPage from './pages/LandingPage';
 import Register from './pages/Register';
 import Login from './pages/Login';
@@ -111,6 +112,18 @@ function AppRoutes() {
             <Layout>
               <PageTitle title="Admin Analytics">
                 <AdminAnalytics />
+              </PageTitle>
+            </Layout>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/admin/google-analytics"
+        element={
+          <RequireAuth>
+            <Layout>
+              <PageTitle title="Google Analytics">
+                <GoogleAnalytics />
               </PageTitle>
             </Layout>
           </RequireAuth>

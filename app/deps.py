@@ -40,6 +40,11 @@ from app.integrations.runpod import RunPodClient, get_runpod_client
 from app.integrations.whatsapp_api import WhatsAppAPIClient, get_whatsapp_api_client
 from app.schemas.users import TokenData, User
 # Service imports
+from app.services.cache import CacheBackend, get_cache_backend
+from app.services.google_analytics_service import (
+    GoogleAnalyticsService,
+    get_google_analytics_service,
+)
 from app.services.inference_service import InferenceService, get_inference_service
 from app.services.language_service import LanguageService, get_language_service
 from app.services.modal_stt_service import ModalSTTService, get_modal_stt_service
@@ -67,11 +72,15 @@ LanguageServiceDep = Annotated[LanguageService, Depends(get_language_service)]
 InferenceServiceDep = Annotated[InferenceService, Depends(get_inference_service)]
 WhatsAppServiceDep = Annotated[WhatsAppBusinessService, Depends(get_whatsapp_service)]
 StorageServiceDep = Annotated[StorageService, Depends(get_new_storage_service)]
+GoogleAnalyticsServiceDep = Annotated[
+    GoogleAnalyticsService, Depends(get_google_analytics_service)
+]
 
 # Integration dependencies
 RunPodClientDep = Annotated[RunPodClient, Depends(get_runpod_client)]
 OpenAIClientDep = Annotated[OpenAIClient, Depends(get_openai_client)]
 WhatsAppAPIClientDep = Annotated[WhatsAppAPIClient, Depends(get_whatsapp_api_client)]
+CacheBackendDep = Annotated[CacheBackend, Depends(get_cache_backend)]
 
 # Legacy dependencies (maintained for backward compatibility)
 LegacyStorageServiceDep = Annotated[
@@ -199,10 +208,13 @@ __all__ = [
     "InferenceServiceDep",
     "WhatsAppServiceDep",
     "StorageServiceDep",
+    "GoogleAnalyticsServiceDep",
     # Integration dependencies
     "RunPodClientDep",
     "OpenAIClientDep",
     "WhatsAppAPIClientDep",
+    "CacheBackendDep",
+    "CacheBackend",
     # Legacy dependencies
     "LegacyStorageServiceDep",
     # Service classes (for type hints)
@@ -214,6 +226,7 @@ __all__ = [
     "InferenceService",
     "WhatsAppBusinessService",
     "StorageService",
+    "GoogleAnalyticsService",
     # Integration classes (for type hints)
     "RunPodClient",
     "OpenAIClient",
