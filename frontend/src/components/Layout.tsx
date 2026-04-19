@@ -11,7 +11,8 @@ import {
   ChevronLeft,
   ChevronRight,
   BarChart3,
-  LineChart
+  LineChart,
+  Flame
 } from 'lucide-react';
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -28,6 +29,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       ? [
           { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
           { name: 'Google Analytics', href: '/admin/google-analytics', icon: LineChart },
+          { name: 'Website & Engagement Funnel', href: '/admin/engagement-insights', icon: Flame },
         ]
       : [{ name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard }]),
     { name: 'API Keys', href: '/keys', icon: Key },
