@@ -10,7 +10,8 @@ import {
   X, User,
   ChevronLeft,
   ChevronRight,
-  BarChart3
+  BarChart3,
+  LineChart
 } from 'lucide-react';
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -24,7 +25,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const navigation = [
     ...(isAdmin
-      ? [{ name: 'Analytics', href: '/admin/analytics', icon: BarChart3 }]
+      ? [
+          { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
+          { name: 'Google Analytics', href: '/admin/google-analytics', icon: LineChart },
+        ]
       : [{ name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard }]),
     { name: 'API Keys', href: '/keys', icon: Key },
     { name: 'Account', href: '/account', icon: Settings },
