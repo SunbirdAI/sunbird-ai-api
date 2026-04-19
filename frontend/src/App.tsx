@@ -9,6 +9,7 @@ import ApiKeys from './pages/ApiKeys';
 import AccountSettings from './pages/AccountSettings';
 import AdminAnalytics from './pages/AdminAnalytics';
 import GoogleAnalytics from './pages/GoogleAnalytics';
+import EngagementInsights from './pages/EngagementInsights';
 import LandingPage from './pages/LandingPage';
 import Register from './pages/Register';
 import Login from './pages/Login';
@@ -124,6 +125,18 @@ function AppRoutes() {
             <Layout>
               <PageTitle title="Google Analytics">
                 <GoogleAnalytics />
+              </PageTitle>
+            </Layout>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/admin/engagement-insights"
+        element={
+          <RequireAuth>
+            <Layout>
+              <PageTitle title="Website & Engagement Funnel">
+                <EngagementInsights />
               </PageTitle>
             </Layout>
           </RequireAuth>
