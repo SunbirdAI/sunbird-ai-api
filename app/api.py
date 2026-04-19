@@ -32,6 +32,7 @@ from app.routers.admin_analytics import router as admin_analytics_router
 from app.routers.auth import router as auth_router
 from app.routers.dashboard import router as dashboard_router
 from app.routers.frontend import router as frontend_router
+from app.routers.google_analytics import router as google_analytics_router
 from app.routers.inference import router as inference_router
 from app.routers.language import router as language_router
 from app.routers.runpod_tts import router as runpod_tts_router
@@ -223,5 +224,10 @@ app.include_router(
     admin_analytics_router,
     prefix="/api/admin/analytics",
     tags=["Admin Analytics"],
+)
+app.include_router(
+    google_analytics_router,
+    prefix="/api/admin/google-analytics",
+    tags=["Admin Google Analytics"],
 )
 app.include_router(spa_router, prefix="", tags=["Dashboard"])
