@@ -25,6 +25,7 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
+        populate_by_name=True,
     )
 
     # API Configuration
@@ -101,10 +102,56 @@ class Settings(BaseSettings):
         description="Enable SSL for database connections in production",
     )
 
+    # Google Analytics Data API
+    ga_impersonation_target: Optional[str] = Field(
+        default=None,
+        description=(
+            "Service account email to impersonate for the Google Analytics "
+            "Data API (e.g. ga-reader@sb-gcp-project-01.iam.gserviceaccount.com)."
+        ),
+    )
+    ga_properties_raw: str = Field(
+        default="",
+        alias="GA_PROPERTIES",
+        description=(
+            "Comma-separated `id:name` pairs, e.g. "
+            "'506611499:Sunflower,448469065:Sunbird Speech'."
+        ),
+    )
+    ga_cache_ttl_seconds: int = Field(
+        default=3600, description="TTL for cached GA report payloads."
+    )
+    ga_request_timeout_seconds: int = Field(
+        default=30, description="Timeout for a single GA Data API call."
+    )
+    cache_backend: str = Field(
+        default="memory",
+        description="Cache backend: 'memory' (default) or 'upstash'.",
+    )
+
     @property
     def is_production(self) -> bool:
         """Check if running in production mode."""
         return self.environment.lower() == "production"
+
+    @property
+    def ga_properties(self) -> dict[str, str]:
+        """Parse GA_PROPERTIES env string into {property_id: display_name}."""
+        result: dict[str, str] = {}
+        for part in self.ga_properties_raw.split(","):
+            part = part.strip()
+            if ":" not in part:
+                continue
+            prop_id, name = part.split(":", 1)
+            prop_id, name = prop_id.strip(), name.strip()
+            if prop_id and name:
+                result[prop_id] = name
+        return result
+
+    @property
+    def ga_enabled(self) -> bool:
+        """True iff both GA impersonation target and properties are configured."""
+        return bool(self.ga_impersonation_target) and bool(self.ga_properties)
 
     @property
     def database_url_async(self) -> str:

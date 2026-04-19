@@ -185,6 +185,19 @@ async def authenticated_client(
     yield async_client
 
 
+@pytest_asyncio.fixture(scope="function")
+async def admin_client(
+    async_client: AsyncClient, admin_user: Dict
+) -> AsyncGenerator[AsyncClient, None]:
+    """Provide an authenticated HTTP client for an admin user.
+
+    Mirrors `authenticated_client` but uses the admin_user fixture so
+    admin-only endpoints can be exercised.
+    """
+    async_client.headers["Authorization"] = f"Bearer {admin_user['token']}"
+    yield async_client
+
+
 # ---------------------------------------------------------------------------
 # User Fixtures
 # ---------------------------------------------------------------------------

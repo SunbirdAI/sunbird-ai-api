@@ -8,6 +8,7 @@ fastapi-mail==1.4.1
 fastapi-limiter==0.1.6
 firebase-admin==6.5.0
 # Google Cloud packages
+google-analytics-data>=0.18.0
 google-cloud-storage==2.18.2
 # HTTP client for async requests
 httpx==0.28.1
