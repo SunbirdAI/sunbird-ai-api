@@ -36,6 +36,7 @@ from app.crud.users import get_user_by_username
 from app.database.db import async_session_maker
 # Integration imports
 from app.integrations.openai_client import OpenAIClient, get_openai_client
+from app.integrations.orpheus_modal import OrpheusModalClient, get_orpheus_modal_client
 from app.integrations.runpod import RunPodClient, get_runpod_client
 from app.integrations.whatsapp_api import WhatsAppAPIClient, get_whatsapp_api_client
 from app.schemas.users import TokenData, User
@@ -48,6 +49,7 @@ from app.services.google_analytics_service import (
 from app.services.inference_service import InferenceService, get_inference_service
 from app.services.language_service import LanguageService, get_language_service
 from app.services.modal_stt_service import ModalSTTService, get_modal_stt_service
+from app.services.orpheus_tts_service import OrpheusTTSService, get_orpheus_tts_service
 from app.services.storage_service import StorageService
 from app.services.storage_service import get_storage_service as get_new_storage_service
 from app.services.stt_service import STTService, get_stt_service
@@ -67,6 +69,7 @@ from app.utils.storage import get_storage_service as get_legacy_storage_service
 STTServiceDep = Annotated[STTService, Depends(get_stt_service)]
 ModalSTTServiceDep = Annotated[ModalSTTService, Depends(get_modal_stt_service)]
 TTSServiceDep = Annotated[TTSService, Depends(get_tts_service)]
+OrpheusTTSServiceDep = Annotated[OrpheusTTSService, Depends(get_orpheus_tts_service)]
 TranslationServiceDep = Annotated[TranslationService, Depends(get_translation_service)]
 LanguageServiceDep = Annotated[LanguageService, Depends(get_language_service)]
 InferenceServiceDep = Annotated[InferenceService, Depends(get_inference_service)]
@@ -79,6 +82,7 @@ GoogleAnalyticsServiceDep = Annotated[
 # Integration dependencies
 RunPodClientDep = Annotated[RunPodClient, Depends(get_runpod_client)]
 OpenAIClientDep = Annotated[OpenAIClient, Depends(get_openai_client)]
+OrpheusModalClientDep = Annotated[OrpheusModalClient, Depends(get_orpheus_modal_client)]
 WhatsAppAPIClientDep = Annotated[WhatsAppAPIClient, Depends(get_whatsapp_api_client)]
 CacheBackendDep = Annotated[CacheBackend, Depends(get_cache_backend)]
 
@@ -203,6 +207,7 @@ __all__ = [
     "STTServiceDep",
     "ModalSTTServiceDep",
     "TTSServiceDep",
+    "OrpheusTTSServiceDep",
     "TranslationServiceDep",
     "LanguageServiceDep",
     "InferenceServiceDep",
@@ -212,6 +217,7 @@ __all__ = [
     # Integration dependencies
     "RunPodClientDep",
     "OpenAIClientDep",
+    "OrpheusModalClientDep",
     "WhatsAppAPIClientDep",
     "CacheBackendDep",
     "CacheBackend",
@@ -221,6 +227,7 @@ __all__ = [
     "STTService",
     "ModalSTTService",
     "TTSService",
+    "OrpheusTTSService",
     "TranslationService",
     "LanguageService",
     "InferenceService",
@@ -230,6 +237,7 @@ __all__ = [
     # Integration classes (for type hints)
     "RunPodClient",
     "OpenAIClient",
+    "OrpheusModalClient",
     "WhatsAppAPIClient",
     "GCPStorageService",
     # Other types

@@ -129,6 +129,51 @@ class Settings(BaseSettings):
         description="Cache backend: 'memory' (default) or 'upstash'.",
     )
 
+    # Orpheus TTS Configuration (Modal-deployed vLLM inference)
+    orpheus_modal_url: Optional[str] = Field(
+        default=None,
+        description=(
+            "Base URL of the Orpheus-3B Modal app (no trailing slash). "
+            "Required to enable /tasks/modal/orpheus/* endpoints."
+        ),
+    )
+    orpheus_gcs_object_prefix: str = Field(
+        default="orpheus_tts",
+        description="Object key prefix for Orpheus-generated WAVs in AUDIO_CONTENT_BUCKET_NAME.",
+    )
+    orpheus_signed_url_expiry_minutes: int = Field(
+        default=30,
+        ge=1,
+        le=7 * 24 * 60,
+        description="Expiry window for Orpheus signed audio URLs.",
+    )
+    orpheus_max_batch_size: int = Field(
+        default=16,
+        ge=1,
+        le=128,
+        description="Maximum items per /tts/batch request.",
+    )
+    orpheus_speakers_cache_ttl_seconds: int = Field(
+        default=60,
+        ge=1,
+        description="TTL for the cached Modal /speakers catalog before refresh.",
+    )
+    orpheus_modal_request_timeout_seconds: float = Field(
+        default=180.0,
+        gt=0,
+        description="httpx read-timeout for Orpheus Modal requests.",
+    )
+    orpheus_modal_connect_timeout_seconds: float = Field(
+        default=10.0,
+        gt=0,
+        description="httpx connect-timeout for Orpheus Modal requests.",
+    )
+    orpheus_modal_retry_backoff_seconds: float = Field(
+        default=0.5,
+        ge=0,
+        description="Base sleep before a single retry on transient Modal errors.",
+    )
+
     @property
     def is_production(self) -> bool:
         """Check if running in production mode."""
