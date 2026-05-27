@@ -54,6 +54,11 @@ INFERENCE_TYPES = {
     "tts": "tts",
     "sunflower_chat": "sunflower_chat",
     "sunflower_simple": "sunflower_simple",
+    "stt": "stt",
+    "translation": "translation",
+    "language_id": "language_id",
+    "tts_modal": "tts_modal",
+    "tts_orpheus": "tts_orpheus",
 }
 
 
@@ -160,7 +165,11 @@ async def save_api_inference(
                 jd[k] = job_details.get(k)
 
         # For TTS keep a short hash of the source text instead of raw text
-        if inference_type == INFERENCE_TYPES["tts"]:
+        if inference_type in (
+            INFERENCE_TYPES["tts"],
+            INFERENCE_TYPES["tts_modal"],
+            INFERENCE_TYPES["tts_orpheus"],
+        ):
             try:
                 text_val = (
                     source_serialized

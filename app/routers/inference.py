@@ -28,7 +28,6 @@ from typing import Any, Dict
 
 from dotenv import load_dotenv
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, Request
-from jose import jwt
 from slowapi import Limiter
 
 from app.core.exceptions import (
@@ -50,52 +49,13 @@ from app.services.inference_service import (
     get_inference_service,
     run_inference,
 )
-from app.utils.auth import ALGORITHM, SECRET_KEY
 from app.utils.feedback import INFERENCE_TYPES, save_api_inference
+from app.utils.rate_limit import custom_key_func, get_account_type_limit
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
 
 router = APIRouter()
-
-
-def custom_key_func(request: Request) -> str:
-    """Extract account type from JWT token for rate limiting.
-
-    Args:
-        request: The FastAPI request object.
-
-    Returns:
-        The account type string or 'anonymous' if not found.
-    """
-    header = request.headers.get("Authorization")
-    if not header:
-        return "anonymous"
-    _, _, token = header.partition(" ")
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        account_type: str = payload.get("account_type", "")
-        return account_type or ""
-    except Exception:
-        return ""
-
-
-def get_account_type_limit(key: str) -> str:
-    """Get rate limit based on account type.
-
-    Args:
-        key: The account type key.
-
-    Returns:
-        Rate limit string (e.g., '50/minute').
-    """
-    if not key:
-        return "50/minute"
-    if key.lower() == "admin":
-        return "1000/minute"
-    if key.lower() == "premium":
-        return "100/minute"
-    return "50/minute"
 
 
 # Initialize the Limiter
