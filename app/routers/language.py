@@ -29,8 +29,7 @@ import shutil
 import time
 
 from dotenv import load_dotenv
-from fastapi import APIRouter, Depends, File, Request, UploadFile
-from jose import jwt
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Request, UploadFile
 from slowapi import Limiter
 from werkzeug.utils import secure_filename
 
@@ -49,51 +48,13 @@ from app.services.language_service import (
     LanguageTimeoutError,
     get_language_service,
 )
-from app.utils.auth import ALGORITHM, SECRET_KEY
+from app.utils.feedback import INFERENCE_TYPES, save_api_inference
+from app.utils.rate_limit import custom_key_func, get_account_type_limit
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
 
 router = APIRouter()
-
-
-def custom_key_func(request: Request) -> str:
-    """Extract account type from JWT token for rate limiting.
-
-    Args:
-        request: The FastAPI request object.
-
-    Returns:
-        The account type string or 'anonymous' if not found.
-    """
-    header = request.headers.get("Authorization")
-    if not header:
-        return "anonymous"
-    _, _, token = header.partition(" ")
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        account_type: str = payload.get("account_type", "")
-        return account_type or ""
-    except Exception:
-        return ""
-
-
-def get_account_type_limit(key: str) -> str:
-    """Get rate limit based on account type.
-
-    Args:
-        key: The account type key.
-
-    Returns:
-        Rate limit string (e.g., '50/minute').
-    """
-    if not key:
-        return "50/minute"
-    if key.lower() == "admin":
-        return "1000/minute"
-    if key.lower() == "premium":
-        return "100/minute"
-    return "50/minute"
 
 
 # Initialize the Limiter
@@ -115,6 +76,7 @@ def get_service() -> LanguageService:
 )
 async def language_id(
     languageId_request: LanguageIdRequest,
+    background_tasks: BackgroundTasks,
     current_user=Depends(get_current_user),
     service: LanguageService = Depends(get_service),
 ) -> dict:
@@ -151,9 +113,22 @@ async def language_id(
             "language": "lug"
         }
     """
+    start_time = time.time()
     try:
         result = await service.identify_language(text=languageId_request.text)
-        return {"language": result.language}
+        response_payload = {"language": result.language}
+
+        _schedule_language_feedback(
+            background_tasks=background_tasks,
+            user=current_user,
+            source=languageId_request.text,
+            response_payload=response_payload,
+            model_type="language_id",
+            processing_time=time.time() - start_time,
+            extra_job_details={"endpoint": "language_id"},
+        )
+
+        return response_payload
 
     except LanguageTimeoutError:
         logging.error("Language identification timed out")
@@ -175,6 +150,7 @@ async def language_id(
 )
 async def classify_language(
     languageId_request: LanguageIdRequest,
+    background_tasks: BackgroundTasks,
     current_user=Depends(get_current_user),
     service: LanguageService = Depends(get_service),
 ) -> dict:
@@ -220,9 +196,22 @@ async def classify_language(
             "language": "language not detected"
         }
     """
+    start_time = time.time()
     try:
         result = await service.classify_language(text=languageId_request.text)
-        return {"language": result.language}
+        response_payload = {"language": result.language}
+
+        _schedule_language_feedback(
+            background_tasks=background_tasks,
+            user=current_user,
+            source=languageId_request.text,
+            response_payload=response_payload,
+            model_type="language_classifier",
+            processing_time=time.time() - start_time,
+            extra_job_details={"endpoint": "classify_language"},
+        )
+
+        return response_payload
 
     except LanguageTimeoutError:
         logging.error("Language classification timed out")
@@ -252,6 +241,7 @@ async def classify_language(
 @limiter.limit(get_account_type_limit)
 async def auto_detect_audio_language(
     request: Request,
+    background_tasks: BackgroundTasks,
     audio: UploadFile = File(...),
     current_user=Depends(get_current_user),
     service: LanguageService = Depends(get_service),
@@ -304,7 +294,19 @@ async def auto_detect_audio_language(
             f"Audio language detection completed in {elapsed_time:.2f} seconds"
         )
 
-        return {"detected_language": result.detected_language}
+        response_payload = {"detected_language": result.detected_language}
+
+        _schedule_language_feedback(
+            background_tasks=background_tasks,
+            user=current_user,
+            source=audio.filename or "uploaded_audio",
+            response_payload=response_payload,
+            model_type="audio_language_detector",
+            processing_time=elapsed_time,
+            extra_job_details={"endpoint": "auto_detect_audio_language"},
+        )
+
+        return response_payload
 
     except LanguageTimeoutError:
         logging.error("Audio language detection timed out")
@@ -333,3 +335,38 @@ async def auto_detect_audio_language(
         # Clean up temporary file
         if os.path.exists(file_path):
             os.remove(file_path)
+
+
+# =============================================================================
+# Helpers
+# =============================================================================
+
+
+def _schedule_language_feedback(
+    *,
+    background_tasks: BackgroundTasks,
+    user,
+    source,
+    response_payload: dict,
+    model_type: str,
+    processing_time: float,
+    extra_job_details: dict | None = None,
+) -> None:
+    """Schedule a best-effort language-identification feedback save.
+
+    Wrapped in try/except so a feedback-save failure never propagates to the
+    request response.
+    """
+    try:
+        background_tasks.add_task(
+            save_api_inference,
+            source,
+            response_payload,
+            user,
+            model_type=model_type,
+            processing_time=processing_time,
+            inference_type=INFERENCE_TYPES["language_id"],
+            job_details=extra_job_details,
+        )
+    except Exception as e:
+        logging.warning(f"Failed to schedule language feedback save task: {e}")

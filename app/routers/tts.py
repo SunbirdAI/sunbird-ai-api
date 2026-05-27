@@ -6,10 +6,12 @@ All TTS API endpoints.
 
 import base64
 import json
+import logging
+import time
 from io import BytesIO
 
 import httpx
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -30,6 +32,7 @@ from app.schemas.tts import (
     TTSResponse,
     TTSStreamFinalResponse,
 )
+from app.utils.feedback import INFERENCE_TYPES, save_api_inference
 
 router = APIRouter()
 
@@ -94,6 +97,7 @@ async def generate_tts(
     request: TTSRequest,
     storage_service: LegacyStorageServiceDep,
     tts_service: TTSServiceDep,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
@@ -113,6 +117,7 @@ async def generate_tts(
         return await _stream_audio_with_url(request, storage_service, tts_service)
 
     # URL mode (default)
+    start_time = time.time()
     try:
         # Generate audio from TTS service
         audio_data = await tts_service.generate_audio(
@@ -129,7 +134,7 @@ async def generate_tts(
         # Estimate duration
         duration_estimate = tts_service.estimate_duration(request.text)
 
-        return TTSResponse(
+        response = TTSResponse(
             success=True,
             audio_url=signed_url,
             expires_at=expires_at,
@@ -139,6 +144,18 @@ async def generate_tts(
             speaker_id=request.speaker_id,
             speaker_name=request.speaker_id.display_name,
         )
+
+        _schedule_modal_tts_feedback(
+            background_tasks=background_tasks,
+            user=current_user,
+            text=request.text,
+            speaker_id=request.speaker_id,
+            file_name=file_name,
+            audio_url=signed_url,
+            processing_time=time.time() - start_time,
+        )
+
+        return response
 
     except httpx.TimeoutException:
         raise ServiceUnavailableError(
@@ -311,3 +328,40 @@ async def _stream_audio_with_url(
             "X-Text-Length": str(len(request.text)),
         },
     )
+
+
+def _schedule_modal_tts_feedback(
+    *,
+    background_tasks: BackgroundTasks,
+    user,
+    text: str,
+    speaker_id,
+    file_name: str,
+    audio_url: str,
+    processing_time: float,
+) -> None:
+    """Schedule a best-effort Modal TTS feedback save.
+
+    Wrapped in try/except so a feedback-save failure never propagates to the
+    request response. Only metadata is sent; raw audio bytes are excluded and
+    the source text is hashed downstream in `save_api_inference`.
+    """
+    try:
+        speaker_name = getattr(speaker_id, "name", None) or str(speaker_id)
+        speaker_value = getattr(speaker_id, "value", speaker_id)
+        background_tasks.add_task(
+            save_api_inference,
+            text,
+            {"file_name": file_name, "audio_url": audio_url},
+            user,
+            model_type=speaker_name,
+            processing_time=processing_time,
+            inference_type=INFERENCE_TYPES["tts_modal"],
+            job_details={
+                "speaker_id": speaker_value,
+                "blob": file_name,
+                "audio_url": audio_url,
+            },
+        )
+    except Exception as e:
+        logging.warning(f"Failed to schedule Modal TTS feedback save task: {e}")
