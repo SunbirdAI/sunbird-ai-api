@@ -35,6 +35,7 @@ from app.routers.frontend import router as frontend_router
 from app.routers.google_analytics import router as google_analytics_router
 from app.routers.inference import router as inference_router
 from app.routers.language import router as language_router
+from app.routers.orpheus_tts import router as orpheus_tts_router
 from app.routers.runpod_tts import router as runpod_tts_router
 from app.routers.spa import router as spa_router
 from app.routers.stt import router as stt_router
@@ -109,6 +110,18 @@ async def lifespan(app: FastAPI):
         redis_instance = await init_redis()
         await FastAPILimiter.init(redis_instance)
         logger.info("FastAPILimiter initialized successfully")
+
+        # Warm the Orpheus speakers catalog so the first /tts request doesn't
+        # pay a Modal round-trip for validation. Best-effort: a Modal cold
+        # start (or unset ORPHEUS_MODAL_URL) leaves the cache cold and
+        # validation falls open.
+        try:
+            from app.services.orpheus_tts_service import get_orpheus_tts_service
+
+            await get_orpheus_tts_service().warm_speakers_cache()
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"Orpheus speakers warm-up failed: {e}")
+
         yield
     except RetryError as e:
         logger.error(f"Failed to connect to Redis: {e}")
@@ -214,6 +227,11 @@ app.include_router(tasks_router, prefix="/tasks", tags=["AI Tasks"])  # Legacy e
 
 # TTS endpoints - organized by provider
 app.include_router(modal_tts_router, prefix="/tasks/modal", tags=["TTS (Modal)"])
+app.include_router(
+    orpheus_tts_router,
+    prefix="/tasks/modal/orpheus",
+    tags=["TTS (Orpheus)"],
+)
 app.include_router(runpod_tts_router, prefix="/tasks/runpod", tags=["TTS (RunPod)"])
 # Note: Legacy /tasks/tts endpoint maintained in tasks_router for backward compatibility
 

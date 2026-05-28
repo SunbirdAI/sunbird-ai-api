@@ -24,8 +24,7 @@ import logging
 import time
 
 from dotenv import load_dotenv
-from fastapi import APIRouter, Depends, Request
-from jose import jwt
+from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from slowapi import Limiter
 
 from app.core.exceptions import ExternalServiceError, ServiceUnavailableError
@@ -39,51 +38,13 @@ from app.services.translation_service import (
     TranslationValidationError,
     get_translation_service,
 )
-from app.utils.auth import ALGORITHM, SECRET_KEY
+from app.utils.feedback import INFERENCE_TYPES, save_api_inference
+from app.utils.rate_limit import custom_key_func, get_account_type_limit
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
 
 router = APIRouter()
-
-
-def custom_key_func(request: Request) -> str:
-    """Extract account type from JWT token for rate limiting.
-
-    Args:
-        request: The FastAPI request object.
-
-    Returns:
-        The account type string or 'anonymous' if not found.
-    """
-    header = request.headers.get("Authorization")
-    if not header:
-        return "anonymous"
-    _, _, token = header.partition(" ")
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        account_type: str = payload.get("account_type", "")
-        return account_type or ""
-    except Exception:
-        return ""
-
-
-def get_account_type_limit(key: str) -> str:
-    """Get rate limit based on account type.
-
-    Args:
-        key: The account type key.
-
-    Returns:
-        Rate limit string (e.g., '50/minute').
-    """
-    if not key:
-        return "50/minute"
-    if key.lower() == "admin":
-        return "1000/minute"
-    if key.lower() == "premium":
-        return "100/minute"
-    return "50/minute"
 
 
 # Initialize the Limiter
@@ -107,6 +68,7 @@ def get_service() -> TranslationService:
 async def translate(
     request: Request,
     translation_request: NllbTranslationRequest,
+    background_tasks: BackgroundTasks,
     current_user=Depends(get_current_user),
     service: TranslationService = Depends(get_service),
 ) -> dict:
@@ -181,18 +143,39 @@ async def translate(
         # Validate and return response
         if result.raw_response:
             worker_resp = service.validate_and_parse_response(result.raw_response)
-            return worker_resp.model_dump()
+            response_payload = worker_resp.model_dump()
+        else:
+            # Fallback response if raw_response is missing
+            response_payload = WorkerTranslationResponse(
+                status=result.status,
+                id=result.job_id,
+                output={
+                    "translated_text": result.translated_text,
+                    "source_language": result.source_language,
+                    "target_language": result.target_language,
+                },
+            ).model_dump()
 
-        # Fallback response if raw_response is missing
-        return WorkerTranslationResponse(
-            status=result.status,
-            id=result.job_id,
-            output={
-                "translated_text": result.translated_text,
-                "source_language": result.source_language,
-                "target_language": result.target_language,
-            },
-        ).model_dump()
+        try:
+            job_details = {
+                "source_language": translation_request.source_language.value,
+                "target_language": translation_request.target_language.value,
+                "job_id": getattr(result, "job_id", None),
+            }
+            background_tasks.add_task(
+                save_api_inference,
+                translation_request.text,
+                response_payload,
+                current_user,
+                model_type="nllb",
+                processing_time=elapsed_time,
+                inference_type=INFERENCE_TYPES["translation"],
+                job_details={k: v for k, v in job_details.items() if v is not None},
+            )
+        except Exception as e:
+            logging.warning(f"Failed to schedule translation feedback save task: {e}")
+
+        return response_payload
 
     except TranslationTimeoutError as e:
         logging.error(f"Translation timeout: {str(e)}")
