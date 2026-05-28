@@ -56,8 +56,6 @@ logging.basicConfig(level=logging.INFO)
 router = APIRouter()
 
 
-
-
 def get_service() -> LanguageService:
     """Dependency for getting the Language service instance.
 

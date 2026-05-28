@@ -570,7 +570,7 @@ class TestRateLimiting:
 
     def test_get_account_type_limit_admin(self) -> None:
         """Test rate limit for admin account type."""
-        from app.routers.stt import get_account_type_limit
+        from app.utils.rate_limit import get_account_type_limit
 
         result = get_account_type_limit("admin")
 
@@ -578,7 +578,7 @@ class TestRateLimiting:
 
     def test_get_account_type_limit_premium(self) -> None:
         """Test rate limit for premium account type."""
-        from app.routers.stt import get_account_type_limit
+        from app.utils.rate_limit import get_account_type_limit
 
         result = get_account_type_limit("premium")
 
@@ -586,7 +586,7 @@ class TestRateLimiting:
 
     def test_get_account_type_limit_default(self) -> None:
         """Test rate limit for default/standard account type."""
-        from app.routers.stt import get_account_type_limit
+        from app.utils.rate_limit import get_account_type_limit
 
         result = get_account_type_limit("standard")
 
@@ -594,7 +594,7 @@ class TestRateLimiting:
 
     def test_get_account_type_limit_empty(self) -> None:
         """Test rate limit for empty account type."""
-        from app.routers.stt import get_account_type_limit
+        from app.utils.rate_limit import get_account_type_limit
 
         result = get_account_type_limit("")
 
@@ -602,7 +602,7 @@ class TestRateLimiting:
 
     def test_get_account_type_limit_case_insensitive(self) -> None:
         """Test rate limit is case insensitive."""
-        from app.routers.stt import get_account_type_limit
+        from app.utils.rate_limit import get_account_type_limit
 
         assert get_account_type_limit("ADMIN") == "1000/minute"
         assert get_account_type_limit("Admin") == "1000/minute"

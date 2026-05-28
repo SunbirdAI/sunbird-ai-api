@@ -42,7 +42,6 @@ INFERENCE_CHAT = INFERENCE_TYPES["chat"]
 INFERENCE_TTS = INFERENCE_TYPES["tts"]
 
 
-
 def get_endpoint_details(endpoint_id: str):
     """Fetch RunPod endpoint details from the API.
 

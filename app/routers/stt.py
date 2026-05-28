@@ -78,8 +78,6 @@ logging.basicConfig(level=logging.INFO)
 router = APIRouter()
 
 
-
-
 def get_service() -> STTService:
     """Dependency for getting the STT service instance.
 

@@ -20,6 +20,7 @@ async def test_get_returns_none_on_redis_failure():
     class Broken:
         async def get(self, key):
             from redis.exceptions import ConnectionError as RCE
+
             raise RCE("down")
 
     cache = UpstashCache(SafeRedis(Broken()))

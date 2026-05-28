@@ -49,7 +49,6 @@ runpod.api_key = os.getenv("RUNPOD_API_KEY")
 INFERENCE_TTS = INFERENCE_TYPES["tts"]
 
 
-
 @retry(
     stop=stop_after_attempt(3),  # Retry up to 3 times
     wait=wait_exponential(

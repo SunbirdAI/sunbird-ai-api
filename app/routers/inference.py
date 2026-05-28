@@ -57,8 +57,6 @@ logging.basicConfig(level=logging.INFO)
 router = APIRouter()
 
 
-
-
 def get_service() -> InferenceService:
     """Dependency for getting the Inference service instance.
 
