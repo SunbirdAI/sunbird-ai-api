@@ -527,25 +527,24 @@ class TestOrgSTTEndpoint:
 class TestRateLimiting:
     """Tests for rate limiting functionality."""
 
-    def test_custom_key_func_extracts_account_type(self) -> None:
-        """Test that custom_key_func extracts account type from JWT."""
-        from app.routers.stt import custom_key_func
+    def test_custom_key_func_no_header_uses_anonymous_tier(self) -> None:
+        """No Authorization header → anonymous tier, identity from remote IP."""
+        from app.utils.rate_limit import custom_key_func
 
         mock_request = MagicMock()
         mock_request.headers.get.return_value = None
 
         result = custom_key_func(mock_request)
 
-        assert result == "anonymous"
+        assert result.startswith("anonymous:")
 
     def test_custom_key_func_with_valid_token(self) -> None:
-        """Test custom_key_func extracts account type from valid JWT."""
+        """Valid JWT → '<account_type>:<sub>' composite key."""
         from datetime import timedelta
 
-        from app.routers.stt import custom_key_func
         from app.utils.auth import create_access_token
+        from app.utils.rate_limit import custom_key_func
 
-        # Create a token with account_type
         token = create_access_token(
             data={"sub": "test_user", "account_type": "premium"},
             expires_delta=timedelta(hours=1),
@@ -556,30 +555,18 @@ class TestRateLimiting:
 
         result = custom_key_func(mock_request)
 
-        assert result == "premium"
+        assert result == "premium:test_user"
 
-    def test_custom_key_func_with_no_auth_header(self) -> None:
-        """Test custom_key_func returns 'anonymous' when no auth header."""
-        from app.routers.stt import custom_key_func
-
-        mock_request = MagicMock()
-        mock_request.headers.get.return_value = None
-
-        result = custom_key_func(mock_request)
-
-        assert result == "anonymous"
-
-    def test_custom_key_func_with_invalid_token(self) -> None:
-        """Test custom_key_func handles invalid token gracefully."""
-        from app.routers.stt import custom_key_func
+    def test_custom_key_func_with_invalid_token_falls_to_free(self) -> None:
+        """Undecodable token → free tier, identity from remote IP."""
+        from app.utils.rate_limit import custom_key_func
 
         mock_request = MagicMock()
         mock_request.headers.get.return_value = "Bearer invalid_token_here"
 
         result = custom_key_func(mock_request)
 
-        # Should return empty string on decode failure
-        assert result == ""
+        assert result.startswith("free:")
 
     def test_get_account_type_limit_admin(self) -> None:
         """Test rate limit for admin account type."""
