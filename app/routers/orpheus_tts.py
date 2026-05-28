@@ -22,7 +22,6 @@ import logging
 import uuid
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
-from slowapi import Limiter
 
 from app.deps import get_current_user, get_orpheus_tts_service
 from app.schemas.orpheus_tts import (
@@ -37,14 +36,12 @@ from app.schemas.orpheus_tts import (
     OrpheusTTSResponse,
 )
 from app.utils.feedback import INFERENCE_TYPES, save_api_inference
-from app.utils.rate_limit import custom_key_func, get_account_type_limit
+from app.utils.rate_limit import get_account_type_limit, limiter
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Per-account SlowAPI limiter shared with the other /tasks/* routers.
-limiter = Limiter(key_func=custom_key_func)
 
 
 # ----- Speakers -----

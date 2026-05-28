@@ -25,7 +25,6 @@ import time
 
 from dotenv import load_dotenv
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
-from slowapi import Limiter
 
 from app.core.exceptions import ExternalServiceError, ServiceUnavailableError
 from app.deps import get_current_user
@@ -39,7 +38,7 @@ from app.services.translation_service import (
     get_translation_service,
 )
 from app.utils.feedback import INFERENCE_TYPES, save_api_inference
-from app.utils.rate_limit import custom_key_func, get_account_type_limit
+from app.utils.rate_limit import get_account_type_limit, limiter
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
@@ -47,8 +46,6 @@ logging.basicConfig(level=logging.INFO)
 router = APIRouter()
 
 
-# Initialize the Limiter
-limiter = Limiter(key_func=custom_key_func)
 
 
 def get_service() -> TranslationService:

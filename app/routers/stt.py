@@ -43,7 +43,6 @@ from fastapi import (
     Response,
     UploadFile,
 )
-from slowapi import Limiter
 from sqlalchemy.ext.asyncio import AsyncSession
 from werkzeug.utils import secure_filename
 
@@ -71,7 +70,7 @@ from app.services.stt_service import (
 )
 from app.utils.audio import get_audio_extension
 from app.utils.feedback import INFERENCE_TYPES, save_api_inference
-from app.utils.rate_limit import custom_key_func, get_account_type_limit
+from app.utils.rate_limit import get_account_type_limit, limiter
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
@@ -79,8 +78,6 @@ logging.basicConfig(level=logging.INFO)
 router = APIRouter()
 
 
-# Initialize the Limiter
-limiter = Limiter(key_func=custom_key_func)
 
 
 def get_service() -> STTService:

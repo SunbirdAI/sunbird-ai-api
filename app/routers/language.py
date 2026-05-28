@@ -30,7 +30,6 @@ import time
 
 from dotenv import load_dotenv
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Request, UploadFile
-from slowapi import Limiter
 from werkzeug.utils import secure_filename
 
 from app.core.exceptions import ExternalServiceError, ServiceUnavailableError
@@ -49,7 +48,7 @@ from app.services.language_service import (
     get_language_service,
 )
 from app.utils.feedback import INFERENCE_TYPES, save_api_inference
-from app.utils.rate_limit import custom_key_func, get_account_type_limit
+from app.utils.rate_limit import get_account_type_limit, limiter
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
@@ -57,8 +56,6 @@ logging.basicConfig(level=logging.INFO)
 router = APIRouter()
 
 
-# Initialize the Limiter
-limiter = Limiter(key_func=custom_key_func)
 
 
 def get_service() -> LanguageService:

@@ -16,7 +16,6 @@ import time
 import runpod
 from dotenv import load_dotenv
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
-from slowapi import Limiter
 from tenacity import (
     retry,
     retry_if_exception_type,
@@ -33,7 +32,7 @@ from app.core.exceptions import (
 from app.deps import get_current_user
 from app.schemas.tasks import TTSRequest
 from app.utils.feedback import INFERENCE_TYPES, save_api_inference
-from app.utils.rate_limit import custom_key_func, get_account_type_limit
+from app.utils.rate_limit import get_account_type_limit, limiter
 
 router = APIRouter()
 
@@ -49,9 +48,6 @@ runpod.api_key = os.getenv("RUNPOD_API_KEY")
 # existing dashboards keep working unchanged.
 INFERENCE_TTS = INFERENCE_TYPES["tts"]
 
-
-# Initialize the Limiter
-limiter = Limiter(key_func=custom_key_func)
 
 
 @retry(

@@ -7,7 +7,6 @@ import requests
 import runpod
 from dotenv import load_dotenv
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
-from slowapi import Limiter
 from tenacity import (
     retry,
     retry_if_exception_type,
@@ -25,7 +24,7 @@ from app.schemas.tasks import (
     TTSRequest,
 )
 from app.utils.feedback import INFERENCE_TYPES, save_api_inference
-from app.utils.rate_limit import custom_key_func, get_account_type_limit
+from app.utils.rate_limit import get_account_type_limit, limiter
 from app.utils.upload_audio_file_gcp import upload_file_to_bucket
 
 router = APIRouter()
@@ -42,9 +41,6 @@ runpod.api_key = os.getenv("RUNPOD_API_KEY")
 INFERENCE_CHAT = INFERENCE_TYPES["chat"]
 INFERENCE_TTS = INFERENCE_TYPES["tts"]
 
-
-# Initialize the Limiter
-limiter = Limiter(key_func=custom_key_func)
 
 
 def get_endpoint_details(endpoint_id: str):
