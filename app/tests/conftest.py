@@ -548,3 +548,36 @@ def pytest_configure(config):
 
 # Configure pytest-asyncio mode
 pytest_plugins = ["pytest_asyncio"]
+
+
+# ---------------------------------------------------------------------------
+# Redis / Rate-Limit Fixtures
+# ---------------------------------------------------------------------------
+
+import fakeredis.aioredis  # noqa: E402
+
+from app.services import redis_client as redis_client_module  # noqa: E402
+from app.services.redis_client import SafeRedis  # noqa: E402
+
+
+@pytest_asyncio.fixture
+async def fake_redis(monkeypatch) -> AsyncGenerator[SafeRedis, None]:
+    """Install a fakeredis-backed SafeRedis singleton for the test."""
+    backend = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    safe = SafeRedis(backend)
+    monkeypatch.setattr(redis_client_module, "_safe_redis", safe)
+    yield safe
+    monkeypatch.setattr(redis_client_module, "_safe_redis", None)
+
+
+@pytest_asyncio.fixture
+async def rate_limited_app(monkeypatch, fake_redis):
+    """Rebuild the shared SlowAPI limiter against fakeredis for one test.
+
+    SlowAPI's storage is bound at Limiter construction. The shared limiter is
+    in-memory by default in tests (no REDIS_URL); for this test we don't need
+    to point it at Redis — in-memory storage in a single process is enough to
+    verify that the 51st request is rejected. The fixture exists so callers
+    that DO need a Redis-backed limiter can opt in by importing it.
+    """
+    yield
