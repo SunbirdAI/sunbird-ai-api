@@ -33,8 +33,16 @@ from typing import Optional
 
 import aiofiles
 from dotenv import load_dotenv
-from fastapi import APIRouter, Depends, File, Form, Request, Response, UploadFile
-from jose import jwt
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    Request,
+    Response,
+    UploadFile,
+)
 from slowapi import Limiter
 from sqlalchemy.ext.asyncio import AsyncSession
 from werkzeug.utils import secure_filename
@@ -62,51 +70,13 @@ from app.services.stt_service import (
     get_stt_service,
 )
 from app.utils.audio import get_audio_extension
-from app.utils.auth import ALGORITHM, SECRET_KEY
+from app.utils.feedback import INFERENCE_TYPES, save_api_inference
+from app.utils.rate_limit import custom_key_func, get_account_type_limit
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
 
 router = APIRouter()
-
-
-def custom_key_func(request: Request) -> str:
-    """Extract account type from JWT token for rate limiting.
-
-    Args:
-        request: The FastAPI request object.
-
-    Returns:
-        The account type string or empty string if not found.
-    """
-    header = request.headers.get("Authorization")
-    if not header:
-        return "anonymous"
-    _, _, token = header.partition(" ")
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        account_type: str = payload.get("account_type", "")
-        return account_type or ""
-    except Exception:
-        return ""
-
-
-def get_account_type_limit(key: str) -> str:
-    """Get rate limit based on account type.
-
-    Args:
-        key: The account type key.
-
-    Returns:
-        Rate limit string (e.g., '50/minute').
-    """
-    if not key:
-        return "50/minute"
-    if key.lower() == "admin":
-        return "1000/minute"
-    if key.lower() == "premium":
-        return "100/minute"
-    return "50/minute"
 
 
 # Initialize the Limiter
@@ -125,6 +95,7 @@ def get_service() -> STTService:
 @router.post("/stt_from_gcs")
 async def speech_to_text_from_gcs(
     request: Request,
+    background_tasks: BackgroundTasks,
     gcs_blob_name: str = Form(...),
     language: SttbLanguage = Form(SttbLanguage.luganda),
     adapter: SttbLanguage = Form(SttbLanguage.luganda),
@@ -160,6 +131,8 @@ async def speech_to_text_from_gcs(
         BadRequestError: If audio processing fails.
         ExternalServiceError: If transcription service fails.
     """
+    start_time = time.time()
+
     try:
         result = await service.transcribe_from_gcs(
             gcs_blob_name=gcs_blob_name,
@@ -203,6 +176,19 @@ async def speech_to_text_from_gcs(
             else None,
         )
 
+        _schedule_stt_feedback(
+            background_tasks=background_tasks,
+            user=current_user,
+            source=gcs_blob_name,
+            transcription=result.transcription,
+            audio_url=result.audio_url,
+            blob_name=result.blob_name,
+            language=language.value,
+            adapter=adapter.value,
+            whisper=whisper,
+            processing_time=time.time() - start_time,
+        )
+
         # Add warning headers if audio was trimmed
         if result.was_trimmed:
             return Response(
@@ -234,6 +220,7 @@ async def speech_to_text_from_gcs(
 @limiter.limit(get_account_type_limit)
 async def speech_to_text(
     request: Request,
+    background_tasks: BackgroundTasks,
     audio: UploadFile = File(..., description="Audio file to transcribe"),
     language: SttbLanguage = Form(SttbLanguage.luganda),
     adapter: SttbLanguage = Form(SttbLanguage.luganda),
@@ -359,6 +346,19 @@ async def speech_to_text(
             else None,
         )
 
+        _schedule_stt_feedback(
+            background_tasks=background_tasks,
+            user=current_user,
+            source=audio.filename or "uploaded_audio",
+            transcription=result.transcription,
+            audio_url=result.audio_url,
+            blob_name=result.blob_name,
+            language=language.value,
+            adapter=adapter.value,
+            whisper=whisper,
+            processing_time=elapsed_time,
+        )
+
         # Add warning header if audio was trimmed
         if result.was_trimmed:
             return Response(
@@ -390,6 +390,7 @@ async def speech_to_text(
 @limiter.limit(get_account_type_limit)
 async def speech_to_text_org(
     request: Request,
+    background_tasks: BackgroundTasks,
     audio: UploadFile = File(...),
     recognise_speakers: bool = Form(False),
     current_user=Depends(get_current_user),
@@ -460,6 +461,20 @@ async def speech_to_text_org(
 
         # Endpoint usage logging is handled automatically by MonitoringMiddleware
 
+        _schedule_stt_feedback(
+            background_tasks=background_tasks,
+            user=current_user,
+            source=audio.filename or "uploaded_audio",
+            transcription=result.transcription,
+            audio_url=None,
+            blob_name=None,
+            language=None,
+            adapter=None,
+            whisper=False,
+            processing_time=elapsed_time,
+            org=True,
+        )
+
         return STTTranscript(
             audio_transcription=result.transcription,
             diarization_output=result.diarization_output,
@@ -506,6 +521,7 @@ async def speech_to_text_org(
 @limiter.limit(get_account_type_limit)
 async def modal_speech_to_text(
     request: Request,
+    background_tasks: BackgroundTasks,
     audio: UploadFile = File(..., description="Audio file to transcribe"),
     language: Optional[str] = Form(
         default=None,
@@ -564,6 +580,20 @@ async def modal_speech_to_text(
         elapsed_time = time.time() - start_time
         logging.info(f"Modal STT transcription completed in {elapsed_time:.2f} seconds")
 
+        _schedule_stt_feedback(
+            background_tasks=background_tasks,
+            user=current_user,
+            source=audio.filename or "uploaded_audio",
+            transcription=transcription,
+            audio_url=None,
+            blob_name=None,
+            language=language,
+            adapter=None,
+            whisper=True,
+            processing_time=elapsed_time,
+            model_type="whisper-modal",
+        )
+
         return STTTranscript(
             audio_transcription=transcription,
         )
@@ -577,3 +607,56 @@ async def modal_speech_to_text(
             message="An unexpected error occurred while processing your request",
             original_error=str(e),
         )
+
+
+# =============================================================================
+# Helpers
+# =============================================================================
+
+
+def _schedule_stt_feedback(
+    *,
+    background_tasks: BackgroundTasks,
+    user,
+    source,
+    transcription: Optional[str],
+    audio_url: Optional[str],
+    blob_name: Optional[str],
+    language: Optional[str],
+    adapter: Optional[str],
+    whisper: bool,
+    processing_time: float,
+    model_type: Optional[str] = None,
+    org: bool = False,
+) -> None:
+    """Schedule a best-effort STT feedback save via FastAPI BackgroundTasks.
+
+    Wrapped in a try/except so a feedback-save failure never propagates to the
+    request response. Job details deliberately exclude raw audio bytes.
+    """
+    try:
+        job_details = {
+            "blob": blob_name,
+            "audio_url": audio_url,
+            "language": language,
+            "adapter": adapter,
+            "whisper": whisper,
+            "org": org,
+        }
+        # Drop None values so the feedback record stays compact.
+        job_details = {k: v for k, v in job_details.items() if v is not None}
+
+        resolved_model = model_type or ("whisper" if whisper else (adapter or "stt"))
+
+        background_tasks.add_task(
+            save_api_inference,
+            source,
+            {"transcription": transcription},
+            user,
+            model_type=resolved_model,
+            processing_time=processing_time,
+            inference_type=INFERENCE_TYPES["stt"],
+            job_details=job_details,
+        )
+    except Exception as e:
+        logging.warning(f"Failed to schedule STT feedback save task: {e}")

@@ -91,6 +91,10 @@ tags_metadata = [
         "description": "Modal-based Text-to-Speech services for Ugandan languages. Generate audio from text with support for streaming, signed URLs, and multiple language voices.",
     },
     {
+        "name": "TTS (Orpheus)",
+        "description": "Multilingual, multi-speaker TTS via the Modal-deployed Orpheus-3B vLLM inference app. Supports single and batched synthesis with up-front speaker/language validation, returning v4 signed GCS URLs with stage-by-stage latency timings.",
+    },
+    {
         "name": "TTS (RunPod)",
         "description": "RunPod-based Text-to-Speech services for Ugandan languages. Fast inference using RunPod serverless infrastructure with support for multiple speaker voices.",
     },
