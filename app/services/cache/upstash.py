@@ -1,8 +1,13 @@
 """Upstash/Redis-backed ``CacheBackend`` implementation.
 
-Values are JSON-serialised. Failures from ``SafeRedis`` surface as ``None``
-on read and silent no-ops on write — the calling code is expected to treat
-``None`` as a cache miss (typical read-through pattern).
+Values must be JSON-serialisable — passing a non-serialisable value to
+``set`` raises ``TypeError`` from ``json.dumps`` (caller-side bug, not a
+transport failure).
+
+Transport failures from ``SafeRedis`` (Redis unreachable, timeout) surface
+as ``None`` on read and silent no-ops on write; callers treat ``None`` as
+a cache miss in the usual read-through pattern. Corrupt JSON in storage
+also surfaces as a miss (``get`` returns ``None``).
 """
 
 from __future__ import annotations
