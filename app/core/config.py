@@ -129,6 +129,35 @@ class Settings(BaseSettings):
         description="Cache backend: 'memory' (default) or 'upstash'.",
     )
 
+    # Redis / Upstash Configuration
+    redis_url: Optional[str] = Field(
+        default=None,
+        description=(
+            "Redis connection URL. Use 'rediss://...' for Upstash (TLS). "
+            "When unset, rate limiting falls back to in-memory storage."
+        ),
+    )
+    redis_socket_timeout: float = Field(
+        default=2.0,
+        gt=0,
+        description="redis-py socket read timeout in seconds (fail-fast for Upstash).",
+    )
+    redis_socket_connect_timeout: float = Field(
+        default=2.0,
+        gt=0,
+        description="redis-py TCP connect timeout in seconds.",
+    )
+    redis_health_check_interval: int = Field(
+        default=30,
+        ge=0,
+        description="redis-py background health-check interval in seconds.",
+    )
+    redis_max_connections: int = Field(
+        default=10,
+        ge=1,
+        description="redis-py connection pool size (keep modest for Upstash quotas).",
+    )
+
     # Orpheus TTS Configuration (Modal-deployed vLLM inference)
     orpheus_modal_url: Optional[str] = Field(
         default=None,
