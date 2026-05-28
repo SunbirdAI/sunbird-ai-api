@@ -74,8 +74,8 @@ INFERENCE_TYPES = {
     "stt": "stt",
     "translation": "translation",
     "language_id": "language_id",
-    "tts_modal": "tts_modal",
-    "tts_orpheus": "tts_orpheus",
+    "tts_modal": "tts",
+    "tts_orpheus": "tts",
 }
 
 
