@@ -62,3 +62,15 @@ async def test_is_healthy_false_on_failure():
 
     safe = SafeRedis(BrokenBackend())
     assert await safe.is_healthy() is False
+
+
+async def test_is_healthy_handles_generic_exception():
+    """The catch-all ``except Exception`` is exercised when the backend raises
+    a non-RedisError (e.g. fakeredis edge paths)."""
+
+    class WeirdBackend:
+        async def ping(self):
+            raise RuntimeError("not a RedisError")
+
+    safe = SafeRedis(WeirdBackend())
+    assert await safe.is_healthy() is False
