@@ -1,0 +1,34 @@
+"""Upstash/Redis-backed ``CacheBackend`` implementation.
+
+Values are JSON-serialised. Failures from ``SafeRedis`` surface as ``None``
+on read and silent no-ops on write — the calling code is expected to treat
+``None`` as a cache miss (typical read-through pattern).
+"""
+
+from __future__ import annotations
+
+import json
+from typing import Any, Optional
+
+from app.services.cache import CacheBackend
+from app.services.redis_client import SafeRedis
+
+
+class UpstashCache(CacheBackend):
+    def __init__(self, client: SafeRedis) -> None:
+        self._client = client
+
+    async def get(self, key: str) -> Optional[Any]:
+        raw = await self._client.get(key)
+        if raw is None:
+            return None
+        try:
+            return json.loads(raw)
+        except (TypeError, ValueError):
+            return None
+
+    async def set(self, key: str, value: Any, ttl_seconds: int) -> None:
+        await self._client.set(key, json.dumps(value), ex=ttl_seconds)
+
+    async def delete(self, key: str) -> None:
+        await self._client.delete(key)
