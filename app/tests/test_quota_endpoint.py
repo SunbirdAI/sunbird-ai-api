@@ -54,13 +54,17 @@ def stub_translation_service(monkeypatch):
     try:
         import app.utils.feedback as feedback_module
 
-        monkeypatch.setattr(feedback_module, "save_api_inference", noop_save, raising=False)
+        monkeypatch.setattr(
+            feedback_module, "save_api_inference", noop_save, raising=False
+        )
     except ImportError:
         pass
     try:
         import app.routers.translation as translation_module
 
-        monkeypatch.setattr(translation_module, "save_api_inference", noop_save, raising=False)
+        monkeypatch.setattr(
+            translation_module, "save_api_inference", noop_save, raising=False
+        )
     except (ImportError, AttributeError):
         pass
 
@@ -89,9 +93,9 @@ async def test_free_user_429_after_daily_cap(
         r = await authenticated_client.post("/tasks/translate", json=payload)
         statuses.append(r.status_code)
 
-    assert statuses.count(200) == 500, (
-        f"unexpected non-200s: {dict.fromkeys(statuses, 0) | {s: statuses.count(s) for s in set(statuses)}}"
-    )
+    assert (
+        statuses.count(200) == 500
+    ), f"unexpected non-200s: {dict.fromkeys(statuses, 0) | {s: statuses.count(s) for s in set(statuses)}}"
 
     limiter.reset()
     r = await authenticated_client.post("/tasks/translate", json=payload)

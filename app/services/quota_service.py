@@ -84,9 +84,7 @@ class QuotaService:
         q = TIER_QUOTAS[tier]
         return q["per_day"], q["per_month"]  # type: ignore[return-value]
 
-    async def check_and_consume(
-        self, db: AsyncSession, user
-    ) -> QuotaResult:
+    async def check_and_consume(self, db: AsyncSession, user) -> QuotaResult:
         day_cap, month_cap = self._caps(getattr(user, "account_type", "free"))
         if day_cap is None and month_cap is None:
             return QuotaResult(allowed=True)
@@ -129,9 +127,7 @@ class QuotaService:
                     )
 
                 # Async DB persistence so the response is not blocked.
-                task = asyncio.create_task(
-                    self._persist_daily(user.id, today, 1)
-                )
+                task = asyncio.create_task(self._persist_daily(user.id, today, 1))
                 _pending_persistence.add(task)
                 task.add_done_callback(_pending_persistence.discard)
                 return QuotaResult(

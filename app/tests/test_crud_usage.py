@@ -2,11 +2,7 @@
 
 import datetime as dt
 
-from app.crud.usage import (
-    get_day_count,
-    get_month_total,
-    increment_daily,
-)
+from app.crud.usage import get_day_count, get_month_total, increment_daily
 
 
 async def test_increment_daily_creates_then_increments(db_session, test_user):
@@ -21,9 +17,7 @@ async def test_increment_daily_creates_then_increments(db_session, test_user):
 
 async def test_get_month_total_sums_days(db_session, test_user):
     for d, n in [(1, 2), (5, 3), (28, 4)]:
-        await increment_daily(
-            db_session, test_user["id"], dt.date(2026, 5, d), n
-        )
+        await increment_daily(db_session, test_user["id"], dt.date(2026, 5, d), n)
     await db_session.commit()
     total = await get_month_total(db_session, test_user["id"], 2026, 5)
     assert total == 9

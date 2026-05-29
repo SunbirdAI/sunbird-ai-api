@@ -56,9 +56,7 @@ async def increment_daily(
         row.count = row.count + units
 
 
-async def get_day_count(
-    db: AsyncSession, user_id: int, day: dt.date
-) -> int:
+async def get_day_count(db: AsyncSession, user_id: int, day: dt.date) -> int:
     result = await db.execute(
         select(UserUsage.count).where(
             UserUsage.user_id == user_id,
@@ -69,9 +67,7 @@ async def get_day_count(
     return int(val) if val is not None else 0
 
 
-async def get_month_total(
-    db: AsyncSession, user_id: int, year: int, month: int
-) -> int:
+async def get_month_total(db: AsyncSession, user_id: int, year: int, month: int) -> int:
     start = dt.date(year, month, 1)
     end = dt.date(year + (month // 12), (month % 12) + 1, 1)
     result = await db.execute(
