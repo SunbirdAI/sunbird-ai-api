@@ -581,3 +581,30 @@ async def rate_limited_app(monkeypatch, fake_redis):
     that DO need a Redis-backed limiter can opt in by importing it.
     """
     yield
+
+
+# ---------------------------------------------------------------------------
+# Quota Fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def stub_quota_service(request, monkeypatch):
+    """Make QuotaService always-allow in tests by default.
+
+    Existing tests don't know about quotas and don't want to seed the
+    user_usage table. Opt out for a single test or module by adding
+    ``@pytest.mark.real_quota`` (or ``pytestmark = pytest.mark.real_quota``)
+    — Task 14's end-to-end test uses this to exercise the real path.
+    """
+    if request.node.get_closest_marker("real_quota"):
+        yield
+        return
+
+    from app.services.quota_service import QuotaResult, QuotaService
+
+    async def always_allow(self, db, user):
+        return QuotaResult(allowed=True)
+
+    monkeypatch.setattr(QuotaService, "check_and_consume", always_allow)
+    yield

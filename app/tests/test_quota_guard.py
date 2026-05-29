@@ -11,6 +11,8 @@ from app.services.quota_service import QuotaService
 from app.services.redis_client import SafeRedis
 from app.utils.quota_guard import check_quota
 
+pytestmark = pytest.mark.real_quota
+
 
 async def test_check_quota_passes_under_cap(db_session, test_user):
     user = SimpleNamespace(id=test_user["id"], account_type="free")

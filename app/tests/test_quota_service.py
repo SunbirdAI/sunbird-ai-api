@@ -9,6 +9,8 @@ import pytest
 from app.services.quota_service import QuotaResult, QuotaService
 from app.services.redis_client import SafeRedis
 
+pytestmark = pytest.mark.real_quota
+
 
 def _user(account_type: str = "free", user_id: int = 1):
     return SimpleNamespace(id=user_id, account_type=account_type)
