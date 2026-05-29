@@ -7,6 +7,7 @@ import requests
 import runpod
 from dotenv import load_dotenv
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from sqlalchemy.ext.asyncio import AsyncSession
 from tenacity import (
     retry,
     retry_if_exception_type,
@@ -15,7 +16,7 @@ from tenacity import (
 )
 
 from app.crud.audio_transcription import create_audio_transcription
-from app.deps import get_current_user
+from app.deps import QuotaServiceDep, get_current_user, get_db
 from app.schemas.tasks import (
     ChatRequest,
     ChatResponse,
@@ -24,6 +25,7 @@ from app.schemas.tasks import (
     TTSRequest,
 )
 from app.utils.feedback import INFERENCE_TYPES, save_api_inference
+from app.utils.quota_guard import check_quota
 from app.utils.rate_limit import get_account_type_limit, limiter
 from app.utils.upload_audio_file_gcp import upload_file_to_bucket
 
@@ -102,13 +104,15 @@ async def call_endpoint_with_retry(endpoint, data):
 async def summarise(
     request: Request,
     input_text: SummarisationRequest,
+    quota: QuotaServiceDep,
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     """
     This endpoint does anonymised summarisation of a given text. The text languages
     supported for now are English (eng) and Luganda (lug).
     """
-
+    await check_quota(quota, db, current_user)
     endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
     request_response = {}
     data = {
@@ -154,7 +158,9 @@ async def summarise(
 async def text_to_speech(
     request: Request,
     tts_request: TTSRequest,
+    quota: QuotaServiceDep,
     background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     """
@@ -195,6 +201,7 @@ async def text_to_speech(
             }
         }
     """
+    await check_quota(quota, db, current_user)
     # Log deprecation warning
     logging.warning(
         "DEPRECATED: /tasks/tts endpoint called. Please migrate to /tasks/runpod/tts"

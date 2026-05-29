@@ -28,6 +28,7 @@ from typing import Any, Dict
 
 from dotenv import load_dotenv
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, Request
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import (
     BadRequestError,
@@ -35,7 +36,7 @@ from app.core.exceptions import (
     ServiceUnavailableError,
     ValidationError,
 )
-from app.deps import get_current_user
+from app.deps import QuotaServiceDep, get_current_user, get_db
 from app.schemas.inference import (
     SunflowerChatRequest,
     SunflowerChatResponse,
@@ -49,6 +50,7 @@ from app.services.inference_service import (
     run_inference,
 )
 from app.utils.feedback import INFERENCE_TYPES, save_api_inference
+from app.utils.quota_guard import check_quota
 from app.utils.rate_limit import get_account_type_limit, limiter
 
 load_dotenv()
@@ -74,7 +76,9 @@ def get_service() -> InferenceService:
 async def sunflower_inference(
     request: Request,
     chat_request: SunflowerChatRequest,
+    quota: QuotaServiceDep,
     background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
     service: InferenceService = Depends(get_service),
 ) -> SunflowerChatResponse:
@@ -138,6 +142,7 @@ async def sunflower_inference(
             "message_count": 5
         }
     """
+    await check_quota(quota, db, current_user)
     start_time = time.time()
     user = current_user
 
@@ -310,11 +315,13 @@ async def sunflower_inference(
 @limiter.limit(get_account_type_limit)
 async def sunflower_simple_inference(
     request: Request,
+    quota: QuotaServiceDep,
     background_tasks: BackgroundTasks,
     instruction: str = Form(..., description="The instruction or question for the AI"),
     model_type: str = Form("qwen", description="Model type (qwen or gemma)"),
     temperature: float = Form(0.3, ge=0.0, le=2.0, description="Sampling temperature"),
     system_message: str = Form(None, description="Custom system message"),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ) -> Dict[str, Any]:
     """Simple Sunflower inference endpoint for single instruction/response.
@@ -361,6 +368,7 @@ async def sunflower_simple_inference(
             "success": true
         }
     """
+    await check_quota(quota, db, current_user)
     start_time = time.time()
     user = current_user
 

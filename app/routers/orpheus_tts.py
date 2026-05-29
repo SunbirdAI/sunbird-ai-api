@@ -22,8 +22,9 @@ import logging
 import uuid
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.deps import get_current_user, get_orpheus_tts_service
+from app.deps import QuotaServiceDep, get_current_user, get_db, get_orpheus_tts_service
 from app.schemas.orpheus_tts import (
     OrpheusBatchTimings,
     OrpheusLanguageSpeakersResponse,
@@ -36,6 +37,7 @@ from app.schemas.orpheus_tts import (
     OrpheusTTSResponse,
 )
 from app.utils.feedback import INFERENCE_TYPES, save_api_inference
+from app.utils.quota_guard import check_quota
 from app.utils.rate_limit import get_account_type_limit, limiter
 
 logger = logging.getLogger(__name__)
@@ -101,10 +103,13 @@ async def get_speakers_for_language(
 async def synthesize_tts(
     request: Request,
     body: OrpheusTTSRequest,
+    quota: QuotaServiceDep,
     background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
     service=Depends(get_orpheus_tts_service),
     current_user=Depends(get_current_user),
 ) -> OrpheusTTSResponse:
+    await check_quota(quota, db, current_user)
     result = await service.synthesize(
         text=body.text,
         speaker_id=body.speaker_id,
@@ -167,10 +172,13 @@ async def synthesize_tts(
 async def synthesize_tts_batch(
     request: Request,
     body: OrpheusTTSBatchRequest,
+    quota: QuotaServiceDep,
     background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
     service=Depends(get_orpheus_tts_service),
     current_user=Depends(get_current_user),
 ) -> OrpheusTTSBatchResponse:
+    await check_quota(quota, db, current_user)
     items_payload = [
         {
             "text": it.text,

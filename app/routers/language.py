@@ -30,10 +30,11 @@ import time
 
 from dotenv import load_dotenv
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Request, UploadFile
+from sqlalchemy.ext.asyncio import AsyncSession
 from werkzeug.utils import secure_filename
 
 from app.core.exceptions import ExternalServiceError, ServiceUnavailableError
-from app.deps import get_current_user
+from app.deps import QuotaServiceDep, get_current_user, get_db
 from app.schemas.language import (
     AudioDetectedLanguageResponse,
     LanguageIdRequest,
@@ -48,6 +49,7 @@ from app.services.language_service import (
     get_language_service,
 )
 from app.utils.feedback import INFERENCE_TYPES, save_api_inference
+from app.utils.quota_guard import check_quota
 from app.utils.rate_limit import get_account_type_limit, limiter
 
 load_dotenv()
@@ -237,7 +239,9 @@ async def classify_language(
 async def auto_detect_audio_language(
     request: Request,
     background_tasks: BackgroundTasks,
+    quota: QuotaServiceDep,
     audio: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
     service: LanguageService = Depends(get_service),
 ) -> dict:
@@ -269,6 +273,7 @@ async def auto_detect_audio_language(
             "detected_language": "lug"
         }
     """
+    await check_quota(quota, db, current_user)
     start_time = time.time()
 
     # Save uploaded file temporarily
