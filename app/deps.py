@@ -46,6 +46,7 @@ from app.services.google_analytics_service import (
     GoogleAnalyticsService,
     get_google_analytics_service,
 )
+from app.services.quota_service import QuotaService, get_quota_service
 from app.services.inference_service import InferenceService, get_inference_service
 from app.services.language_service import LanguageService, get_language_service
 from app.services.modal_stt_service import ModalSTTService, get_modal_stt_service
@@ -85,6 +86,7 @@ OpenAIClientDep = Annotated[OpenAIClient, Depends(get_openai_client)]
 OrpheusModalClientDep = Annotated[OrpheusModalClient, Depends(get_orpheus_modal_client)]
 WhatsAppAPIClientDep = Annotated[WhatsAppAPIClient, Depends(get_whatsapp_api_client)]
 CacheBackendDep = Annotated[CacheBackend, Depends(get_cache_backend)]
+QuotaServiceDep = Annotated[QuotaService, Depends(get_quota_service)]
 
 # Legacy dependencies (maintained for backward compatibility)
 LegacyStorageServiceDep = Annotated[
@@ -214,6 +216,7 @@ __all__ = [
     "WhatsAppServiceDep",
     "StorageServiceDep",
     "GoogleAnalyticsServiceDep",
+    "QuotaServiceDep",
     # Integration dependencies
     "RunPodClientDep",
     "OpenAIClientDep",
@@ -234,6 +237,7 @@ __all__ = [
     "WhatsAppBusinessService",
     "StorageService",
     "GoogleAnalyticsService",
+    "QuotaService",
     # Integration classes (for type hints)
     "RunPodClient",
     "OpenAIClient",
