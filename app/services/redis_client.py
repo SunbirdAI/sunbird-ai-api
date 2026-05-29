@@ -15,10 +15,17 @@ from __future__ import annotations
 import logging
 from typing import Any, Optional
 
-import redis.asyncio as redis
+import redis.asyncio as aioredis
 import redis.exceptions
 
 from app.core.config import settings
+
+# NOTE: do NOT rename either import. Specifically, `import redis.asyncio as
+# redis` followed by `import redis.exceptions` silently rebinds the local
+# name `redis` to the top-level (synchronous) redis package, so
+# `redis.from_url(...)` returns a sync client. The sync client's `.ping()`
+# returns a bool, and `await True` raises "object bool can't be used in
+# 'await' expression". Using a distinct `aioredis` alias avoids this trap.
 
 logger = logging.getLogger(__name__)
 
@@ -107,7 +114,7 @@ async def init_redis_client() -> Optional[SafeRedis]:
         return None
 
     try:
-        backend = redis.from_url(
+        backend = aioredis.from_url(
             settings.redis_url,
             encoding="utf-8",
             decode_responses=True,

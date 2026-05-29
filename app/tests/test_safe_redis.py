@@ -74,3 +74,21 @@ async def test_is_healthy_handles_generic_exception():
 
     safe = SafeRedis(WeirdBackend())
     assert await safe.is_healthy() is False
+
+
+def test_init_uses_async_client_not_sync():
+    """Regression: ``import redis.asyncio as redis`` followed by
+    ``import redis.exceptions`` silently rebinds the local ``redis`` name to
+    the top-level (synchronous) ``redis`` package, so ``redis.from_url(...)``
+    would return a sync client whose ``.ping()`` returns ``bool``. The fix
+    aliases the async module as ``aioredis``; this test pins that choice.
+    """
+    import redis.asyncio
+    import redis.client
+
+    from app.services import redis_client as module
+
+    assert module.aioredis is redis.asyncio
+    backend = module.aioredis.from_url("redis://localhost:6379/0")
+    assert isinstance(backend, redis.asyncio.client.Redis)
+    assert not isinstance(backend, redis.client.Redis)
