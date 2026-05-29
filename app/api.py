@@ -1,25 +1,18 @@
 import logging
 import os
 from contextlib import asynccontextmanager
-from functools import partial
 from pathlib import Path
-from urllib.parse import urlparse
 
-import redis.asyncio as redis
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi_limiter import FastAPILimiter
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
-from slowapi.util import get_remote_address
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
-from tenacity import RetryError, retry, stop_after_attempt, wait_exponential
 
 from app.core.exceptions import (
     APIException,
@@ -28,6 +21,8 @@ from app.core.exceptions import (
 )
 from app.docs import description, tags_metadata
 from app.middleware import MonitoringMiddleware
+from app.services.redis_client import init_redis_client
+from app.utils.rate_limit import limiter
 from app.routers.admin_analytics import router as admin_analytics_router
 from app.routers.auth import router as auth_router
 from app.routers.dashboard import router as dashboard_router
@@ -74,64 +69,19 @@ class LargeUploadMiddleware(BaseHTTPMiddleware):
         return response
 
 
-@retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=1, max=5))
-async def init_redis():
-    redis_url = os.getenv("REDIS_URL")
-    if not redis_url:
-        raise ValueError("REDIS_URL environment variable not set")
-
-    logger.info(f"Attempting to connect to Redis at {redis_url}")
-
-    if ENVIRONMENT == "production":
-        url = urlparse(os.environ.get("REDIS_URL"))
-        redis_instance = redis.Redis(
-            host=url.hostname,
-            port=url.port,
-            password=url.password,
-            ssl=True,
-            ssl_cert_reqs=None,
-        )
-    else:
-        redis_instance = redis.from_url(
-            os.getenv("REDIS_URL"),
-            encoding="utf-8",
-            decode_responses=True,
-            max_connections=10,
-        )
-    await redis_instance.ping()
-    logger.info("Connected to Redis successfully")
-    return redis_instance
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    logger.info("Application startup event")
+    await init_redis_client()  # Fails open: logs and returns None on failure.
+
     try:
-        logger.info("Application startup event")
-        redis_instance = await init_redis()
-        await FastAPILimiter.init(redis_instance)
-        logger.info("FastAPILimiter initialized successfully")
+        from app.services.orpheus_tts_service import get_orpheus_tts_service
 
-        # Warm the Orpheus speakers catalog so the first /tts request doesn't
-        # pay a Modal round-trip for validation. Best-effort: a Modal cold
-        # start (or unset ORPHEUS_MODAL_URL) leaves the cache cold and
-        # validation falls open.
-        try:
-            from app.services.orpheus_tts_service import get_orpheus_tts_service
+        await get_orpheus_tts_service().warm_speakers_cache()
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"Orpheus speakers warm-up failed: {e}")
 
-            await get_orpheus_tts_service().warm_speakers_cache()
-        except Exception as e:  # noqa: BLE001
-            logger.warning(f"Orpheus speakers warm-up failed: {e}")
-
-        yield
-    except RetryError as e:
-        logger.error(f"Failed to connect to Redis: {e}")
-        yield
-    except ValueError as e:
-        logger.error(f"Failed to connect to Redis: {e}")
-        yield
-    except Exception as e:
-        logger.error(f"Error during startup: {str(e)}")
-        yield
+    yield
 
 
 app = FastAPI(
@@ -198,8 +148,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 5. SlowAPIMiddleware - Rate limiting (executes first on incoming requests)
-limiter = Limiter(key_func=get_remote_address)
+# 5. SlowAPIMiddleware — shared limiter lives in app.utils.rate_limit
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)

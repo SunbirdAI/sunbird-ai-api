@@ -39,7 +39,23 @@ def get_cache_backend() -> CacheBackend:
         _instance = InMemoryTTLCache()
         return _instance
 
+    if settings.cache_backend == "upstash":
+        from app.services.cache.upstash import UpstashCache
+        from app.services.redis_client import get_redis_client
+
+        client = get_redis_client()
+        if client is None:
+            # Redis was unreachable at startup; fall back to in-memory so the
+            # cache never raises. Logged at startup by init_redis_client.
+            from app.services.cache.in_memory import InMemoryTTLCache
+
+            _instance = InMemoryTTLCache()
+            return _instance
+
+        _instance = UpstashCache(client)
+        return _instance
+
     raise ValueError(
         f"Unknown cache_backend '{settings.cache_backend}'. "
-        "Supported: 'memory'. See app/services/cache/README.md."
+        "Supported: 'memory', 'upstash'."
     )

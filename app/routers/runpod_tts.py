@@ -16,7 +16,7 @@ import time
 import runpod
 from dotenv import load_dotenv
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
-from slowapi import Limiter
+from sqlalchemy.ext.asyncio import AsyncSession
 from tenacity import (
     retry,
     retry_if_exception_type,
@@ -30,10 +30,11 @@ from app.core.exceptions import (
     ServiceUnavailableError,
     ValidationError,
 )
-from app.deps import get_current_user
+from app.deps import QuotaServiceDep, get_current_user, get_db
 from app.schemas.tasks import TTSRequest
 from app.utils.feedback import INFERENCE_TYPES, save_api_inference
-from app.utils.rate_limit import custom_key_func, get_account_type_limit
+from app.utils.quota_guard import check_quota
+from app.utils.rate_limit import get_account_type_limit, limiter
 
 router = APIRouter()
 
@@ -48,10 +49,6 @@ runpod.api_key = os.getenv("RUNPOD_API_KEY")
 # Inference type constant — RunPod TTS uses the legacy "tts" classifier so
 # existing dashboards keep working unchanged.
 INFERENCE_TTS = INFERENCE_TYPES["tts"]
-
-
-# Initialize the Limiter
-limiter = Limiter(key_func=custom_key_func)
 
 
 @retry(
@@ -75,7 +72,9 @@ async def call_endpoint_with_retry(endpoint, data):
 async def text_to_speech(
     request: Request,
     tts_request: TTSRequest,
+    quota: QuotaServiceDep,
     background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     """
@@ -120,6 +119,7 @@ async def text_to_speech(
             }
         }
     """
+    await check_quota(quota, db, current_user)
     endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
     user = current_user
 

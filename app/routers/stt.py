@@ -43,7 +43,6 @@ from fastapi import (
     Response,
     UploadFile,
 )
-from slowapi import Limiter
 from sqlalchemy.ext.asyncio import AsyncSession
 from werkzeug.utils import secure_filename
 
@@ -54,7 +53,8 @@ from app.core.exceptions import (
     ValidationError,
 )
 from app.crud.audio_transcription import create_audio_transcription
-from app.deps import ModalSTTServiceDep, get_current_user, get_db
+from app.deps import ModalSTTServiceDep, QuotaServiceDep, get_current_user, get_db
+from app.utils.quota_guard import check_quota
 from app.schemas.stt import (
     ALLOWED_AUDIO_TYPES,
     CHUNK_SIZE,
@@ -71,16 +71,12 @@ from app.services.stt_service import (
 )
 from app.utils.audio import get_audio_extension
 from app.utils.feedback import INFERENCE_TYPES, save_api_inference
-from app.utils.rate_limit import custom_key_func, get_account_type_limit
+from app.utils.rate_limit import get_account_type_limit, limiter
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
 
 router = APIRouter()
-
-
-# Initialize the Limiter
-limiter = Limiter(key_func=custom_key_func)
 
 
 def get_service() -> STTService:
@@ -221,6 +217,7 @@ async def speech_to_text_from_gcs(
 async def speech_to_text(
     request: Request,
     background_tasks: BackgroundTasks,
+    quota: QuotaServiceDep,
     audio: UploadFile = File(..., description="Audio file to transcribe"),
     language: SttbLanguage = Form(SttbLanguage.luganda),
     adapter: SttbLanguage = Form(SttbLanguage.luganda),
@@ -268,6 +265,7 @@ async def speech_to_text(
         BadRequestError: If audio processing fails.
         ExternalServiceError: If transcription service fails.
     """
+    await check_quota(quota, db, current_user)
     start_time = time.time()
 
     try:
@@ -391,8 +389,10 @@ async def speech_to_text(
 async def speech_to_text_org(
     request: Request,
     background_tasks: BackgroundTasks,
+    quota: QuotaServiceDep,
     audio: UploadFile = File(...),
     recognise_speakers: bool = Form(False),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
     service: STTService = Depends(get_service),
 ) -> STTTranscript:
@@ -420,6 +420,7 @@ async def speech_to_text_org(
         ServiceUnavailableError: If service times out.
         ExternalServiceError: If transcription service fails.
     """
+    await check_quota(quota, db, current_user)
     start_time = time.time()
 
     try:
@@ -522,6 +523,7 @@ async def speech_to_text_org(
 async def modal_speech_to_text(
     request: Request,
     background_tasks: BackgroundTasks,
+    quota: QuotaServiceDep,
     audio: UploadFile = File(..., description="Audio file to transcribe"),
     language: Optional[str] = Form(
         default=None,
@@ -560,6 +562,7 @@ async def modal_speech_to_text(
         ServiceUnavailableError: If the Modal service times out.
         ExternalServiceError: If the transcription service fails.
     """
+    await check_quota(quota, db, current_user)
     start_time = time.time()
 
     try:
