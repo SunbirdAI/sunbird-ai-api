@@ -6,14 +6,11 @@ requested combination of inputs is supported. No transcription business logic
 lives here — it composes the existing STTService and ModalSTTService.
 """
 
-import logging
 from typing import Optional, Tuple
 
 from app.core.exceptions import BadRequestError
 from app.services.modal_stt_service import ModalSTTService, get_modal_stt_service
 from app.services.stt_service import STTService, TranscriptionResult, get_stt_service
-
-logger = logging.getLogger(__name__)
 
 
 class TranscriptionService:
