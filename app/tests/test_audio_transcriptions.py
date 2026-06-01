@@ -119,3 +119,29 @@ async def test_requires_authentication(async_client: AsyncClient):
         files=audio_part(),
     )
     assert resp.status_code == 401
+
+
+async def test_runpod_upload_persists_and_returns_id(
+    authenticated_client: AsyncClient, fake_facade, test_user: Dict
+):
+    """RunPod non-org transcriptions are saved to the DB and return an id."""
+    resp = await authenticated_client.post(
+        "/tasks/audio/transcriptions",
+        data={"language": "lug", "platform": "runpod"},
+        files=audio_part(),
+    )
+    assert resp.status_code == 200
+    assert isinstance(resp.json()["audio_transcription_id"], int)
+
+
+async def test_runpod_org_does_not_persist(
+    authenticated_client: AsyncClient, fake_facade, test_user: Dict
+):
+    """The org workflow must not persist a transcription (parity with /org/stt)."""
+    resp = await authenticated_client.post(
+        "/tasks/audio/transcriptions",
+        data={"language": "lug", "platform": "runpod", "org": "true"},
+        files=audio_part(),
+    )
+    assert resp.status_code == 200
+    assert resp.json()["audio_transcription_id"] is None
