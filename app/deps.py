@@ -34,12 +34,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import AuthorizationError
 from app.crud.users import get_user_by_username
 from app.database.db import async_session_maker
+
 # Integration imports
 from app.integrations.openai_client import OpenAIClient, get_openai_client
 from app.integrations.orpheus_modal import OrpheusModalClient, get_orpheus_modal_client
 from app.integrations.runpod import RunPodClient, get_runpod_client
 from app.integrations.whatsapp_api import WhatsAppAPIClient, get_whatsapp_api_client
 from app.schemas.users import TokenData, User
+
 # Service imports
 from app.services.cache import CacheBackend, get_cache_backend
 from app.services.google_analytics_service import (
@@ -54,9 +56,14 @@ from app.services.quota_service import QuotaService, get_quota_service
 from app.services.storage_service import StorageService
 from app.services.storage_service import get_storage_service as get_new_storage_service
 from app.services.stt_service import STTService, get_stt_service
+from app.services.transcription_service import (
+    TranscriptionService,
+    get_transcription_service,
+)
 from app.services.translation_service import TranslationService, get_translation_service
 from app.services.tts_service import TTSService, get_tts_service
 from app.services.whatsapp_service import WhatsAppBusinessService, get_whatsapp_service
+
 # Legacy imports (maintained for backward compatibility)
 from app.utils.auth import get_username_from_token
 from app.utils.storage import GCPStorageService
@@ -69,6 +76,9 @@ from app.utils.storage import get_storage_service as get_legacy_storage_service
 # Service dependencies
 STTServiceDep = Annotated[STTService, Depends(get_stt_service)]
 ModalSTTServiceDep = Annotated[ModalSTTService, Depends(get_modal_stt_service)]
+TranscriptionServiceDep = Annotated[
+    TranscriptionService, Depends(get_transcription_service)
+]
 TTSServiceDep = Annotated[TTSService, Depends(get_tts_service)]
 OrpheusTTSServiceDep = Annotated[OrpheusTTSService, Depends(get_orpheus_tts_service)]
 TranslationServiceDep = Annotated[TranslationService, Depends(get_translation_service)]
@@ -208,6 +218,7 @@ __all__ = [
     # Service dependencies
     "STTServiceDep",
     "ModalSTTServiceDep",
+    "TranscriptionServiceDep",
     "TTSServiceDep",
     "OrpheusTTSServiceDep",
     "TranslationServiceDep",
@@ -229,6 +240,7 @@ __all__ = [
     # Service classes (for type hints)
     "STTService",
     "ModalSTTService",
+    "TranscriptionService",
     "TTSService",
     "OrpheusTTSService",
     "TranslationService",
