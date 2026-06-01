@@ -235,3 +235,10 @@ async def test_transcribe_dispatches_org():
         file_path="/tmp/o.wav", recognise_speakers=True
     )
     assert result.transcription == "org text"
+
+
+def test_transcription_service_dep_is_exported():
+    import app.deps as deps
+
+    assert hasattr(deps, "TranscriptionServiceDep")
+    assert "TranscriptionServiceDep" in deps.__all__
