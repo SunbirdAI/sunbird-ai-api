@@ -64,24 +64,38 @@ def make_facade():
 # --- validate_and_normalize ---
 
 
-def test_validate_runpod_defaults_true_when_omitted():
+def test_validate_runpod_passes_flags_through():
     facade, _, _ = make_facade()
     whisper, speakers = facade.validate_and_normalize(
         platform="runpod",
         has_audio=True,
         gcs_blob_name=None,
         org=False,
-        whisper=None,
-        recognise_speakers=None,
+        whisper=True,
+        recognise_speakers=True,
     )
     assert whisper is True
     assert speakers is True
 
 
-def test_validate_runpod_respects_explicit_false():
+def test_validate_runpod_defaults_false():
     facade, _, _ = make_facade()
     whisper, speakers = facade.validate_and_normalize(
         platform="runpod",
+        has_audio=True,
+        gcs_blob_name=None,
+        org=False,
+        whisper=False,
+        recognise_speakers=False,
+    )
+    assert whisper is False
+    assert speakers is False
+
+
+def test_validate_modal_allows_false_flags():
+    facade, _, _ = make_facade()
+    whisper, speakers = facade.validate_and_normalize(
+        platform="modal",
         has_audio=True,
         gcs_blob_name=None,
         org=False,
@@ -100,8 +114,8 @@ def test_validate_rejects_no_input():
             has_audio=False,
             gcs_blob_name=None,
             org=False,
-            whisper=None,
-            recognise_speakers=None,
+            whisper=False,
+            recognise_speakers=False,
         )
 
 
@@ -113,8 +127,8 @@ def test_validate_rejects_both_inputs():
             has_audio=True,
             gcs_blob_name="a.wav",
             org=False,
-            whisper=None,
-            recognise_speakers=None,
+            whisper=False,
+            recognise_speakers=False,
         )
 
 
@@ -126,8 +140,8 @@ def test_validate_rejects_modal_with_gcs():
             has_audio=False,
             gcs_blob_name="a.wav",
             org=False,
-            whisper=None,
-            recognise_speakers=None,
+            whisper=False,
+            recognise_speakers=False,
         )
 
 
@@ -139,8 +153,8 @@ def test_validate_rejects_modal_with_org():
             has_audio=True,
             gcs_blob_name=None,
             org=True,
-            whisper=None,
-            recognise_speakers=None,
+            whisper=False,
+            recognise_speakers=False,
         )
 
 
@@ -153,7 +167,7 @@ def test_validate_rejects_modal_with_runpod_only_flags():
             gcs_blob_name=None,
             org=False,
             whisper=True,
-            recognise_speakers=None,
+            recognise_speakers=False,
         )
 
 
@@ -165,8 +179,8 @@ def test_validate_rejects_unknown_platform():
             has_audio=True,
             gcs_blob_name=None,
             org=False,
-            whisper=None,
-            recognise_speakers=None,
+            whisper=False,
+            recognise_speakers=False,
         )
 
 

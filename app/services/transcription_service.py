@@ -31,14 +31,18 @@ class TranscriptionService:
         has_audio: bool,
         gcs_blob_name: Optional[str],
         org: bool,
-        whisper: Optional[bool],
-        recognise_speakers: Optional[bool],
+        whisper: bool,
+        recognise_speakers: bool,
     ) -> Tuple[bool, bool]:
-        """Validate the request combination and resolve RunPod defaults.
+        """Validate the request combination and resolve the RunPod flags.
+
+        ``whisper`` and ``recognise_speakers`` are RunPod-only and default to
+        ``False``. For RunPod they pass through unchanged; for Modal they must
+        be ``False`` (Modal does not support them) and the returned values are
+        unused.
 
         Returns:
-            (whisper, recognise_speakers) resolved for RunPod. For Modal the
-            returned values are unused.
+            (whisper, recognise_speakers) for RunPod; (False, False) for Modal.
 
         Raises:
             BadRequestError: If the input combination is unsupported (HTTP 400).
@@ -69,17 +73,15 @@ class TranscriptionService:
                     message="The organization workflow (org=true) is only available "
                     "on the 'runpod' platform."
                 )
-            if whisper is not None or recognise_speakers is not None:
+            if whisper or recognise_speakers:
                 raise BadRequestError(
                     message="'whisper' and 'recognise_speakers' are RunPod-only "
-                    "options; omit them when platform='modal'."
+                    "options; leave them false when platform='modal'."
                 )
             return (False, False)
 
-        # RunPod: default both flags to True when not explicitly provided.
-        resolved_whisper = True if whisper is None else whisper
-        resolved_speakers = True if recognise_speakers is None else recognise_speakers
-        return (resolved_whisper, resolved_speakers)
+        # RunPod: use the flags as provided (both default to False).
+        return (whisper, recognise_speakers)
 
     async def transcribe(
         self,

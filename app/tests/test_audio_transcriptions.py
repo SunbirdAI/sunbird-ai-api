@@ -32,7 +32,7 @@ def stub_feedback(monkeypatch):
 def fake_facade():
     """Override the facade dependency with a mock; restore afterward."""
     facade = MagicMock()
-    facade.validate_and_normalize = MagicMock(return_value=(True, True))
+    facade.validate_and_normalize = MagicMock(return_value=(False, False))
     facade.transcribe = AsyncMock(
         return_value=TranscriptionResult(
             transcription="hello world",
@@ -66,19 +66,41 @@ async def test_modal_upload_returns_200(
     assert kwargs["platform"] == "modal"
 
 
-async def test_runpod_upload_returns_200(
+async def test_runpod_upload_defaults_flags_false(
     authenticated_client: AsyncClient, fake_facade, test_user: Dict
 ):
+    """Omitted whisper/recognise_speakers default to False at the HTTP layer."""
     resp = await authenticated_client.post(
         "/tasks/audio/transcriptions",
         data={"language": "lug", "platform": "runpod"},
         files=audio_part(),
     )
     assert resp.status_code == 200
-    _, kwargs = fake_facade.transcribe.call_args
-    assert kwargs["platform"] == "runpod"
-    assert kwargs["whisper"] is True
-    assert kwargs["recognise_speakers"] is True
+    _, vkwargs = fake_facade.validate_and_normalize.call_args
+    assert vkwargs["whisper"] is False
+    assert vkwargs["recognise_speakers"] is False
+    _, tkwargs = fake_facade.transcribe.call_args
+    assert tkwargs["platform"] == "runpod"
+
+
+async def test_runpod_upload_forwards_flags_when_set(
+    authenticated_client: AsyncClient, fake_facade, test_user: Dict
+):
+    """Explicit whisper/recognise_speakers are forwarded to the facade."""
+    resp = await authenticated_client.post(
+        "/tasks/audio/transcriptions",
+        data={
+            "language": "lug",
+            "platform": "runpod",
+            "whisper": "true",
+            "recognise_speakers": "true",
+        },
+        files=audio_part(),
+    )
+    assert resp.status_code == 200
+    _, vkwargs = fake_facade.validate_and_normalize.call_args
+    assert vkwargs["whisper"] is True
+    assert vkwargs["recognise_speakers"] is True
 
 
 async def test_runpod_gcs_returns_200(
@@ -192,12 +214,25 @@ async def test_audio_field_renders_as_binary_file_in_openapi(async_client: Async
     body = resp.json()["components"]["schemas"][
         "Body_create_transcription_tasks_audio_transcriptions_post"
     ]
-    audio = body["properties"]["audio"]
+    props = body["properties"]
+    audio = props["audio"]
     assert audio.get("type") == "string"
     assert audio.get("format") == "binary"
     assert "anyOf" not in audio
     # audio stays optional (gcs_blob_name is the alternative input).
     assert "audio" not in body.get("required", [])
+
+    # whisper / recognise_speakers must be plain booleans (true/false selector
+    # in Swagger), defaulting to False — not anyOf/null text boxes.
+    for flag in ("whisper", "recognise_speakers"):
+        assert props[flag].get("type") == "boolean", flag
+        assert props[flag].get("default") is False, flag
+        assert "anyOf" not in props[flag], flag
+
+    # adapter must be an enum dropdown (like language), not anyOf/null.
+    assert "anyOf" not in props["adapter"]
+    assert "$ref" in str(props["adapter"])
+    assert "adapter" not in body.get("required", [])
 
 
 @pytest.mark.real_quota

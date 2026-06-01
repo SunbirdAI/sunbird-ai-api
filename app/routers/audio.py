@@ -75,16 +75,20 @@ async def create_transcription(  # noqa: C901
         default=TranscriptionPlatform.modal,
         description="Transcription platform: 'modal' (default) or 'runpod'.",
     ),
-    adapter: Optional[SttbLanguage] = Form(
+    # Annotate as plain ``SttbLanguage`` (not ``Optional[...]``) so the OpenAPI
+    # schema is a clean enum ref and Swagger UI renders a dropdown like
+    # ``language``; the field stays optional via ``default=None`` and falls back
+    # to ``language`` below.
+    adapter: SttbLanguage = Form(
         default=None,
-        description="Language adapter (RunPod only). Defaults to language.",
+        description="Language adapter (RunPod only). Defaults to the language.",
     ),
-    whisper: Optional[bool] = Form(
-        default=None, description="Use Whisper (RunPod only). Defaults to true."
-    ),
-    recognise_speakers: Optional[bool] = Form(
-        default=None,
-        description="Speaker diarization (RunPod only). Defaults to true.",
+    # Plain ``bool`` (not ``Optional[bool]``) so Swagger renders a true/false
+    # selector instead of a free-text box. RunPod-only; both default to False.
+    whisper: bool = Form(default=False, description="Use Whisper (RunPod only)."),
+    recognise_speakers: bool = Form(
+        default=False,
+        description="Enable speaker diarization (RunPod only).",
     ),
     org: bool = Form(
         default=False, description="Use the RunPod organization workflow."

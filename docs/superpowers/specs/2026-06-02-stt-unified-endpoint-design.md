@@ -61,9 +61,9 @@ Content type: `multipart/form-data` (accepts file uploads).
 | `audio` | file (`UploadFile`) | one of audio/gcs | — | Uploaded audio file |
 | `gcs_blob_name` | str | one of audio/gcs | — | RunPod-only |
 | `platform` | `TranscriptionPlatform` (`modal`\|`runpod`) | no | `modal` | New enum |
-| `adapter` | `SttbLanguage` | no | = `language` | RunPod-only |
-| `whisper` | `Optional[bool]` | no | `true` when runpod | RunPod-only |
-| `recognise_speakers` | `Optional[bool]` | no | `true` when runpod | RunPod-only |
+| `adapter` | `SttbLanguage` | no (default `None`) | falls back to `language` | RunPod-only. Annotated as a plain enum (not `Optional`) so Swagger renders a dropdown like `language`. |
+| `whisper` | `bool` | no | `false` | RunPod-only. Plain `bool` so Swagger renders a true/false selector. |
+| `recognise_speakers` | `bool` | no | `false` | RunPod-only. Plain `bool` so Swagger renders a true/false selector. |
 | `org` | `bool` | no | `false` | RunPod org workflow |
 
 **Response:** the existing `STTTranscript` schema (unchanged).
@@ -71,21 +71,29 @@ Content type: `multipart/form-data` (accepts file uploads).
 **Cross-cutting:** the endpoint enforces `check_quota(...)` and `@limiter.limit(get_account_type_limit)`
 on every path.
 
-### Intentional differences from legacy (per doc — flagged, not silent)
+**Swagger UI rendering:** optional fields are annotated as their plain type with `default`
+(e.g. `audio: UploadFile = File(None)`, `adapter: SttbLanguage = Form(None)`,
+`whisper: bool = Form(False)`) rather than `Optional[...]`. `Optional[...]` produces an `anyOf`
+schema with a `null` branch, which Swagger UI renders as a free-text box (no file-picker, no
+dropdown, no boolean selector). The plain-type form keeps the field optional while emitting a
+clean schema that Swagger renders with the correct widget.
 
-- RunPod defaults `whisper` and `recognise_speakers` to **`true`** (legacy `/tasks/stt` defaults
-  both to `false`). Source: refactor doc "Defaults … whisper: true, recognise_speakers: true when
-  RunPod is selected."
+### Intentional differences from legacy (flagged, not silent)
+
 - The GCS path now enforces quota + rate limiting (legacy `/tasks/stt_from_gcs` enforces neither).
+- `whisper` / `recognise_speakers` default to **`false`** on the unified endpoint and are
+  user-selectable in Swagger — matching the legacy `/tasks/stt` default of `false`. (An earlier
+  draft defaulted them to `true` for RunPod; that was reversed per product decision so the caller
+  explicitly opts in.)
 
-## Validation Rules (→ `400` `ValidationError`)
+## Validation Rules (→ `400` `BadRequestError`)
 
 - Exactly one of `audio` / `gcs_blob_name` must be present (neither → 400, both → 400).
 - `platform=modal` + `gcs_blob_name` provided → 400 (Modal has no GCS code path).
 - `platform=modal` + `org=true` → 400 (no Modal org workflow exists).
-- `whisper` / `recognise_speakers` are modeled as `Optional[bool] = Form(None)`. If either is
-  explicitly set (non-`None`) while `platform=modal` → 400. When `None` and `platform=runpod`,
-  apply the `true` defaults.
+- `whisper` / `recognise_speakers` are plain `bool` (default `false`), RunPod-only. If either is
+  `true` while `platform=modal` → 400 (Modal does not support them). `false` is accepted and
+  ignored for Modal. For RunPod the flags pass through unchanged.
 
 ## Dispatch & Persistence Behavior
 
@@ -146,10 +154,13 @@ Per [CLAUDE.md](../../../CLAUDE.md) Definition of Done:
 - **Tests** (`pytest app/tests/ -v` green). Mock at the service layer (`STTService` /
   `ModalSTTService`) per the testing rules — never call real RunPod/Modal/GCS. Cover:
   - Each of the 4 dispatch paths returns `200` + correct `STTTranscript` mapping.
-  - Validation 400s: neither/both inputs; `modal`+gcs; `modal`+org; `modal`+explicit
-    whisper/recognise_speakers.
-  - RunPod default application (`whisper`/`recognise_speakers` default to `true`).
+  - Validation 400s: neither/both inputs; `modal`+gcs; `modal`+org; `modal`+`whisper=true`/
+    `recognise_speakers=true`.
+  - Flag defaults: omitted `whisper`/`recognise_speakers` default to `false`; explicit values
+    forwarded.
   - Quota enforcement path (reuse existing quota test patterns) on the unified endpoint.
+  - OpenAPI schema: `audio` is `format: binary`, `whisper`/`recognise_speakers` are `boolean`,
+    and `adapter` is an enum `$ref` (no `anyOf`/null) so Swagger renders the correct widgets.
   - Legacy endpoints still return `200` AND carry `Deprecation`/`Sunset`/`Link` headers and the
     `deprecated` flag in OpenAPI.
 - **Lint** (`make lint-check` clean: black + isort + flake8).
@@ -164,11 +175,8 @@ Per [CLAUDE.md](../../../CLAUDE.md) Definition of Done:
 
 ## Risks & Mitigations
 
-- **Behavior drift from new RunPod defaults** (`true`/`true`): documented as intentional; covered
-  by tests asserting the new defaults. Legacy endpoints keep old defaults, so existing consumers
-  are unaffected.
 - **Temp-file handling / cleanup** for uploaded audio: reuse the existing streaming-to-temp
   pattern from `/stt` to avoid memory blowups; ensure temp files are cleaned up.
-- **`Optional[bool]` form parsing** for explicit-vs-default detection: verify FastAPI parses an
-  unset `Form(None)` as `None` (vs `False`) so the modal-validation rule is reliable; covered by a
-  dedicated test.
+- **Swagger widget rendering**: optional fields must be annotated as their plain type with a
+  `default` (not `Optional[...]`) to avoid `anyOf`/null schemas that Swagger renders as text
+  boxes. Covered by an OpenAPI-schema assertion test.
