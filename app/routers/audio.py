@@ -62,9 +62,12 @@ async def create_transcription(  # noqa: C901
     quota: QuotaServiceDep,
     transcription_service: TranscriptionServiceDep,
     language: SttbLanguage = Form(..., description="Target language code."),
-    audio: Optional[UploadFile] = File(
-        default=None, description="Audio file to transcribe."
-    ),
+    # NOTE: annotate as plain ``UploadFile`` (not ``Optional[UploadFile]``) so the
+    # OpenAPI schema is a clean ``{type: string, format: binary}`` instead of an
+    # ``anyOf`` with null. Swagger UI only renders the file-picker widget for the
+    # former; the field stays optional via ``default=None`` (gcs_blob_name is the
+    # alternative input).
+    audio: UploadFile = File(default=None, description="Audio file to transcribe."),
     gcs_blob_name: Optional[str] = Form(
         default=None, description="GCS blob name (RunPod only)."
     ),

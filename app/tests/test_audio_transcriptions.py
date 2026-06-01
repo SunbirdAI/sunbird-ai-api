@@ -182,3 +182,38 @@ async def test_legacy_modal_stt_returns_deprecation_headers(
     assert resp.headers.get("Deprecation") == "true"
     assert "Sunset" in resp.headers
     assert 'rel="successor-version"' in resp.headers.get("Link", "")
+
+
+async def test_audio_field_renders_as_binary_file_in_openapi(async_client: AsyncClient):
+    """The `audio` field must be a plain binary string so Swagger UI shows a
+    file-picker (an anyOf/null schema falls back to a text box)."""
+    resp = await async_client.get("/openapi.json")
+    assert resp.status_code == 200
+    body = resp.json()["components"]["schemas"][
+        "Body_create_transcription_tasks_audio_transcriptions_post"
+    ]
+    audio = body["properties"]["audio"]
+    assert audio.get("type") == "string"
+    assert audio.get("format") == "binary"
+    assert "anyOf" not in audio
+    # audio stays optional (gcs_blob_name is the alternative input).
+    assert "audio" not in body.get("required", [])
+
+
+@pytest.mark.real_quota
+async def test_quota_exceeded_returns_429(
+    authenticated_client: AsyncClient, fake_facade, test_user: Dict, monkeypatch
+):
+    """When the daily/monthly quota is exhausted, the endpoint returns 429."""
+    from app.services.quota_service import QuotaResult, QuotaService
+
+    async def deny(self, db, user):
+        return QuotaResult(allowed=False, scope="day", retry_after_seconds=60)
+
+    monkeypatch.setattr(QuotaService, "check_and_consume", deny)
+    resp = await authenticated_client.post(
+        "/tasks/audio/transcriptions",
+        data={"language": "lug", "platform": "modal"},
+        files=audio_part(),
+    )
+    assert resp.status_code == 429
