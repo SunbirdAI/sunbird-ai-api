@@ -21,9 +21,8 @@ from app.core.exceptions import (
 )
 from app.docs import description, tags_metadata
 from app.middleware import MonitoringMiddleware
-from app.services.redis_client import init_redis_client
-from app.utils.rate_limit import limiter
 from app.routers.admin_analytics import router as admin_analytics_router
+from app.routers.audio import router as audio_router
 from app.routers.auth import router as auth_router
 from app.routers.dashboard import router as dashboard_router
 from app.routers.frontend import router as frontend_router
@@ -39,6 +38,8 @@ from app.routers.translation import router as translation_router
 from app.routers.tts import router as modal_tts_router
 from app.routers.upload import router as upload_router
 from app.routers.webhooks import router as webhooks_router
+from app.services.redis_client import init_redis_client
+from app.utils.rate_limit import limiter
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
@@ -167,6 +168,7 @@ app.include_router(auth_router, prefix="/auth", tags=["Authentication Endpoints"
 
 # Task endpoints
 app.include_router(stt_router, prefix="/tasks", tags=["Speech-to-Text"])
+app.include_router(audio_router, prefix="/tasks", tags=["Speech-to-Text (Unified)"])
 app.include_router(translation_router, prefix="/tasks", tags=["Translation"])
 app.include_router(language_router, prefix="/tasks", tags=["Language"])
 app.include_router(inference_router, prefix="/tasks", tags=["Sunflower"])
