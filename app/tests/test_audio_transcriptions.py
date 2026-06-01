@@ -145,3 +145,40 @@ async def test_runpod_org_does_not_persist(
     )
     assert resp.status_code == 200
     assert resp.json()["audio_transcription_id"] is None
+
+
+async def test_openapi_marks_legacy_stt_deprecated(async_client: AsyncClient):
+    resp = await async_client.get("/openapi.json")
+    assert resp.status_code == 200
+    paths = resp.json()["paths"]
+    for path in [
+        "/tasks/stt",
+        "/tasks/stt_from_gcs",
+        "/tasks/org/stt",
+        "/tasks/modal/stt",
+    ]:
+        assert paths[path]["post"].get("deprecated") is True, path
+
+
+async def test_legacy_modal_stt_returns_deprecation_headers(
+    authenticated_client: AsyncClient, test_user: Dict, monkeypatch
+):
+    """The legacy /modal/stt route should carry RFC-8594 headers."""
+    from app.deps import get_modal_stt_service
+
+    fake = MagicMock()
+    fake.transcribe = AsyncMock(return_value="legacy text")
+    app.dependency_overrides[get_modal_stt_service] = lambda: fake
+    try:
+        resp = await authenticated_client.post(
+            "/tasks/modal/stt",
+            data={"language": "lug"},
+            files=audio_part(),
+        )
+    finally:
+        app.dependency_overrides.pop(get_modal_stt_service, None)
+
+    assert resp.status_code == 200
+    assert resp.headers.get("Deprecation") == "true"
+    assert "Sunset" in resp.headers
+    assert 'rel="successor-version"' in resp.headers.get("Link", "")
