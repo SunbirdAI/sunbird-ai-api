@@ -41,7 +41,7 @@ INFERENCE_TTS = INFERENCE_TYPES["tts"]
     "/tts",
 )
 @limiter.limit(get_account_type_limit)
-async def text_to_speech(
+async def text_to_speech(  # noqa: C901
     request: Request,
     tts_request: TTSRequest,
     quota: QuotaServiceDep,
