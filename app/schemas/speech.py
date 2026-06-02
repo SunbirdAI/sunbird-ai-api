@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -84,3 +84,70 @@ class SpeechResponse(BaseModel):
     gcs_object: Optional[str] = Field(default=None)
     request_id: Optional[str] = Field(default=None)
     timings_ms: Optional[Dict[str, Any]] = Field(default=None)
+
+
+class SpeechBatchItem(BaseModel):
+    """One item in a batch speech request (orpheus-3b-tts only)."""
+
+    text: str = Field(..., min_length=1, description="Text to synthesize.")
+    voice: Optional[str] = Field(
+        default=None,
+        description="orpheus catalog tag (e.g. 'salt_lug_0001'); "
+        "defaults to salt_lug_0001.",
+    )
+    language: Optional[str] = Field(
+        default=None, description="orpheus ISO 639-3 code (e.g. 'lug')."
+    )
+    temperature: Optional[float] = Field(default=None)
+    top_p: Optional[float] = Field(default=None)
+    repetition_penalty: Optional[float] = Field(default=None)
+    max_tokens: Optional[int] = Field(default=None)
+    seed: Optional[int] = Field(default=None)
+
+    @field_validator("text")
+    @classmethod
+    def _strip_text(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("text must not be empty")
+        return v
+
+
+class SpeechBatchRequest(BaseModel):
+    """Unified batch TTS request (orpheus-3b-tts only)."""
+
+    model: TTSModel = Field(
+        default=TTSModel.orpheus_3b_tts,
+        description="Only 'orpheus-3b-tts' is supported for batch.",
+    )
+    items: list[SpeechBatchItem] = Field(
+        ..., min_length=1, max_length=128, description="1-128 items."
+    )
+
+
+class SpeechBatchItemResponse(BaseModel):
+    """Per-item batch result (mirrors SpeechResponse + status/error)."""
+
+    index: int
+    status: Literal["ok", "error"]
+    voice: str
+    audio_url: Optional[str] = None
+    audio_url_expires_at: Optional[datetime] = None
+    language: Optional[str] = None
+    sample_rate: Optional[int] = None
+    duration_seconds: Optional[float] = None
+    audio_size_bytes: Optional[int] = None
+    gcs_object: Optional[str] = None
+    request_id: Optional[str] = None
+    error_code: Optional[str] = None
+    error_detail: Optional[str] = None
+
+
+class SpeechBatchResponse(BaseModel):
+    """Normalized batch response."""
+
+    model: str
+    platform: str
+    results: list[SpeechBatchItemResponse]
+    request_id: str
+    timings_ms: Optional[Dict[str, Any]] = None
