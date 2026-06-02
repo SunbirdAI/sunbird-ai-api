@@ -5,6 +5,7 @@ mapping) out of the router so the unified SpeechService and the legacy
 /tasks/runpod/tts endpoint share one implementation.
 """
 
+import asyncio
 import logging
 import os
 from typing import Optional
@@ -35,7 +36,10 @@ runpod.api_key = os.getenv("RUNPOD_API_KEY")
     reraise=True,
 )
 async def _run_sync_with_retry(endpoint, data):
-    return endpoint.run_sync(data, timeout=600)
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(
+        None, lambda: endpoint.run_sync(data, timeout=600)
+    )
 
 
 class RunpodSparkTTSService:

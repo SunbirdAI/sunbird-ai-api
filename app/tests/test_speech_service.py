@@ -4,7 +4,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from app.core.exceptions import ServiceUnavailableError
+from app.core.exceptions import (
+    BadRequestError,
+    ExternalServiceError,
+    ServiceUnavailableError,
+)
 from app.schemas.speech import SpeechRequest, SpeechResponse, TTSModel, TTSPlatform
 from app.utils.deprecation import (
     STT_SUNSET_DATE,
@@ -99,6 +103,40 @@ async def test_runpod_spark_service_maps_timeout(monkeypatch):
 
     svc = mod.RunpodSparkTTSService(endpoint_id="ep123")
     with pytest.raises(ServiceUnavailableError):
+        await svc.synthesize(
+            text="hi", speaker_id=248, temperature=0.7, max_new_audio_tokens=2000
+        )
+
+
+async def test_runpod_spark_service_maps_connection_error(monkeypatch):
+    from app.services import runpod_tts_service as mod
+
+    def boom(data, timeout):
+        raise ConnectionError("lost")
+
+    fake_endpoint = MagicMock()
+    fake_endpoint.run_sync = boom
+    monkeypatch.setattr(mod.runpod, "Endpoint", lambda _id: fake_endpoint)
+
+    svc = mod.RunpodSparkTTSService(endpoint_id="ep123")
+    with pytest.raises(ExternalServiceError):
+        await svc.synthesize(
+            text="hi", speaker_id=248, temperature=0.7, max_new_audio_tokens=2000
+        )
+
+
+async def test_runpod_spark_service_maps_value_error(monkeypatch):
+    from app.services import runpod_tts_service as mod
+
+    def boom(data, timeout):
+        raise ValueError("bad input")
+
+    fake_endpoint = MagicMock()
+    fake_endpoint.run_sync = boom
+    monkeypatch.setattr(mod.runpod, "Endpoint", lambda _id: fake_endpoint)
+
+    svc = mod.RunpodSparkTTSService(endpoint_id="ep123")
+    with pytest.raises(BadRequestError):
         await svc.synthesize(
             text="hi", speaker_id=248, temperature=0.7, max_new_audio_tokens=2000
         )
