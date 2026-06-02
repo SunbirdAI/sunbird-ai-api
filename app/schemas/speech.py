@@ -30,9 +30,7 @@ class SpeechRequest(BaseModel):
     SpeechService validates combinations and returns 400 on a mismatch.
     """
 
-    text: str = Field(
-        ..., min_length=1, max_length=10000, description="Text to synthesize."
-    )
+    text: str = Field(..., min_length=1, description="Text to synthesize.")
     model: TTSModel = Field(default=TTSModel.orpheus_3b_tts, description="TTS model.")
     platform: TTSPlatform = Field(
         default=TTSPlatform.modal, description="Inference platform."

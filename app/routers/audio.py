@@ -78,6 +78,7 @@ router = APIRouter()
         "organization workflow. Replaces /stt, /stt_from_gcs, /org/stt, and "
         "/modal/stt."
     ),
+    tags=["Speech-to-Text (Unified)"],
 )
 @limiter.limit(get_account_type_limit)
 async def create_transcription(  # noqa: C901
@@ -270,6 +271,7 @@ async def create_transcription(  # noqa: C901
         "(response_mode='url'); spark-tts on Modal also supports 'stream'/'both'. "
         "Replaces /tasks/modal/tts, /tasks/runpod/tts, and /tasks/modal/orpheus/tts."
     ),
+    tags=["Text-to-Speech (Unified)"],
 )
 @limiter.limit(get_account_type_limit)
 async def create_speech(  # noqa: C901

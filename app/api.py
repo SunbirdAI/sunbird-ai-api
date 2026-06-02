@@ -168,7 +168,7 @@ app.include_router(auth_router, prefix="/auth", tags=["Authentication Endpoints"
 
 # Task endpoints
 app.include_router(stt_router, prefix="/tasks", tags=["Speech-to-Text"])
-app.include_router(audio_router, prefix="/tasks", tags=["Speech-to-Text (Unified)"])
+app.include_router(audio_router, prefix="/tasks")
 app.include_router(translation_router, prefix="/tasks", tags=["Translation"])
 app.include_router(language_router, prefix="/tasks", tags=["Language"])
 app.include_router(inference_router, prefix="/tasks", tags=["Sunflower"])

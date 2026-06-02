@@ -319,3 +319,10 @@ def test_speech_deps_exported():
     assert hasattr(deps, "RunpodSparkTTSServiceDep")
     assert "SpeechServiceDep" in deps.__all__
     assert "RunpodSparkTTSServiceDep" in deps.__all__
+
+
+def test_validate_rejects_overlong_spark_text():
+    facade, *_ = make_speech_facade()
+    req = SpeechRequest(text="x" * 10001, model="spark-tts", platform="runpod")
+    with pytest.raises(BadRequestError):
+        facade.validate_request(req)

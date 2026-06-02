@@ -192,3 +192,61 @@ async def test_legacy_modal_tts_url_mode_has_deprecation_headers(
     assert resp.headers.get("Deprecation") == "true"
     assert "Sunset" in resp.headers
     assert 'rel="successor-version"' in resp.headers.get("Link", "")
+
+
+@pytest.mark.real_quota
+async def test_speech_quota_exceeded_returns_429(
+    authenticated_client: AsyncClient, fake_speech, test_user: Dict, monkeypatch
+):
+    """When the quota is exhausted, the unified speech endpoint returns 429."""
+    from app.services.quota_service import QuotaResult, QuotaService
+
+    async def deny(self, db, user):
+        return QuotaResult(allowed=False, scope="day", retry_after_seconds=60)
+
+    monkeypatch.setattr(QuotaService, "check_and_consume", deny)
+    resp = await authenticated_client.post(
+        "/tasks/audio/speech",
+        json={"text": "hi", "model": "orpheus-3b-tts", "platform": "modal"},
+    )
+    assert resp.status_code == 429
+
+
+async def test_speech_both_mode_returns_sse(
+    authenticated_client: AsyncClient, test_user: Dict, monkeypatch
+):
+    """spark-tts + modal + response_mode=both returns an SSE (event-stream)."""
+    from app.deps import get_legacy_storage_service
+    from app.services.tts_service import get_tts_service
+
+    async def fake_stream(text, speaker_id, chunk_size=8192):
+        yield b"RIFF"
+        yield b"DATA"
+
+    fake_tts = MagicMock()
+    fake_tts.generate_audio_stream = fake_stream
+    storage = MagicMock()
+    storage.generate_file_name = MagicMock(return_value="f.wav")
+    storage.upload_audio_async = AsyncMock(return_value="blob")
+    storage.generate_signed_url = MagicMock(
+        return_value=("https://s/f.wav", datetime(2026, 12, 1))
+    )
+
+    app.dependency_overrides[get_tts_service] = lambda: fake_tts
+    app.dependency_overrides[get_legacy_storage_service] = lambda: storage
+    try:
+        resp = await authenticated_client.post(
+            "/tasks/audio/speech",
+            json={
+                "text": "hi",
+                "model": "spark-tts",
+                "platform": "modal",
+                "response_mode": "both",
+            },
+        )
+    finally:
+        app.dependency_overrides.pop(get_tts_service, None)
+        app.dependency_overrides.pop(get_legacy_storage_service, None)
+
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("text/event-stream")
