@@ -20,6 +20,7 @@ from fastapi import (
     Depends,
     File,
     Form,
+    Query,
     Request,
     UploadFile,
 )
@@ -44,7 +45,7 @@ from app.deps import (
 from app.models.enums import TTSResponseMode
 from app.routers.stt import _schedule_stt_feedback
 from app.routers.tts import _stream_audio, _stream_audio_with_url
-from app.schemas.speech import SpeechRequest, SpeechResponse
+from app.schemas.speech import SpeechRequest, SpeechResponse, TTSModel
 from app.schemas.stt import (
     CHUNK_SIZE,
     SttbLanguage,
@@ -370,3 +371,35 @@ def _schedule_speech_feedback(
         )
     except Exception as e:
         logging.warning(f"Failed to schedule speech feedback save task: {e}")
+
+
+@router.get(
+    "/voice/speakers",
+    response_model=None,
+    tags=["Text-to-Speech (Unified)"],
+    summary="List speakers/voices (unified)",
+    description=(
+        "List available speakers for the selected TTS model. "
+        "model='orpheus-3b-tts' (default) returns the catalog grouped by "
+        "language (OrpheusSpeakersResponse); add 'language' to get one "
+        "language's voices (OrpheusLanguageSpeakersResponse). "
+        "model='spark-tts' returns the fixed SpeakerID voices "
+        "(SpeakersListResponse); 'language' is not allowed for spark-tts. "
+        "Replaces /tasks/modal/orpheus/speakers, "
+        "/tasks/modal/orpheus/speakers/{language}, and /tasks/modal/tts/speakers."
+    ),
+)
+async def list_voices(
+    speech_service: SpeechServiceDep,
+    model: TTSModel = Query(
+        default=TTSModel.orpheus_3b_tts,
+        description="TTS model: 'orpheus-3b-tts' (default) or 'spark-tts'.",
+    ),
+    language: Optional[str] = Query(
+        default=None,
+        description="orpheus-only ISO 639-3 code (e.g. 'lug'). Rejected for spark-tts.",
+    ),
+    current_user=Depends(get_current_user),
+):
+    """List speakers/voices for the selected model (and optional language)."""
+    return await speech_service.list_voices(model.value, language)
