@@ -1,6 +1,7 @@
 """Unit tests for the TTS unified speech facade and helpers."""
 
 from datetime import datetime
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -11,7 +12,12 @@ from app.core.exceptions import (
     ServiceUnavailableError,
 )
 from app.models.enums import SpeakerID
+from app.schemas.orpheus_tts import (
+    OrpheusLanguageSpeakersResponse,
+    OrpheusSpeakersResponse,
+)
 from app.schemas.speech import SpeechRequest, SpeechResponse, TTSModel, TTSPlatform
+from app.schemas.tts import SpeakersListResponse
 from app.services.orpheus_tts_service import SynthesizeResult
 from app.services.speech_service import SpeechService
 from app.utils.deprecation import (
@@ -326,3 +332,40 @@ def test_validate_rejects_overlong_spark_text():
     req = SpeechRequest(text="x" * 10001, model="spark-tts", platform="runpod")
     with pytest.raises(BadRequestError):
         facade.validate_request(req)
+
+
+async def test_list_voices_spark_returns_all_speakers():
+    facade, *_ = make_speech_facade()
+    result = await facade.list_voices("spark-tts", None)
+    assert isinstance(result, SpeakersListResponse)
+    assert len(result.speakers) == 6
+
+
+async def test_list_voices_spark_with_language_rejected():
+    facade, *_ = make_speech_facade()
+    with pytest.raises(BadRequestError):
+        await facade.list_voices("spark-tts", "lug")
+
+
+async def test_list_voices_orpheus_grouped():
+    facade, _, orpheus, _, _ = make_speech_facade()
+    orpheus.list_speakers = AsyncMock(
+        return_value=SimpleNamespace(
+            default="salt_lug_0001",
+            by_language={"lug": ["salt_lug_0001"], "eng": ["salt_eng_0001"]},
+        )
+    )
+    result = await facade.list_voices("orpheus-3b-tts", None)
+    assert isinstance(result, OrpheusSpeakersResponse)
+    assert result.default == "salt_lug_0001"
+    assert result.total == 2
+
+
+async def test_list_voices_orpheus_by_language():
+    facade, _, orpheus, _, _ = make_speech_facade()
+    orpheus.speakers_for_language = AsyncMock(return_value=["salt_lug_0001"])
+    result = await facade.list_voices("orpheus-3b-tts", "lug")
+    assert isinstance(result, OrpheusLanguageSpeakersResponse)
+    assert result.language == "lug"
+    assert result.speakers == ["salt_lug_0001"]
+    orpheus.speakers_for_language.assert_awaited_once_with("lug")

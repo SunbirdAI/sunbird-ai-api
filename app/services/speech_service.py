@@ -9,11 +9,16 @@ RunpodSparkTTSService (RunPod spark), and OrpheusTTSService.
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 from app.core.exceptions import BadRequestError, ExternalServiceError
-from app.models.enums import SpeakerID, TTSResponseMode
+from app.models.enums import SpeakerID, TTSResponseMode, get_all_speakers
+from app.schemas.orpheus_tts import (
+    OrpheusLanguageSpeakersResponse,
+    OrpheusSpeakersResponse,
+)
 from app.schemas.speech import SpeechRequest
+from app.schemas.tts import SpeakerInfo, SpeakersListResponse
 from app.services.orpheus_tts_service import OrpheusTTSService, get_orpheus_tts_service
 from app.services.runpod_tts_service import (
     RunpodSparkTTSService,
@@ -233,6 +238,37 @@ class SpeechService:
             voice=speaker.name.lower(),
             sample_rate=out.get("sample_rate"),
             gcs_object=out.get("blob"),
+        )
+
+    async def list_voices(
+        self, model: str, language: Optional[str] = None
+    ) -> Union[
+        OrpheusSpeakersResponse, OrpheusLanguageSpeakersResponse, SpeakersListResponse
+    ]:
+        """List speakers/voices for the given model.
+
+        - spark-tts: all SpeakerID voices (``language`` is rejected with 400).
+        - orpheus-3b-tts: the full catalog grouped by language, or — when
+          ``language`` is given — the voices for that one language (400 if the
+          language is unknown).
+        """
+        if model == "spark-tts":
+            if language is not None:
+                raise BadRequestError(
+                    message="'language' is only valid for model='orpheus-3b-tts'."
+                )
+            return SpeakersListResponse(
+                speakers=[SpeakerInfo(**d) for d in get_all_speakers()]
+            )
+
+        # orpheus-3b-tts
+        if language is not None:
+            speakers = await self._orpheus.speakers_for_language(language)
+            return OrpheusLanguageSpeakersResponse(language=language, speakers=speakers)
+
+        catalog = await self._orpheus.list_speakers()
+        return OrpheusSpeakersResponse(
+            default=catalog.default, by_language=catalog.by_language
         )
 
 
