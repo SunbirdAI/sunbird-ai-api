@@ -154,3 +154,41 @@ async def test_legacy_runpod_tts_has_deprecation_headers(
     assert resp.headers.get("Deprecation") == "true"
     assert "Sunset" in resp.headers
     assert 'rel="successor-version"' in resp.headers.get("Link", "")
+
+
+async def test_legacy_modal_tts_url_mode_has_deprecation_headers(
+    authenticated_client: AsyncClient, test_user: Dict, monkeypatch
+):
+    """/tasks/modal/tts url mode carries RFC-8594 headers (model-return path)."""
+    from app.deps import get_legacy_storage_service
+    from app.services.tts_service import get_tts_service
+
+    tts = MagicMock()
+    tts.generate_audio = AsyncMock(return_value=b"WAVDATA")
+    tts.estimate_duration = MagicMock(return_value=1.0)
+    storage = MagicMock()
+    storage.generate_file_name = MagicMock(return_value="f.wav")
+    storage.upload_audio_async = AsyncMock(return_value="blob")
+    storage.generate_signed_url = MagicMock(
+        return_value=("https://s/f.wav", datetime(2026, 12, 1))
+    )
+
+    async def noop_save(*args, **kwargs):
+        return None
+
+    import app.routers.tts as tts_module
+
+    monkeypatch.setattr(tts_module, "save_api_inference", noop_save, raising=False)
+
+    app.dependency_overrides[get_tts_service] = lambda: tts
+    app.dependency_overrides[get_legacy_storage_service] = lambda: storage
+    try:
+        resp = await authenticated_client.post("/tasks/modal/tts", json={"text": "hi"})
+    finally:
+        app.dependency_overrides.pop(get_tts_service, None)
+        app.dependency_overrides.pop(get_legacy_storage_service, None)
+
+    assert resp.status_code == 200
+    assert resp.headers.get("Deprecation") == "true"
+    assert "Sunset" in resp.headers
+    assert 'rel="successor-version"' in resp.headers.get("Link", "")

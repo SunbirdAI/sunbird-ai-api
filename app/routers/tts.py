@@ -116,7 +116,6 @@ async def generate_tts(
     logging.warning(
         "Deprecated endpoint /tasks/modal/tts called; use POST /tasks/audio/speech"
     )
-    add_deprecation_headers(http_response, SUCCESSOR_SPEECH)
 
     # Handle streaming modes
     if request.response_mode == TTSResponseMode.STREAM:
@@ -126,6 +125,9 @@ async def generate_tts(
 
     # URL mode (default)
     start_time = time.time()
+    # Deprecation headers apply to the url-mode (model) response only; the
+    # streaming branches above return raw StreamingResponses without them.
+    add_deprecation_headers(http_response, SUCCESSOR_SPEECH)
     try:
         # Generate audio from TTS service
         audio_data = await tts_service.generate_audio(
