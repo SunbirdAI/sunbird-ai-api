@@ -109,3 +109,48 @@ async def test_speech_stream_mode_returns_wav(
     assert resp.status_code == 200
     assert resp.headers["content-type"].startswith("audio/wav")
     assert resp.content == b"RIFFDATA"
+
+
+async def test_openapi_marks_legacy_tts_deprecated(async_client: AsyncClient):
+    resp = await async_client.get("/openapi.json")
+    assert resp.status_code == 200
+    paths = resp.json()["paths"]
+    for path in [
+        "/tasks/modal/tts",
+        "/tasks/runpod/tts",
+        "/tasks/modal/orpheus/tts",
+        "/tasks/tts",
+    ]:
+        assert paths[path]["post"].get("deprecated") is True, path
+
+
+async def test_legacy_runpod_tts_has_deprecation_headers(
+    authenticated_client: AsyncClient, test_user: Dict, monkeypatch
+):
+    """/tasks/runpod/tts should carry RFC-8594 headers and still return 200."""
+    from app.services.runpod_tts_service import RunpodSparkTTSService
+
+    async def fake_synth(self, **kwargs):
+        return {
+            "audio_url": "https://r/a.mp3",
+            "blob": "tts/a.mp3",
+            "sample_rate": 16000,
+        }
+
+    monkeypatch.setattr(RunpodSparkTTSService, "synthesize", fake_synth)
+
+    async def noop_save(*args, **kwargs):
+        return None
+
+    import app.routers.runpod_tts as rp
+
+    monkeypatch.setattr(rp, "save_api_inference", noop_save, raising=False)
+
+    resp = await authenticated_client.post(
+        "/tasks/runpod/tts",
+        json={"text": "hello", "speaker_id": 248},
+    )
+    assert resp.status_code == 200
+    assert resp.headers.get("Deprecation") == "true"
+    assert "Sunset" in resp.headers
+    assert 'rel="successor-version"' in resp.headers.get("Link", "")

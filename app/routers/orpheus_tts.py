@@ -21,7 +21,7 @@ URL with the configured expiry (default 30 minutes).
 import logging
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.deps import QuotaServiceDep, get_current_user, get_db, get_orpheus_tts_service
@@ -36,6 +36,7 @@ from app.schemas.orpheus_tts import (
     OrpheusTTSRequest,
     OrpheusTTSResponse,
 )
+from app.utils.deprecation import SUCCESSOR_SPEECH, add_deprecation_headers
 from app.utils.feedback import INFERENCE_TYPES, save_api_inference
 from app.utils.quota_guard import check_quota
 from app.utils.rate_limit import get_account_type_limit, limiter
@@ -98,6 +99,7 @@ async def get_speakers_for_language(
         "valid for the configured expiry window (default 30 minutes), together "
         "with metadata and stage-by-stage latency timings."
     ),
+    deprecated=True,
 )
 @limiter.limit(get_account_type_limit)
 async def synthesize_tts(
@@ -105,11 +107,16 @@ async def synthesize_tts(
     body: OrpheusTTSRequest,
     quota: QuotaServiceDep,
     background_tasks: BackgroundTasks,
+    http_response: Response,
     db: AsyncSession = Depends(get_db),
     service=Depends(get_orpheus_tts_service),
     current_user=Depends(get_current_user),
 ) -> OrpheusTTSResponse:
     await check_quota(quota, db, current_user)
+    logger.warning(
+        "Deprecated endpoint /tasks/modal/orpheus/tts called; use POST /tasks/audio/speech"
+    )
+    add_deprecation_headers(http_response, SUCCESSOR_SPEECH)
     result = await service.synthesize(
         text=body.text,
         speaker_id=body.speaker_id,

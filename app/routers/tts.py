@@ -11,7 +11,7 @@ import time
 from io import BytesIO
 
 import httpx
-from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request, Response
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -32,6 +32,7 @@ from app.schemas.tts import (
     TTSResponse,
     TTSStreamFinalResponse,
 )
+from app.utils.deprecation import SUCCESSOR_SPEECH, add_deprecation_headers
 from app.utils.feedback import INFERENCE_TYPES, save_api_inference
 
 router = APIRouter()
@@ -92,12 +93,14 @@ async def list_speakers(
     # tags=["TTS"],
     summary="Generate Text-to-Speech Audio",
     description="Convert text to speech and return a signed URL to the audio file.",
+    deprecated=True,
 )
 async def generate_tts(
     request: TTSRequest,
     storage_service: LegacyStorageServiceDep,
     tts_service: TTSServiceDep,
     background_tasks: BackgroundTasks,
+    http_response: Response,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
@@ -110,6 +113,11 @@ async def generate_tts(
 
     Returns a signed GCP Storage URL valid for 30 minutes.
     """
+    logging.warning(
+        "Deprecated endpoint /tasks/modal/tts called; use POST /tasks/audio/speech"
+    )
+    add_deprecation_headers(http_response, SUCCESSOR_SPEECH)
+
     # Handle streaming modes
     if request.response_mode == TTSResponseMode.STREAM:
         return await _stream_audio(request, tts_service)
