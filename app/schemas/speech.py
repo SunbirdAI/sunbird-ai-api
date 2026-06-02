@@ -92,8 +92,8 @@ class SpeechBatchItem(BaseModel):
     text: str = Field(..., min_length=1, description="Text to synthesize.")
     voice: Optional[str] = Field(
         default=None,
-        description="orpheus catalog tag (e.g. 'salt_lug_0001'); "
-        "defaults to salt_lug_0001.",
+        description="orpheus catalog tag (e.g. 'salt_lug_0001'). "
+        "If omitted, the service uses salt_lug_0001.",
     )
     language: Optional[str] = Field(
         default=None, description="orpheus ISO 639-3 code (e.g. 'lug')."
@@ -128,9 +128,11 @@ class SpeechBatchRequest(BaseModel):
 class SpeechBatchItemResponse(BaseModel):
     """Per-item batch result (mirrors SpeechResponse + status/error)."""
 
-    index: int
-    status: Literal["ok", "error"]
-    voice: str
+    index: int = Field(description="Zero-based position in the request's items.")
+    status: Literal["ok", "error"] = Field(
+        description="'ok' if this item synthesized, 'error' if it failed."
+    )
+    voice: str = Field(description="Resolved orpheus voice/speaker tag.")
     audio_url: Optional[str] = None
     audio_url_expires_at: Optional[datetime] = None
     language: Optional[str] = None
@@ -139,15 +141,21 @@ class SpeechBatchItemResponse(BaseModel):
     audio_size_bytes: Optional[int] = None
     gcs_object: Optional[str] = None
     request_id: Optional[str] = None
-    error_code: Optional[str] = None
-    error_detail: Optional[str] = None
+    error_code: Optional[str] = Field(
+        default=None, description="Machine-readable failure code (error items only)."
+    )
+    error_detail: Optional[str] = Field(
+        default=None, description="Human-readable failure detail (error items only)."
+    )
 
 
 class SpeechBatchResponse(BaseModel):
     """Normalized batch response."""
 
-    model: str
-    platform: str
-    results: list[SpeechBatchItemResponse]
-    request_id: str
-    timings_ms: Optional[Dict[str, Any]] = None
+    model: str = Field(description="Model used (always 'orpheus-3b-tts').")
+    platform: str = Field(description="Platform used (always 'modal').")
+    results: list[SpeechBatchItemResponse] = Field(
+        description="Per-item results, in request order."
+    )
+    request_id: str = Field(description="Unique id for this batch request.")
+    timings_ms: Optional[Dict[str, Any]] = Field(default=None)
