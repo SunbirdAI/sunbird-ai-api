@@ -9,7 +9,11 @@ from httpx import AsyncClient
 from app.api import app
 from app.core.exceptions import BadRequestError, ExternalServiceError
 from app.deps import get_speech_service
-from app.services.orpheus_tts_service import BatchItemResult, BatchResult
+from app.services.orpheus_tts_service import (
+    BatchItemResult,
+    BatchResult,
+    get_orpheus_tts_service,
+)
 from app.services.speech_service import SpeechService
 
 
@@ -177,8 +181,6 @@ async def test_legacy_orpheus_batch_has_deprecation_headers(
     authenticated_client: AsyncClient, test_user, mixed_batch
 ):
     """/tasks/modal/orpheus/tts/batch carries RFC-8594 headers to the successor."""
-    from app.services.orpheus_tts_service import get_orpheus_tts_service
-
     orpheus = MagicMock()
     orpheus.synthesize_batch = AsyncMock(return_value=mixed_batch)
     app.dependency_overrides[get_orpheus_tts_service] = lambda: orpheus
