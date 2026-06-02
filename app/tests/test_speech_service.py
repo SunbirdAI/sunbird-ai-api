@@ -310,3 +310,12 @@ async def test_synthesize_spark_runpod_missing_audio_url_raises():
     req = SpeechRequest(text="hi", model="spark-tts", platform="runpod", voice="248")
     with pytest.raises(ExternalServiceError):
         await facade.synthesize(req)
+
+
+def test_speech_deps_exported():
+    import app.deps as deps
+
+    assert hasattr(deps, "SpeechServiceDep")
+    assert hasattr(deps, "RunpodSparkTTSServiceDep")
+    assert "SpeechServiceDep" in deps.__all__
+    assert "RunpodSparkTTSServiceDep" in deps.__all__

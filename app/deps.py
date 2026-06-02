@@ -53,6 +53,11 @@ from app.services.language_service import LanguageService, get_language_service
 from app.services.modal_stt_service import ModalSTTService, get_modal_stt_service
 from app.services.orpheus_tts_service import OrpheusTTSService, get_orpheus_tts_service
 from app.services.quota_service import QuotaService, get_quota_service
+from app.services.runpod_tts_service import (
+    RunpodSparkTTSService,
+    get_runpod_spark_tts_service,
+)
+from app.services.speech_service import SpeechService, get_speech_service
 from app.services.storage_service import StorageService
 from app.services.storage_service import get_storage_service as get_new_storage_service
 from app.services.stt_service import STTService, get_stt_service
@@ -88,6 +93,10 @@ WhatsAppServiceDep = Annotated[WhatsAppBusinessService, Depends(get_whatsapp_ser
 StorageServiceDep = Annotated[StorageService, Depends(get_new_storage_service)]
 GoogleAnalyticsServiceDep = Annotated[
     GoogleAnalyticsService, Depends(get_google_analytics_service)
+]
+SpeechServiceDep = Annotated[SpeechService, Depends(get_speech_service)]
+RunpodSparkTTSServiceDep = Annotated[
+    RunpodSparkTTSService, Depends(get_runpod_spark_tts_service)
 ]
 
 # Integration dependencies
@@ -228,6 +237,8 @@ __all__ = [
     "StorageServiceDep",
     "GoogleAnalyticsServiceDep",
     "QuotaServiceDep",
+    "SpeechServiceDep",
+    "RunpodSparkTTSServiceDep",
     # Integration dependencies
     "RunPodClientDep",
     "OpenAIClientDep",
@@ -250,6 +261,8 @@ __all__ = [
     "StorageService",
     "GoogleAnalyticsService",
     "QuotaService",
+    "SpeechService",
+    "RunpodSparkTTSService",
     # Integration classes (for type hints)
     "RunPodClient",
     "OpenAIClient",
