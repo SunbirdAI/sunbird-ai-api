@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, Optional
 
-from app.core.exceptions import BadRequestError
+from app.core.exceptions import BadRequestError, ExternalServiceError
 from app.models.enums import SpeakerID, TTSResponseMode
 from app.schemas.speech import SpeechRequest
 from app.services.orpheus_tts_service import OrpheusTTSService, get_orpheus_tts_service
@@ -132,6 +132,9 @@ class SpeechService:
                 message=f"`text` is too long for {model} (max {max_len} characters)."
             )
 
+        # Orpheus voice tags are validated against the live catalog inside
+        # OrpheusTTSService.synthesize (it raises BadRequestError there); only
+        # spark voices are resolved synchronously here.
         if model == "spark-tts":
             self.resolve_spark_speaker(req.voice)
 
@@ -217,8 +220,14 @@ class SpeechService:
             else output
         )
         out = out if isinstance(out, dict) else {}
+        audio_url = out.get("audio_url") or out.get("url")
+        if not audio_url:
+            raise ExternalServiceError(
+                service_name="RunPod TTS Worker",
+                message="TTS worker did not return an audio URL",
+            )
         return SpeechResult(
-            audio_url=out.get("audio_url") or out.get("url") or "",
+            audio_url=audio_url,
             model=model,
             platform=platform,
             voice=speaker.name.lower(),
@@ -231,6 +240,7 @@ _speech_service: Optional[SpeechService] = None
 
 
 def get_speech_service() -> SpeechService:
+    """Return the SpeechService singleton."""
     global _speech_service
     if _speech_service is None:
         _speech_service = SpeechService()
@@ -238,5 +248,6 @@ def get_speech_service() -> SpeechService:
 
 
 def reset_speech_service() -> None:
+    """Reset the singleton (test helper)."""
     global _speech_service
     _speech_service = None

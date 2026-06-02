@@ -302,3 +302,11 @@ async def test_synthesize_spark_runpod_maps_output():
     assert result.audio_url == "https://r/a.mp3"
     assert result.sample_rate == 16000
     assert result.gcs_object == "tts/a.mp3"
+
+
+async def test_synthesize_spark_runpod_missing_audio_url_raises():
+    facade, _, _, runpod_spark, _ = make_speech_facade()
+    runpod_spark.synthesize = AsyncMock(return_value={"blob": "tts/a.mp3"})
+    req = SpeechRequest(text="hi", model="spark-tts", platform="runpod", voice="248")
+    with pytest.raises(ExternalServiceError):
+        await facade.synthesize(req)
