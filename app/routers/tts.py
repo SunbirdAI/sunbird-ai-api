@@ -50,7 +50,7 @@ router = APIRouter()
 @router.get(
     "/health",
     response_model=HealthResponse,
-    # tags=["Health"],
+    tags=["TTS (Modal)"],
     summary="Health Check",
 )
 async def health_check():
@@ -68,7 +68,7 @@ async def health_check():
 @router.get(
     "/tts/speakers",
     response_model=SpeakersListResponse,
-    # tags=["Speakers"],
+    tags=["legacy/deprecated"],
     summary="List Available Speakers",
     description="Get all available speaker voices for TTS generation.",
     deprecated=True,
@@ -101,7 +101,7 @@ async def list_speakers(
         400: {"description": "Invalid request", "model": ErrorResponse},
         500: {"description": "Server error", "model": ErrorResponse},
     },
-    # tags=["TTS"],
+    tags=["legacy/deprecated"],
     summary="Generate Text-to-Speech Audio",
     description="Convert text to speech and return a signed URL to the audio file.",
     deprecated=True,
@@ -192,7 +192,7 @@ async def generate_tts(
 
 @router.post(
     "/tts/stream",
-    # tags=["TTS"],
+    tags=["legacy/deprecated"],
     summary="Stream TTS Audio",
     description=(
         "Stream audio chunks as they are generated. "
@@ -216,7 +216,7 @@ async def stream_tts(
 
 @router.post(
     "/tts/stream-with-url",
-    # tags=["TTS"],
+    tags=["legacy/deprecated"],
     summary="Stream TTS Audio with Final URL",
     description=(
         "Stream audio chunks and return a signed URL at completion. "
@@ -242,7 +242,7 @@ async def stream_tts_with_url(
 @router.get(
     "/tts/refresh-url",
     response_model=TTSResponse,
-    # tags=["TTS"],
+    tags=["TTS (Modal)"],
     summary="Refresh Signed URL",
     description="Generate a new signed URL for an existing audio file.",
 )
