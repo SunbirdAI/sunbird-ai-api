@@ -45,7 +45,14 @@ from app.deps import (
 from app.models.enums import TTSResponseMode
 from app.routers.stt import _schedule_stt_feedback
 from app.routers.tts import _stream_audio, _stream_audio_with_url
-from app.schemas.speech import SpeechRequest, SpeechResponse, TTSModel
+from app.schemas.speech import (
+    SpeechBatchItemResponse,
+    SpeechBatchRequest,
+    SpeechBatchResponse,
+    SpeechRequest,
+    SpeechResponse,
+    TTSModel,
+)
 from app.schemas.stt import (
     CHUNK_SIZE,
     SttbLanguage,
@@ -347,6 +354,92 @@ async def create_speech(  # noqa: C901
         )
 
 
+@router.post(
+    "/audio/speech/batch",
+    response_model=SpeechBatchResponse,
+    summary="Batch-generate speech (unified, orpheus-3b-tts only)",
+    description=(
+        "Unified batch Text-to-Speech endpoint. Synthesizes 1-128 items in a "
+        "single orpheus-3b-tts pass and uploads each result to GCS. Per-item "
+        "failures are reported with status='error'; the request returns 200 if "
+        "at least one item succeeds, 502 if every item fails. "
+        "Replaces /tasks/modal/orpheus/tts/batch."
+    ),
+    tags=["Text-to-Speech (Unified)"],
+)
+@limiter.limit(get_account_type_limit)
+async def create_speech_batch(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    quota: QuotaServiceDep,
+    speech_service: SpeechServiceDep,
+    body: SpeechBatchRequest = Body(...),
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+) -> SpeechBatchResponse:
+    """Batch-generate speech via orpheus-3b-tts."""
+    await check_quota(quota, db, current_user)
+
+    try:
+        batch = await speech_service.synthesize_batch(body)
+        request_id = uuid.uuid4().hex
+
+        results = [
+            SpeechBatchItemResponse(
+                index=r.index,
+                status=r.status,
+                voice=r.speaker_id,
+                audio_url=r.audio_url,
+                audio_url_expires_at=r.audio_url_expires_at,
+                language=r.language,
+                sample_rate=r.sample_rate,
+                duration_seconds=r.duration_seconds,
+                audio_size_bytes=r.audio_size_bytes,
+                gcs_object=r.gcs_object,
+                request_id=request_id if r.status == "ok" else None,
+                error_code=r.error_code,
+                error_detail=r.error_detail,
+            )
+            for r in batch.results
+        ]
+
+        response = SpeechBatchResponse(
+            model="orpheus-3b-tts",
+            platform="modal",
+            results=results,
+            request_id=request_id,
+            timings_ms={
+                "inference_ms": batch.inference_ms,
+                "upload_ms": batch.upload_ms,
+                "total_ms": batch.total_ms,
+            },
+        )
+
+        _schedule_speech_batch_feedback(
+            background_tasks=background_tasks,
+            user=current_user,
+            items=body.items,
+            batch=batch,
+            request_id=request_id,
+        )
+
+        return response
+    except (
+        BadRequestError,
+        ValidationError,
+        ExternalServiceError,
+        ServiceUnavailableError,
+    ):
+        raise
+    except Exception as e:
+        logging.error(f"Unexpected error in create_speech_batch: {str(e)}")
+        raise ExternalServiceError(
+            service_name="Speech Service",
+            message="An unexpected error occurred while generating batch speech",
+            original_error=str(e),
+        )
+
+
 def _schedule_speech_feedback(
     *, background_tasks, user, text, result, request_id, processing_time
 ):
@@ -371,6 +464,37 @@ def _schedule_speech_feedback(
         )
     except Exception as e:
         logging.warning(f"Failed to schedule speech feedback save task: {e}")
+
+
+def _schedule_speech_batch_feedback(
+    *, background_tasks, user, items, batch, request_id
+):
+    """Best-effort feedback save: one record per successful batch item."""
+    try:
+        for item, result in zip(items, batch.results):
+            if result.status != "ok":
+                continue
+            voice = result.speaker_id
+            background_tasks.add_task(
+                save_api_inference,
+                item.text,
+                {"audio_url": result.audio_url, "gcs_object": result.gcs_object},
+                user,
+                model_type=f"orpheus-3b-tts:{voice}",
+                processing_time=batch.total_ms / 1000.0,
+                inference_type=INFERENCE_TYPES["tts"],
+                job_details={
+                    "model": "orpheus-3b-tts",
+                    "platform": "modal",
+                    "voice": voice,
+                    "audio_url": result.audio_url,
+                    "gcs_object": result.gcs_object,
+                    "batch_index": result.index,
+                    "request_id": request_id,
+                },
+            )
+    except Exception as e:
+        logging.warning(f"Failed to schedule batch speech feedback save task: {e}")
 
 
 @router.get(
