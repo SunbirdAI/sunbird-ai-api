@@ -32,7 +32,12 @@ from app.schemas.tts import (
     TTSResponse,
     TTSStreamFinalResponse,
 )
-from app.utils.deprecation import SUCCESSOR_SPEECH, add_deprecation_headers
+from app.utils.deprecation import (
+    SUCCESSOR_SPEECH,
+    SUCCESSOR_VOICES,
+    add_deprecation_headers,
+    deprecation_headers,
+)
 from app.utils.feedback import INFERENCE_TYPES, save_api_inference
 
 router = APIRouter()
@@ -67,12 +72,19 @@ async def health_check():
     # tags=["Speakers"],
     summary="List Available Speakers",
     description="Get all available speaker voices for TTS generation.",
+    deprecated=True,
 )
 async def list_speakers(
+    http_response: Response,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     """Return a list of all available speaker voices."""
+    logging.warning(
+        "Deprecated endpoint /tasks/modal/tts/speakers called; "
+        "use GET /tasks/voice/speakers"
+    )
+    add_deprecation_headers(http_response, SUCCESSOR_VOICES)
     speakers = [SpeakerInfo(**speaker_data) for speaker_data in get_all_speakers()]
     return SpeakersListResponse(speakers=speakers)
 

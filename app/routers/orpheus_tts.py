@@ -36,7 +36,11 @@ from app.schemas.orpheus_tts import (
     OrpheusTTSRequest,
     OrpheusTTSResponse,
 )
-from app.utils.deprecation import SUCCESSOR_SPEECH, add_deprecation_headers
+from app.utils.deprecation import (
+    SUCCESSOR_SPEECH,
+    SUCCESSOR_VOICES,
+    add_deprecation_headers,
+)
 from app.utils.feedback import INFERENCE_TYPES, save_api_inference
 from app.utils.quota_guard import check_quota
 from app.utils.rate_limit import get_account_type_limit, limiter
@@ -57,11 +61,18 @@ router = APIRouter()
         "Returns the full Orpheus speaker catalog. `total` and `languages` are "
         "derived convenience fields. Auth required."
     ),
+    deprecated=True,
 )
 async def get_speakers(
+    http_response: Response,
     service=Depends(get_orpheus_tts_service),
     current_user=Depends(get_current_user),
 ) -> OrpheusSpeakersResponse:
+    logger.warning(
+        "Deprecated endpoint /tasks/modal/orpheus/speakers called; "
+        "use GET /tasks/voice/speakers"
+    )
+    add_deprecation_headers(http_response, SUCCESSOR_VOICES)
     catalog = await service.list_speakers()
     return OrpheusSpeakersResponse(
         default=catalog.default, by_language=catalog.by_language
@@ -76,12 +87,19 @@ async def get_speakers(
         "Convenience endpoint for two-step pickers (language then speaker). "
         "Returns 400 invalid_request if the language code is not in the catalog."
     ),
+    deprecated=True,
 )
 async def get_speakers_for_language(
+    http_response: Response,
     language: str,
     service=Depends(get_orpheus_tts_service),
     current_user=Depends(get_current_user),
 ) -> OrpheusLanguageSpeakersResponse:
+    logger.warning(
+        "Deprecated endpoint /tasks/modal/orpheus/speakers/{language} called; "
+        "use GET /tasks/voice/speakers"
+    )
+    add_deprecation_headers(http_response, SUCCESSOR_VOICES)
     speakers = await service.speakers_for_language(language)
     return OrpheusLanguageSpeakersResponse(language=language, speakers=speakers)
 

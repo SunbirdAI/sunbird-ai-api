@@ -93,3 +93,28 @@ async def test_voice_speakers_unknown_orpheus_language_400(
 async def test_voice_speakers_requires_auth(async_client: AsyncClient):
     resp = await async_client.get("/tasks/voice/speakers")
     assert resp.status_code == 401
+
+
+async def test_openapi_marks_legacy_speaker_endpoints_deprecated(
+    async_client: AsyncClient,
+):
+    resp = await async_client.get("/openapi.json")
+    assert resp.status_code == 200
+    paths = resp.json()["paths"]
+    for path in [
+        "/tasks/modal/orpheus/speakers",
+        "/tasks/modal/orpheus/speakers/{language}",
+        "/tasks/modal/tts/speakers",
+    ]:
+        assert paths[path]["get"].get("deprecated") is True, path
+
+
+async def test_legacy_spark_speakers_has_deprecation_headers(
+    authenticated_client: AsyncClient, test_user
+):
+    """/tasks/modal/tts/speakers still returns 200 and carries RFC-8594 headers."""
+    resp = await authenticated_client.get("/tasks/modal/tts/speakers")
+    assert resp.status_code == 200
+    assert resp.headers.get("Deprecation") == "true"
+    assert "Sunset" in resp.headers
+    assert "/tasks/voice/speakers" in resp.headers.get("Link", "")
