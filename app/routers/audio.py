@@ -290,6 +290,8 @@ async def create_speech(  # noqa: C901
     speech_service.validate_request(body)
 
     if body.response_mode in (TTSResponseMode.STREAM, TTSResponseMode.BOTH):
+        # NOTE: feedback/request_id are not captured for stream/both modes
+        # (parity with the legacy Modal streaming endpoints).
         speaker = SpeechService.resolve_spark_speaker(body.voice)
         modal_req = ModalTTSRequest(
             text=body.text, speaker_id=speaker, response_mode=body.response_mode
@@ -298,33 +300,48 @@ async def create_speech(  # noqa: C901
             return await _stream_audio(modal_req, tts_service)
         return await _stream_audio_with_url(modal_req, storage_service, tts_service)
 
-    result = await speech_service.synthesize(body)
-    request_id = uuid.uuid4().hex
+    try:
+        result = await speech_service.synthesize(body)
+        request_id = uuid.uuid4().hex
 
-    response = SpeechResponse(
-        audio_url=result.audio_url,
-        model=result.model,
-        platform=result.platform,
-        voice=result.voice,
-        audio_url_expires_at=result.audio_url_expires_at,
-        language=result.language,
-        sample_rate=result.sample_rate,
-        duration_seconds=result.duration_seconds,
-        gcs_object=result.gcs_object,
-        request_id=request_id,
-        timings_ms=result.timings_ms,
-    )
+        response = SpeechResponse(
+            audio_url=result.audio_url,
+            model=result.model,
+            platform=result.platform,
+            voice=result.voice,
+            audio_url_expires_at=result.audio_url_expires_at,
+            language=result.language,
+            sample_rate=result.sample_rate,
+            duration_seconds=result.duration_seconds,
+            gcs_object=result.gcs_object,
+            request_id=request_id,
+            timings_ms=result.timings_ms,
+        )
 
-    _schedule_speech_feedback(
-        background_tasks=background_tasks,
-        user=current_user,
-        text=body.text,
-        result=result,
-        request_id=request_id,
-        processing_time=time.time() - start_time,
-    )
+        _schedule_speech_feedback(
+            background_tasks=background_tasks,
+            user=current_user,
+            text=body.text,
+            result=result,
+            request_id=request_id,
+            processing_time=time.time() - start_time,
+        )
 
-    return response
+        return response
+    except (
+        BadRequestError,
+        ValidationError,
+        ExternalServiceError,
+        ServiceUnavailableError,
+    ):
+        raise
+    except Exception as e:
+        logging.error(f"Unexpected error in create_speech: {str(e)}")
+        raise ExternalServiceError(
+            service_name="Speech Service",
+            message="An unexpected error occurred while generating speech",
+            original_error=str(e),
+        )
 
 
 def _schedule_speech_feedback(

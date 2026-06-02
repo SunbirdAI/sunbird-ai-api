@@ -78,3 +78,34 @@ async def test_speech_invalid_combo_returns_400(
         json={"text": "hello", "model": "orpheus-3b-tts", "platform": "runpod"},
     )
     assert resp.status_code == 400
+
+
+async def test_speech_stream_mode_returns_wav(
+    authenticated_client: AsyncClient, test_user: Dict
+):
+    """spark-tts + modal + response_mode=stream returns streamed audio/wav."""
+    from app.deps import get_tts_service
+
+    async def fake_stream(text, speaker_id, chunk_size=8192):
+        yield b"RIFF"
+        yield b"DATA"
+
+    fake_tts = MagicMock()
+    fake_tts.generate_audio_stream = fake_stream
+    app.dependency_overrides[get_tts_service] = lambda: fake_tts
+    try:
+        resp = await authenticated_client.post(
+            "/tasks/audio/speech",
+            json={
+                "text": "hi",
+                "model": "spark-tts",
+                "platform": "modal",
+                "response_mode": "stream",
+            },
+        )
+    finally:
+        app.dependency_overrides.pop(get_tts_service, None)
+
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("audio/wav")
+    assert resp.content == b"RIFFDATA"
