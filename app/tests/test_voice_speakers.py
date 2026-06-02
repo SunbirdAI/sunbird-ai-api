@@ -118,3 +118,46 @@ async def test_legacy_spark_speakers_has_deprecation_headers(
     assert resp.headers.get("Deprecation") == "true"
     assert "Sunset" in resp.headers
     assert "/tasks/voice/speakers" in resp.headers.get("Link", "")
+
+
+async def test_legacy_orpheus_speakers_has_deprecation_headers(
+    authenticated_client: AsyncClient, test_user
+):
+    """/tasks/modal/orpheus/speakers carries RFC-8594 headers pointing at the successor."""
+    from app.services.orpheus_tts_service import get_orpheus_tts_service
+
+    orpheus = MagicMock()
+    orpheus.list_speakers = AsyncMock(
+        return_value=SimpleNamespace(
+            default="salt_lug_0001", by_language={"lug": ["salt_lug_0001"]}
+        )
+    )
+    app.dependency_overrides[get_orpheus_tts_service] = lambda: orpheus
+    try:
+        resp = await authenticated_client.get("/tasks/modal/orpheus/speakers")
+    finally:
+        app.dependency_overrides.pop(get_orpheus_tts_service, None)
+
+    assert resp.status_code == 200
+    assert resp.headers.get("Deprecation") == "true"
+    assert "Sunset" in resp.headers
+    assert "/tasks/voice/speakers" in resp.headers.get("Link", "")
+
+
+async def test_legacy_orpheus_language_speakers_has_deprecation_headers(
+    authenticated_client: AsyncClient, test_user
+):
+    """/tasks/modal/orpheus/speakers/{language} carries RFC-8594 headers."""
+    from app.services.orpheus_tts_service import get_orpheus_tts_service
+
+    orpheus = MagicMock()
+    orpheus.speakers_for_language = AsyncMock(return_value=["salt_lug_0001"])
+    app.dependency_overrides[get_orpheus_tts_service] = lambda: orpheus
+    try:
+        resp = await authenticated_client.get("/tasks/modal/orpheus/speakers/lug")
+    finally:
+        app.dependency_overrides.pop(get_orpheus_tts_service, None)
+
+    assert resp.status_code == 200
+    assert resp.headers.get("Deprecation") == "true"
+    assert "/tasks/voice/speakers" in resp.headers.get("Link", "")
