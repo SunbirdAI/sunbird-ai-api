@@ -36,7 +36,6 @@ from app.utils.deprecation import (
     SUCCESSOR_SPEECH,
     SUCCESSOR_VOICES,
     add_deprecation_headers,
-    deprecation_headers,
 )
 from app.utils.feedback import INFERENCE_TYPES, save_api_inference
 
