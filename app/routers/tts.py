@@ -194,7 +194,11 @@ async def generate_tts(
     "/tts/stream",
     # tags=["TTS"],
     summary="Stream TTS Audio",
-    description="Stream audio chunks as they are generated.",
+    description=(
+        "Stream audio chunks as they are generated. "
+        "DEPRECATED: use POST /tasks/audio/speech with response_mode='stream'."
+    ),
+    deprecated=True,
 )
 async def stream_tts(
     request: TTSRequest,
@@ -203,6 +207,10 @@ async def stream_tts(
     current_user=Depends(get_current_user),
 ):
     """Stream audio directly without storing in GCP."""
+    logging.warning(
+        "Deprecated endpoint /tasks/modal/tts/stream called; "
+        "use POST /tasks/audio/speech with response_mode='stream'"
+    )
     return await _stream_audio(request, tts_service)
 
 
@@ -210,7 +218,11 @@ async def stream_tts(
     "/tts/stream-with-url",
     # tags=["TTS"],
     summary="Stream TTS Audio with Final URL",
-    description="Stream audio chunks and return a signed URL at completion.",
+    description=(
+        "Stream audio chunks and return a signed URL at completion. "
+        "DEPRECATED: use POST /tasks/audio/speech with response_mode='both'."
+    ),
+    deprecated=True,
 )
 async def stream_tts_with_url(
     request: TTSRequest,
@@ -220,6 +232,10 @@ async def stream_tts_with_url(
     current_user=Depends(get_current_user),
 ):
     """Stream audio and provide a URL for the complete file at the end."""
+    logging.warning(
+        "Deprecated endpoint /tasks/modal/tts/stream-with-url called; "
+        "use POST /tasks/audio/speech with response_mode='both'"
+    )
     return await _stream_audio_with_url(request, storage_service, tts_service)
 
 

@@ -159,3 +159,38 @@ async def test_batch_requires_auth(async_client: AsyncClient):
         "/tasks/audio/speech/batch", json={"items": [{"text": "a"}]}
     )
     assert resp.status_code == 401
+
+
+async def test_openapi_marks_legacy_endpoints_deprecated(async_client: AsyncClient):
+    resp = await async_client.get("/openapi.json")
+    assert resp.status_code == 200
+    paths = resp.json()["paths"]
+    for path in [
+        "/tasks/modal/tts/stream",
+        "/tasks/modal/tts/stream-with-url",
+        "/tasks/modal/orpheus/tts/batch",
+    ]:
+        assert paths[path]["post"].get("deprecated") is True, path
+
+
+async def test_legacy_orpheus_batch_has_deprecation_headers(
+    authenticated_client: AsyncClient, test_user, mixed_batch
+):
+    """/tasks/modal/orpheus/tts/batch carries RFC-8594 headers to the successor."""
+    from app.services.orpheus_tts_service import get_orpheus_tts_service
+
+    orpheus = MagicMock()
+    orpheus.synthesize_batch = AsyncMock(return_value=mixed_batch)
+    app.dependency_overrides[get_orpheus_tts_service] = lambda: orpheus
+    try:
+        resp = await authenticated_client.post(
+            "/tasks/modal/orpheus/tts/batch",
+            json={"items": [{"text": "a", "speaker_id": "salt_lug_0001"}]},
+        )
+    finally:
+        app.dependency_overrides.pop(get_orpheus_tts_service, None)
+
+    assert resp.status_code == 200, resp.text
+    assert resp.headers.get("Deprecation") == "true"
+    assert "Sunset" in resp.headers
+    assert "/tasks/audio/speech/batch" in resp.headers.get("Link", "")

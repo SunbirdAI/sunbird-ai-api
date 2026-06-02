@@ -38,6 +38,7 @@ from app.schemas.orpheus_tts import (
 )
 from app.utils.deprecation import (
     SUCCESSOR_SPEECH,
+    SUCCESSOR_SPEECH_BATCH,
     SUCCESSOR_VOICES,
     add_deprecation_headers,
 )
@@ -190,8 +191,10 @@ async def synthesize_tts(
         "continuous-batched pass) and uploads each generated WAV to GCS in "
         "parallel. Per-item failures are reported in the response with "
         '`status: "error"`; the request as a whole returns 200 if at least '
-        "one item succeeds, 502 if every item failed."
+        "one item succeeds, 502 if every item failed. "
+        "DEPRECATED: use POST /tasks/audio/speech/batch."
     ),
+    deprecated=True,
 )
 @limiter.limit(get_account_type_limit)
 async def synthesize_tts_batch(
@@ -199,11 +202,17 @@ async def synthesize_tts_batch(
     body: OrpheusTTSBatchRequest,
     quota: QuotaServiceDep,
     background_tasks: BackgroundTasks,
+    http_response: Response,
     db: AsyncSession = Depends(get_db),
     service=Depends(get_orpheus_tts_service),
     current_user=Depends(get_current_user),
 ) -> OrpheusTTSBatchResponse:
     await check_quota(quota, db, current_user)
+    logger.warning(
+        "Deprecated endpoint /tasks/modal/orpheus/tts/batch called; "
+        "use POST /tasks/audio/speech/batch"
+    )
+    add_deprecation_headers(http_response, SUCCESSOR_SPEECH_BATCH)
     items_payload = [
         {
             "text": it.text,

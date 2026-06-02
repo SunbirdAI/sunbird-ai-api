@@ -21,6 +21,7 @@ STT_SUNSET_DATE = SUNSET_DATE
 SUCCESSOR_TRANSCRIPTIONS = "/tasks/audio/transcriptions"
 SUCCESSOR_SPEECH = "/tasks/audio/speech"
 SUCCESSOR_VOICES = "/tasks/voice/speakers"
+SUCCESSOR_SPEECH_BATCH = "/tasks/audio/speech/batch"
 
 
 def deprecation_headers(successor: str, sunset: str = SUNSET_DATE) -> Dict[str, str]:
