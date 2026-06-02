@@ -13,25 +13,14 @@ import logging
 import os
 import time
 
-import runpod
 from dotenv import load_dotenv
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from tenacity import (
-    retry,
-    retry_if_exception_type,
-    stop_after_attempt,
-    wait_exponential,
-)
 
-from app.core.exceptions import (
-    BadRequestError,
-    ExternalServiceError,
-    ServiceUnavailableError,
-    ValidationError,
-)
+from app.core.exceptions import BadRequestError, ValidationError
 from app.deps import QuotaServiceDep, get_current_user, get_db
 from app.schemas.tasks import TTSRequest
+from app.services.runpod_tts_service import get_runpod_spark_tts_service
 from app.utils.feedback import INFERENCE_TYPES, save_api_inference
 from app.utils.quota_guard import check_quota
 from app.utils.rate_limit import get_account_type_limit, limiter
@@ -42,27 +31,10 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 
 PER_MINUTE_RATE_LIMIT = os.getenv("PER_MINUTE_RATE_LIMIT", 10)
-RUNPOD_ENDPOINT_ID = os.getenv("RUNPOD_ENDPOINT_ID")
-# Set RunPod API Key
-runpod.api_key = os.getenv("RUNPOD_API_KEY")
 
 # Inference type constant — RunPod TTS uses the legacy "tts" classifier so
 # existing dashboards keep working unchanged.
 INFERENCE_TTS = INFERENCE_TYPES["tts"]
-
-
-@retry(
-    stop=stop_after_attempt(3),  # Retry up to 3 times
-    wait=wait_exponential(
-        min=1, max=60
-    ),  # Exponential backoff starting at 1s up to 60s
-    retry=retry_if_exception_type(
-        (TimeoutError, ConnectionError)
-    ),  # Retry on these exceptions
-    reraise=True,  # Reraise the exception if all retries fail
-)
-async def call_endpoint_with_retry(endpoint, data):
-    return endpoint.run_sync(data, timeout=600)  # Timeout in seconds
 
 
 @router.post(
@@ -120,7 +92,6 @@ async def text_to_speech(
         }
     """
     await check_quota(quota, db, current_user)
-    endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
     user = current_user
 
     text = tts_request.text
@@ -178,42 +149,14 @@ async def text_to_speech(
             field="max_new_audio_tokens",
         )
 
-    # Data to be sent in the request body
-    data = {
-        "input": {
-            "task": "tts",
-            "text": text.strip(),  # Remove leading/trailing spaces
-            "speaker_id": speaker_id_val,
-            "temperature": temperature,
-            "max_new_audio_tokens": max_new_audio_tokens,
-        }
-    }
-
+    service = get_runpod_spark_tts_service()
     start_time = time.time()
-    try:
-        request_response = await call_endpoint_with_retry(endpoint, data)
-    except TimeoutError as e:
-        logging.error(f"Job timed out: {str(e)}")
-        raise ServiceUnavailableError(message="Service unavailable due to timeout")
-    except ConnectionError as e:
-        logging.error(f"Connection lost: {str(e)}")
-        raise ExternalServiceError(
-            service_name="RunPod TTS Service",
-            message="Service unavailable due to connection error",
-            original_error=str(e),
-        )
-    except ValueError as e:
-        # Worker reported a bad request / invalid input
-        logging.error(f"Bad request to worker: {e}")
-        raise BadRequestError(message=f"Invalid request to TTS worker: {e}")
-    except Exception as e:
-        logging.exception("Unexpected error when calling TTS worker")
-        raise ExternalServiceError(
-            service_name="RunPod TTS Worker",
-            message="TTS worker error",
-            original_error=str(e),
-        )
-
+    request_response = await service.synthesize(
+        text=text,
+        speaker_id=speaker_id_val,
+        temperature=temperature,
+        max_new_audio_tokens=max_new_audio_tokens,
+    )
     end_time = time.time()
     # Endpoint usage logging is handled automatically by MonitoringMiddleware
 

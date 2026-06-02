@@ -1,5 +1,11 @@
 """Unit tests for the TTS unified speech facade and helpers."""
 
+from unittest.mock import MagicMock
+
+import pytest
+
+from app.core.exceptions import ServiceUnavailableError
+from app.schemas.speech import SpeechRequest, SpeechResponse, TTSModel, TTSPlatform
 from app.utils.deprecation import (
     STT_SUNSET_DATE,
     SUCCESSOR_SPEECH,
@@ -19,9 +25,6 @@ def test_deprecation_headers_for_speech():
     assert headers["Deprecation"] == "true"
     assert headers["Sunset"] == SUNSET_DATE
     assert headers["Link"] == '</tasks/audio/speech>; rel="successor-version"'
-
-
-from app.schemas.speech import SpeechRequest, SpeechResponse, TTSModel, TTSPlatform
 
 
 def test_speech_request_defaults():
@@ -49,3 +52,53 @@ def test_speech_response_minimal():
     )
     assert resp.audio_url == "https://x/y.wav"
     assert resp.sample_rate is None
+
+
+async def test_runpod_spark_service_builds_payload_and_returns_output(monkeypatch):
+    from app.services import runpod_tts_service as mod
+
+    captured = {}
+
+    def fake_run_sync(data, timeout):
+        captured["data"] = data
+        captured["timeout"] = timeout
+        return {
+            "audio_url": "https://x/y.mp3",
+            "blob": "tts/y.mp3",
+            "sample_rate": 16000,
+        }
+
+    fake_endpoint = MagicMock()
+    fake_endpoint.run_sync = fake_run_sync
+    monkeypatch.setattr(mod.runpod, "Endpoint", lambda _id: fake_endpoint)
+
+    svc = mod.RunpodSparkTTSService(endpoint_id="ep123")
+    out = await svc.synthesize(
+        text="  hello  ", speaker_id=248, temperature=0.7, max_new_audio_tokens=2000
+    )
+    assert out["audio_url"] == "https://x/y.mp3"
+    assert captured["data"]["input"] == {
+        "task": "tts",
+        "text": "hello",
+        "speaker_id": 248,
+        "temperature": 0.7,
+        "max_new_audio_tokens": 2000,
+    }
+    assert captured["timeout"] == 600
+
+
+async def test_runpod_spark_service_maps_timeout(monkeypatch):
+    from app.services import runpod_tts_service as mod
+
+    def boom(data, timeout):
+        raise TimeoutError("slow")
+
+    fake_endpoint = MagicMock()
+    fake_endpoint.run_sync = boom
+    monkeypatch.setattr(mod.runpod, "Endpoint", lambda _id: fake_endpoint)
+
+    svc = mod.RunpodSparkTTSService(endpoint_id="ep123")
+    with pytest.raises(ServiceUnavailableError):
+        await svc.synthesize(
+            text="hi", speaker_id=248, temperature=0.7, max_new_audio_tokens=2000
+        )
