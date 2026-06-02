@@ -17,9 +17,13 @@ from app.schemas.orpheus_tts import (
     OrpheusLanguageSpeakersResponse,
     OrpheusSpeakersResponse,
 )
-from app.schemas.speech import SpeechRequest
+from app.schemas.speech import SpeechBatchRequest, SpeechRequest
 from app.schemas.tts import SpeakerInfo, SpeakersListResponse
-from app.services.orpheus_tts_service import OrpheusTTSService, get_orpheus_tts_service
+from app.services.orpheus_tts_service import (
+    BatchResult,
+    OrpheusTTSService,
+    get_orpheus_tts_service,
+)
 from app.services.runpod_tts_service import (
     RunpodSparkTTSService,
     get_runpod_spark_tts_service,
@@ -239,6 +243,44 @@ class SpeechService:
             sample_rate=out.get("sample_rate"),
             gcs_object=out.get("blob"),
         )
+
+    async def synthesize_batch(self, req: SpeechBatchRequest) -> BatchResult:
+        """Validate + dispatch a batch (orpheus-3b-tts only).
+
+        Maps unified ``voice`` to the orpheus ``speaker_id`` and forwards tuning
+        fields verbatim (the upstream worker applies defaults for unset keys).
+        Returns the OrpheusTTSService BatchResult; the router maps it to the
+        unified SpeechBatchResponse.
+
+        Raises BadRequestError (400) for a non-orpheus model or an over-length
+        item; the underlying service raises BadRequestError (400) for a bad item
+        and ExternalServiceError (502) when every item fails.
+        """
+        if req.model.value != "orpheus-3b-tts":
+            raise BadRequestError(
+                message="batch synthesis is only supported for "
+                "model='orpheus-3b-tts'."
+            )
+        for i, item in enumerate(req.items):
+            if len(item.text) > ORPHEUS_MAX_TEXT:
+                raise BadRequestError(
+                    message=f"item index {i}: `text` is too long "
+                    f"(max {ORPHEUS_MAX_TEXT} characters)."
+                )
+        items_payload = [
+            {
+                "text": item.text,
+                "speaker_id": item.voice or DEFAULT_ORPHEUS_VOICE,
+                "language": item.language,
+                "seed": item.seed,
+                "temperature": item.temperature,
+                "top_p": item.top_p,
+                "repetition_penalty": item.repetition_penalty,
+                "max_tokens": item.max_tokens,
+            }
+            for item in req.items
+        ]
+        return await self._orpheus.synthesize_batch(items_payload)
 
     async def list_voices(
         self, model: str, language: Optional[str] = None

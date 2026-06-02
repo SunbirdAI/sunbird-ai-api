@@ -369,3 +369,96 @@ async def test_list_voices_orpheus_by_language():
     assert result.language == "lug"
     assert result.speakers == ["salt_lug_0001"]
     orpheus.speakers_for_language.assert_awaited_once_with("lug")
+
+
+async def test_synthesize_batch_maps_voice_to_speaker_id():
+    """voice -> speaker_id, defaulting to salt_lug_0001, tuning fields forwarded."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    from app.schemas.speech import SpeechBatchItem, SpeechBatchRequest
+    from app.services.orpheus_tts_service import BatchItemResult, BatchResult
+    from app.services.speech_service import SpeechService
+
+    orpheus = MagicMock()
+    orpheus.synthesize_batch = AsyncMock(
+        return_value=BatchResult(
+            results=[
+                BatchItemResult(index=0, status="ok", speaker_id="salt_lug_0001"),
+                BatchItemResult(index=1, status="ok", speaker_id="salt_eng_0001"),
+            ],
+            inference_ms=1.0,
+            upload_ms=1.0,
+            total_ms=2.0,
+        )
+    )
+    svc = SpeechService(
+        tts_service=MagicMock(),
+        orpheus_service=orpheus,
+        runpod_spark_service=MagicMock(),
+        storage_service=MagicMock(),
+    )
+    req = SpeechBatchRequest(
+        items=[
+            SpeechBatchItem(text="hi"),  # no voice -> default
+            SpeechBatchItem(text="yo", voice="salt_eng_0001", seed=7, top_p=0.9),
+        ]
+    )
+
+    await svc.synthesize_batch(req)
+
+    payload = orpheus.synthesize_batch.call_args.args[0]
+    assert payload[0]["speaker_id"] == "salt_lug_0001"  # default
+    assert payload[0]["text"] == "hi"
+    assert payload[1]["speaker_id"] == "salt_eng_0001"
+    assert payload[1]["seed"] == 7
+    assert payload[1]["top_p"] == 0.9
+
+
+async def test_synthesize_batch_rejects_non_orpheus_model():
+    from unittest.mock import AsyncMock, MagicMock
+
+    import pytest
+
+    from app.core.exceptions import BadRequestError
+    from app.schemas.speech import SpeechBatchItem, SpeechBatchRequest, TTSModel
+    from app.services.speech_service import SpeechService
+
+    orpheus = MagicMock()
+    orpheus.synthesize_batch = AsyncMock()
+    svc = SpeechService(
+        tts_service=MagicMock(),
+        orpheus_service=orpheus,
+        runpod_spark_service=MagicMock(),
+        storage_service=MagicMock(),
+    )
+    req = SpeechBatchRequest(
+        model=TTSModel.spark_tts, items=[SpeechBatchItem(text="hi")]
+    )
+
+    with pytest.raises(BadRequestError):
+        await svc.synthesize_batch(req)
+    orpheus.synthesize_batch.assert_not_called()
+
+
+async def test_synthesize_batch_rejects_overlong_item():
+    from unittest.mock import AsyncMock, MagicMock
+
+    import pytest
+
+    from app.core.exceptions import BadRequestError
+    from app.schemas.speech import SpeechBatchItem, SpeechBatchRequest
+    from app.services.speech_service import SpeechService
+
+    orpheus = MagicMock()
+    orpheus.synthesize_batch = AsyncMock()
+    svc = SpeechService(
+        tts_service=MagicMock(),
+        orpheus_service=orpheus,
+        runpod_spark_service=MagicMock(),
+        storage_service=MagicMock(),
+    )
+    req = SpeechBatchRequest(items=[SpeechBatchItem(text="x" * 2001)])
+
+    with pytest.raises(BadRequestError):
+        await svc.synthesize_batch(req)
+    orpheus.synthesize_batch.assert_not_called()
