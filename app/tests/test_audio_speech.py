@@ -1,0 +1,80 @@
+"""Integration tests for POST /tasks/audio/speech."""
+
+from datetime import datetime
+from typing import Dict
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+from httpx import AsyncClient
+
+from app.api import app
+from app.deps import get_speech_service
+from app.services.speech_service import SpeechResult
+
+
+@pytest.fixture(autouse=True)
+def stub_feedback(monkeypatch):
+    async def noop_save(*args, **kwargs):
+        return None
+
+    import app.utils.feedback as feedback_module
+
+    monkeypatch.setattr(feedback_module, "save_api_inference", noop_save, raising=False)
+    import app.routers.audio as audio_module
+
+    monkeypatch.setattr(audio_module, "save_api_inference", noop_save, raising=False)
+    yield
+
+
+@pytest.fixture
+def fake_speech():
+    facade = MagicMock()
+    facade.validate_request = MagicMock(return_value=None)
+    facade.synthesize = AsyncMock(
+        return_value=SpeechResult(
+            audio_url="https://x/a.wav",
+            model="orpheus-3b-tts",
+            platform="modal",
+            voice="salt_lug_0001",
+            audio_url_expires_at=datetime(2026, 12, 1),
+            sample_rate=24000,
+            duration_seconds=2.5,
+            gcs_object="orpheus_tts/a.wav",
+            timings_ms={"total_ms": 16.0},
+        )
+    )
+    app.dependency_overrides[get_speech_service] = lambda: facade
+    yield facade
+    app.dependency_overrides.pop(get_speech_service, None)
+
+
+async def test_speech_url_mode_returns_200(
+    authenticated_client: AsyncClient, fake_speech, test_user: Dict
+):
+    resp = await authenticated_client.post(
+        "/tasks/audio/speech",
+        json={"text": "hello", "model": "orpheus-3b-tts", "platform": "modal"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["audio_url"] == "https://x/a.wav"
+    assert body["model"] == "orpheus-3b-tts"
+    assert body["request_id"]
+    fake_speech.validate_request.assert_called_once()
+    fake_speech.synthesize.assert_awaited_once()
+
+
+async def test_speech_requires_auth(async_client: AsyncClient):
+    resp = await async_client.post("/tasks/audio/speech", json={"text": "hello"})
+    assert resp.status_code == 401
+
+
+async def test_speech_invalid_combo_returns_400(
+    authenticated_client: AsyncClient, test_user: Dict
+):
+    """Real facade (no override) rejects orpheus on runpod with 400."""
+    resp = await authenticated_client.post(
+        "/tasks/audio/speech",
+        json={"text": "hello", "model": "orpheus-3b-tts", "platform": "runpod"},
+    )
+    assert resp.status_code == 400
