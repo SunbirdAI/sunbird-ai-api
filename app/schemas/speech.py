@@ -86,6 +86,16 @@ class SpeechResponse(BaseModel):
     timings_ms: Optional[Dict[str, Any]] = Field(default=None)
 
 
+class RefreshedUrlResponse(BaseModel):
+    """Response for GET /tasks/audio/speech/url (a re-signed audio URL)."""
+
+    audio_url: str = Field(description="Freshly signed URL to the stored audio.")
+    audio_url_expires_at: datetime = Field(
+        description="When the new signed URL expires."
+    )
+    gcs_object: str = Field(description="The GCS object that was re-signed.")
+
+
 class SpeechBatchItem(BaseModel):
     """One item in a batch speech request (orpheus-3b-tts only)."""
 

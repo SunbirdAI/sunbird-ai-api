@@ -250,3 +250,105 @@ async def test_speech_both_mode_returns_sse(
 
     assert resp.status_code == 200
     assert resp.headers["content-type"].startswith("text/event-stream")
+
+
+# ---------------------------------------------------------------------------
+# GET /tasks/audio/speech/url (unified signed-URL refresh) + legacy deprecation
+# ---------------------------------------------------------------------------
+
+
+async def test_refresh_speech_url_success(
+    authenticated_client: AsyncClient, test_user: Dict
+):
+    from app.deps import get_legacy_storage_service
+
+    storage = MagicMock()
+    storage.get_signed_url_for_file = MagicMock(
+        return_value=(
+            "https://storage.googleapis.com/signed/abc.wav",
+            datetime(2026, 12, 1),
+        )
+    )
+    app.dependency_overrides[get_legacy_storage_service] = lambda: storage
+    try:
+        resp = await authenticated_client.get(
+            "/tasks/audio/speech/url",
+            params={"gcs_object": "orpheus_tts/2026-06-03/abc.wav"},
+        )
+    finally:
+        app.dependency_overrides.pop(get_legacy_storage_service, None)
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["audio_url"] == "https://storage.googleapis.com/signed/abc.wav"
+    assert body["gcs_object"] == "orpheus_tts/2026-06-03/abc.wav"
+    assert "audio_url_expires_at" in body
+    storage.get_signed_url_for_file.assert_called_once_with(
+        "orpheus_tts/2026-06-03/abc.wav"
+    )
+
+
+async def test_refresh_speech_url_not_found_returns_404(
+    authenticated_client: AsyncClient, test_user: Dict
+):
+    from app.deps import get_legacy_storage_service
+
+    storage = MagicMock()
+    storage.get_signed_url_for_file = MagicMock(side_effect=Exception("nope"))
+    app.dependency_overrides[get_legacy_storage_service] = lambda: storage
+    try:
+        resp = await authenticated_client.get(
+            "/tasks/audio/speech/url", params={"gcs_object": "missing.wav"}
+        )
+    finally:
+        app.dependency_overrides.pop(get_legacy_storage_service, None)
+
+    assert resp.status_code == 404
+
+
+async def test_refresh_speech_url_requires_gcs_object(
+    authenticated_client: AsyncClient, test_user: Dict
+):
+    resp = await authenticated_client.get("/tasks/audio/speech/url")
+    assert resp.status_code == 422
+
+
+async def test_refresh_speech_url_requires_auth(async_client: AsyncClient):
+    resp = await async_client.get(
+        "/tasks/audio/speech/url", params={"gcs_object": "abc.wav"}
+    )
+    assert resp.status_code == 401
+
+
+async def test_legacy_refresh_url_deprecated_with_headers(
+    authenticated_client: AsyncClient, test_user: Dict
+):
+    """Old /tasks/modal/tts/refresh-url is deprecated + points at the successor."""
+    from app.deps import get_legacy_storage_service
+
+    storage = MagicMock()
+    storage.get_signed_url_for_file = MagicMock(
+        return_value=("https://s/abc.wav", datetime(2026, 12, 1))
+    )
+    app.dependency_overrides[get_legacy_storage_service] = lambda: storage
+    try:
+        resp = await authenticated_client.get(
+            "/tasks/modal/tts/refresh-url", params={"file_name": "abc.wav"}
+        )
+    finally:
+        app.dependency_overrides.pop(get_legacy_storage_service, None)
+
+    assert resp.status_code == 200, resp.text
+    assert resp.headers.get("Deprecation") == "true"
+    assert "Sunset" in resp.headers
+    assert "/tasks/audio/speech/url" in resp.headers.get("Link", "")
+
+
+async def test_openapi_refresh_url_tags(async_client: AsyncClient):
+    paths = (await async_client.get("/openapi.json")).json()["paths"]
+    assert paths["/tasks/audio/speech/url"]["get"]["tags"] == [
+        "Text-to-Speech (Unified)"
+    ]
+    legacy = paths["/tasks/modal/tts/refresh-url"]["get"]
+    assert legacy.get("deprecated") is True
+    assert legacy["tags"] == ["legacy/deprecated"]

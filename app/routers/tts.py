@@ -34,6 +34,7 @@ from app.schemas.tts import (
 )
 from app.utils.deprecation import (
     SUCCESSOR_SPEECH,
+    SUCCESSOR_SPEECH_URL,
     SUCCESSOR_VOICES,
     add_deprecation_headers,
 )
@@ -242,17 +243,27 @@ async def stream_tts_with_url(
 @router.get(
     "/tts/refresh-url",
     response_model=TTSResponse,
-    tags=["TTS (Modal)"],
+    tags=["legacy/deprecated"],
     summary="Refresh Signed URL",
-    description="Generate a new signed URL for an existing audio file.",
+    description=(
+        "Generate a new signed URL for an existing audio file. "
+        "DEPRECATED: use GET /tasks/audio/speech/url."
+    ),
+    deprecated=True,
 )
 async def refresh_signed_url(
     storage_service: LegacyStorageServiceDep,
+    http_response: Response,
     file_name: str = Query(..., description="The file name in GCP Storage"),
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     """Generate a fresh signed URL for an existing audio file."""
+    logging.warning(
+        "Deprecated endpoint /tasks/modal/tts/refresh-url called; "
+        "use GET /tasks/audio/speech/url"
+    )
+    add_deprecation_headers(http_response, SUCCESSOR_SPEECH_URL)
     try:
         signed_url, expires_at = storage_service.get_signed_url_for_file(file_name)
 

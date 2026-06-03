@@ -55,9 +55,11 @@ def test_all_deprecated_endpoints_are_grouped():
         "Text-to-Speech (Unified)"
     ]
     assert by_path[("/tasks/voice/speakers", "get")] == ["Text-to-Speech (Unified)"]
+    assert by_path[("/tasks/audio/speech/url", "get")] == ["Text-to-Speech (Unified)"]
     assert by_path[("/tasks/audio/transcriptions", "post")] == [
         "Speech-to-Text (Unified)"
     ]
-    # The two surviving live Modal utility endpoints keep their tag.
+    # /tasks/modal/health is the last surviving live Modal utility endpoint;
+    # refresh-url has moved to the unified surface and is now deprecated.
     assert by_path[("/tasks/modal/health", "get")] == ["TTS (Modal)"]
-    assert by_path[("/tasks/modal/tts/refresh-url", "get")] == ["TTS (Modal)"]
+    assert by_path[("/tasks/modal/tts/refresh-url", "get")] == ["legacy/deprecated"]

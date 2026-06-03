@@ -29,6 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import (
     BadRequestError,
     ExternalServiceError,
+    NotFoundError,
     ServiceUnavailableError,
     ValidationError,
 )
@@ -46,6 +47,7 @@ from app.models.enums import TTSResponseMode
 from app.routers.stt import _schedule_stt_feedback
 from app.routers.tts import _stream_audio, _stream_audio_with_url
 from app.schemas.speech import (
+    RefreshedUrlResponse,
     SpeechBatchItemResponse,
     SpeechBatchRequest,
     SpeechBatchResponse,
@@ -527,3 +529,36 @@ async def list_voices(
 ):
     """List speakers/voices for the selected model (and optional language)."""
     return await speech_service.list_voices(model.value, language)
+
+
+@router.get(
+    "/audio/speech/url",
+    response_model=RefreshedUrlResponse,
+    tags=["Text-to-Speech (Unified)"],
+    summary="Refresh a signed audio URL (unified)",
+    description=(
+        "Generate a fresh signed URL for an existing audio object in GCS (e.g. "
+        "a previously synthesized speech file whose signed URL has expired). "
+        "Replaces /tasks/modal/tts/refresh-url."
+    ),
+)
+async def refresh_speech_url(
+    storage_service: LegacyStorageServiceDep,
+    gcs_object: str = Query(
+        ..., description="GCS object name to re-sign (e.g. 'orpheus_tts/.../x.wav')."
+    ),
+    current_user=Depends(get_current_user),
+) -> RefreshedUrlResponse:
+    """Return a freshly signed URL for a stored audio object."""
+    try:
+        signed_url, expires_at = storage_service.get_signed_url_for_file(gcs_object)
+    except Exception as e:
+        raise NotFoundError(
+            resource="Audio file",
+            message=f"File not found or error generating URL: {str(e)}",
+        )
+    return RefreshedUrlResponse(
+        audio_url=signed_url,
+        audio_url_expires_at=expires_at,
+        gcs_object=gcs_object,
+    )
