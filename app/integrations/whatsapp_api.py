@@ -38,7 +38,7 @@ import os
 import secrets
 import tempfile
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 import requests
 from requests_toolbelt import MultipartEncoder
@@ -155,7 +155,7 @@ class WhatsAppAPIClient:
             "wamid.HBgL..."
         """
         # Use legacy v12.0 for send_message for consistency with original
-        legacy_url = f"https://graph.facebook.com/{LEGACY_API_VERSION}/{phone_number_id or self.phone_number_id}/messages"
+        legacy_url = f"https://graph.facebook.com/{LEGACY_API_VERSION}/{phone_number_id or self.phone_number_id}/messages"  # noqa: E501
 
         data = {
             "messaging_product": "whatsapp",
@@ -683,7 +683,7 @@ class WhatsAppAPIClient:
         """
         headers = {"Authorization": f"Bearer {self.token}"}
 
-        logger.info(f"Downloading media from URL")
+        logger.info("Downloading media from URL")
         response = requests.get(media_url, headers=headers, stream=True)
 
         if response.status_code == 200:

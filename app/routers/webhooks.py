@@ -96,7 +96,7 @@ async def send_template_response(
 
 @router.post("/webhook")
 @router.post("/webhook/")
-async def webhook(
+async def webhook(  # noqa: C901
     payload: dict,
     background_tasks: BackgroundTasks,
 ) -> WebhookResponse:
@@ -300,7 +300,7 @@ async def webhook(
                     message="I'm experiencing technical difficulties. Please try again.",
                     phone_number_id=phone_number_id,
                 )
-        except:
+        except Exception:
             pass
 
         return WebhookResponse(

@@ -1,13 +1,16 @@
 description = """
-Welcome to the Sunbird AI API documentation. The Sunbird AI API provides access to Sunbird's language models and AI services for Ugandan languages.
+Welcome to the Sunbird AI API documentation. The Sunbird AI API provides access to
+Sunbird's language models and AI services for Ugandan languages.
 
 ## Supported Languages
-**English**, **Acholi**, **Ateso**, **Luganda**, **Lugbara**, **Runyankole**, **Swahili** and **20+** more Ugandan languages supported via sunflower.
+**English**, **Acholi**, **Ateso**, **Luganda**, **Lugbara**, **Runyankole**, **Swahili**
+and **20+** more Ugandan languages supported via sunflower.
 
 ## Getting Started
 You can checkout the [usage guide](https://salt.sunbird.ai/API/) for a full tutorial.
 
-For quickstart tutorials, visit our [GitHub repository](https://github.com/SunbirdAI/sunbird-ai-api/blob/main/docs/tutorial.md)
+For quickstart tutorials, visit our
+[GitHub repository](https://github.com/SunbirdAI/sunbird-ai-api/blob/main/docs/tutorial.md)
 
 ### Authentication
 
@@ -15,7 +18,8 @@ For quickstart tutorials, visit our [GitHub repository](https://github.com/Sunbi
 If you don't already have an account, use the `/auth/register` endpoint to create one.
 
 #### Getting an Access Token
-Authentication is done via a Bearer token. Use the `/auth/token` endpoint to get your access token. This token lasts for 7 days.
+Authentication is done via a Bearer token. Use the `/auth/token` endpoint to get your
+access token. This token lasts for 7 days.
 
 Use the `Authorize` button below to login and access the protected endpoints.
 
@@ -26,14 +30,18 @@ Use the `Authorize` button below to login and access the protected endpoints.
   - Upload audio files directly for transcription
   - Powered by Modal serverless GPU infrastructure
   - Supports various audio formats (WAV, MP3, OGG, M4A, etc.)
-  - Optional `language` parameter: pass a 3-letter code (e.g. `eng`, `lug`) or full name (e.g. `english`, `luganda`) to improve transcription accuracy for local languages. Auto-detects if omitted.
+  - Optional `language` parameter: pass a 3-letter code (e.g. `eng`, `lug`) or full name
+    (e.g. `english`, `luganda`) to improve transcription accuracy for local languages.
+    Auto-detects if omitted.
 - **`POST /tasks/stt`** - RunPod-based STT for supported languages with language/adapter selection
 
 ### Translation
-- **`POST /tasks/translate`** - Translate text between English and local languages (Acholi, Ateso, Luganda, Lugbara, Runyankole)
+- **`POST /tasks/translate`** - Translate text between English and local languages
+  (Acholi, Ateso, Luganda, Lugbara, Runyankole)
 
 ### Language Detection
-- **`POST /tasks/language_id`** - Auto-detect the language of text input (supports Acholi, Ateso, English, Luganda, Lugbara, Runyankole)
+- **`POST /tasks/language_id`** - Auto-detect the language of text input
+  (supports Acholi, Ateso, English, Luganda, Lugbara, Runyankole)
 
 ### Text-to-Speech (TTS)
 - **`POST /tasks/modal/tts`** - Modal-based TTS with streaming support
@@ -72,47 +80,47 @@ API endpoints are rate-limited to ensure fair usage. Authentication is required 
 tags_metadata = [
     {
         "name": "Authentication Endpoints",
-        "description": "Operations for authentication, including user registration and login. Get access tokens to use protected endpoints.",
+        "description": "Operations for authentication, including user registration and login. Get access tokens to use protected endpoints.",  # noqa: E501
     },
     {
         "name": "Speech-to-Text",
-        "description": "Convert speech audio to text. Supports English, Acholi, Ateso, Luganda, Lugbara, and Runyankole.",
+        "description": "Convert speech audio to text. Supports English, Acholi, Ateso, Luganda, Lugbara, and Runyankole.",  # noqa: E501
     },
     {
         "name": "Translation",
-        "description": "Translate text between English and local languages using the NLLB model. Supports bidirectional translation for Acholi, Ateso, Luganda, Lugbara, and Runyankole.",
+        "description": "Translate text between English and local languages using the NLLB model. Supports bidirectional translation for Acholi, Ateso, Luganda, Lugbara, and Runyankole.",  # noqa: E501
     },
     {
         "name": "Language",
-        "description": "Language identification and detection. Automatically detect the language of text input from supported languages.",
+        "description": "Language identification and detection. Automatically detect the language of text input from supported languages.",  # noqa: E501
     },
     {
         "name": "TTS (Modal)",
-        "description": "Modal-based Text-to-Speech services for Ugandan languages. Generate audio from text with support for streaming, signed URLs, and multiple language voices.",
+        "description": "Modal-based Text-to-Speech services for Ugandan languages. Generate audio from text with support for streaming, signed URLs, and multiple language voices.",  # noqa: E501
     },
     {
         "name": "TTS (Orpheus)",
-        "description": "Multilingual, multi-speaker TTS via the Modal-deployed Orpheus-3B vLLM inference app. Supports single and batched synthesis with up-front speaker/language validation, returning v4 signed GCS URLs with stage-by-stage latency timings.",
+        "description": "Multilingual, multi-speaker TTS via the Modal-deployed Orpheus-3B vLLM inference app. Supports single and batched synthesis with up-front speaker/language validation, returning v4 signed GCS URLs with stage-by-stage latency timings.",  # noqa: E501
     },
     {
         "name": "TTS (RunPod)",
-        "description": "RunPod-based Text-to-Speech services for Ugandan languages. Fast inference using RunPod serverless infrastructure with support for multiple speaker voices.",
+        "description": "RunPod-based Text-to-Speech services for Ugandan languages. Fast inference using RunPod serverless infrastructure with support for multiple speaker voices.",  # noqa: E501
     },
     {
         "name": "Sunflower",
-        "description": "Conversational AI powered by the Sunflower model. Supports chat-based interactions with context and simple text generation.",
+        "description": "Conversational AI powered by the Sunflower model. Supports chat-based interactions with context and simple text generation.",  # noqa: E501
     },
     {
         "name": "Upload",
-        "description": "File upload utilities. Generate signed URLs for direct client uploads to GCP Storage with security validation.",
+        "description": "File upload utilities. Generate signed URLs for direct client uploads to GCP Storage with security validation.",  # noqa: E501
     },
     {
         "name": "Webhooks",
-        "description": "WhatsApp Business API webhook integration. Handle incoming messages and verify webhook endpoints for WhatsApp chatbot functionality.",
+        "description": "WhatsApp Business API webhook integration. Handle incoming messages and verify webhook endpoints for WhatsApp chatbot functionality.",  # noqa: E501
     },
     {
         "name": "AI Tasks",
-        "description": "Legacy AI task endpoints. Contains deprecated endpoints maintained for backward compatibility.",
+        "description": "Legacy AI task endpoints. Contains deprecated endpoints maintained for backward compatibility.",  # noqa: E501
     },
     {
         "name": "Frontend Routes",

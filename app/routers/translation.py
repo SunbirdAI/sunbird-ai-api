@@ -62,7 +62,7 @@ def get_service() -> TranslationService:
     response_model=WorkerTranslationResponse,
 )
 @limiter.limit(get_account_type_limit)
-async def translate(
+async def translate(  # noqa: C901
     request: Request,
     translation_request: NllbTranslationRequest,
     quota: QuotaServiceDep,

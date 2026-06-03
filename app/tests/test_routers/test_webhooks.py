@@ -8,7 +8,7 @@ and integration with WhatsApp services.
 
 import os
 from typing import Dict
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from httpx import AsyncClient
@@ -299,8 +299,6 @@ class TestWebhookVerification:
         async_client: AsyncClient,
     ) -> None:
         """Test successful webhook verification."""
-        verify_token = os.getenv("VERIFY_TOKEN", "test_token")
-
         with patch.dict(os.environ, {"VERIFY_TOKEN": "test_token"}):
             response = await async_client.get(
                 "/tasks/webhook",

@@ -33,7 +33,7 @@ class TTSRequest(BaseModel):
     )
     response_mode: TTSResponseMode = Field(
         default=TTSResponseMode.URL,
-        description="How to return the audio: 'url' for signed URL, 'stream' for streaming, 'both' for streaming with final URL",
+        description="How to return the audio: 'url' for signed URL, 'stream' for streaming, 'both' for streaming with final URL",  # noqa: E501
     )
 
     @field_validator("text")

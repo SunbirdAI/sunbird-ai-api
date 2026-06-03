@@ -163,7 +163,7 @@ async def get_admin_sector_stats(db: AsyncSession, sector: str, time_range: str 
     }
 
 
-def _build_chart_data(logs, fmt: str, start_date, td):
+def _build_chart_data(logs, fmt: str, start_date, td):  # noqa: C901
     """Build volume, latency, endpoint, and distribution chart data from logs."""
     daily_volume = defaultdict(int)
     daily_latency_sum = defaultdict(float)

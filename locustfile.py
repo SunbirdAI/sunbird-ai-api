@@ -9,7 +9,6 @@ load_dotenv()
 class UserBehavior(SequentialTaskSet):
     @task
     def nllb_translate(self):
-        url = "https://api.sunbird.ai/tasks/nllb_translate"
         token = os.getenv("AUTH_TOKEN")
         headers = {
             "accept": "application/json",

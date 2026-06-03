@@ -69,7 +69,7 @@ async def call_endpoint_with_retry(endpoint, data):
     "/tts",
 )
 @limiter.limit(get_account_type_limit)
-async def text_to_speech(
+async def text_to_speech(  # noqa: C901
     request: Request,
     tts_request: TTSRequest,
     quota: QuotaServiceDep,
