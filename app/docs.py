@@ -21,32 +21,43 @@ Use the `Authorize` button below to login and access the protected endpoints.
 
 ## API Endpoints
 
-### Speech-to-Text (STT)
-- **`POST /tasks/modal/stt`** - Modal-based STT using Whisper large-v3 model
-  - Upload audio files directly for transcription
-  - Powered by Modal serverless GPU infrastructure
-  - Supports various audio formats (WAV, MP3, OGG, M4A, etc.)
-  - Optional `language` parameter: pass a 3-letter code (e.g. `eng`, `lug`) or full name (e.g. `english`, `luganda`) to improve transcription accuracy for local languages. Auto-detects if omitted.
-- **`POST /tasks/stt`** - RunPod-based STT for supported languages with language/adapter selection
-
 ### Translation
 - **`POST /tasks/translate`** - Translate text between English and local languages (Acholi, Ateso, Luganda, Lugbara, Runyankole)
 
 ### Language Detection
 - **`POST /tasks/language_id`** - Auto-detect the language of text input (supports Acholi, Ateso, English, Luganda, Lugbara, Runyankole)
 
+### Speech-to-Text (STT)
+- **`POST /tasks/audio/transcriptions`** - Unified STT endpoint (OpenAI-style).
+  - Accepts an uploaded audio file (`audio`) or a GCS object (`gcs_blob_name`).
+  - `platform`: `modal` (default, Whisper large-v3) or `runpod`.
+  - RunPod options: `adapter` (language adapter), `whisper`, `recognise_speakers`
+    (diarization), and the `org` organization workflow.
+  - `language`: 3-letter code (e.g. `eng`, `lug`) or full name; improves accuracy.
+    Supports WAV, MP3, OGG, M4A, and more. Auto-detects when omitted.
+  - **Deprecated** → use `POST /tasks/audio/transcriptions`:
+    - `POST /tasks/stt`, `POST /tasks/stt_from_gcs`, `POST /tasks/org/stt`,
+      `POST /tasks/modal/stt`
+
 ### Text-to-Speech (TTS)
-- **`POST /tasks/modal/tts`** - Modal-based TTS with streaming support
-  - **Multiple Languages**: Acholi, Ateso, Runyankore, Lugbara, Swahili, and Luganda
-  - **Signed URLs**: Audio files are stored in GCP Storage with 30-minute expiring URLs
-  - **Streaming Support**: Stream audio chunks for large text inputs
-  - **Response Modes**:
-    - `url` - Generate audio, upload to GCP, return signed URL
-    - `stream` - Stream raw audio chunks directly
-    - `both` - Stream audio AND get a final signed URL
-- **`POST /tasks/runpod/tts`** - RunPod-based TTS for Ugandan language voices
-  - Supports all major Ugandan languages
-  - Fast inference with RunPod serverless infrastructure
+- **`POST /tasks/audio/speech`** - Unified single-synthesis endpoint.
+  - `model`: `orpheus-3b-tts` (default) or `spark-tts`; `platform`: `modal` or `runpod`.
+  - `voice`: speaker tag/name. `response_mode`: `url` (default), `stream`, or `both`
+    (`stream`/`both` require `spark-tts` on `modal`).
+  - Orpheus tuning: `language`, `temperature`, `top_p`, `repetition_penalty`,
+    `max_tokens`, `seed`. Returns a signed GCP Storage URL.
+- **`POST /tasks/audio/speech/batch`** - Batch synthesis (orpheus-3b-tts only), 1-128 items.
+- **`GET /tasks/voice/speakers`** - List voices for a `model` (optional orpheus `language`).
+- **`GET /tasks/audio/speech/url`** - Refresh an expired signed URL for a stored audio object.
+  - **Deprecated** → superseded by the unified endpoints above:
+    - `POST /tasks/modal/tts`, `POST /tasks/runpod/tts`,
+      `POST /tasks/modal/orpheus/tts` → `POST /tasks/audio/speech`
+    - `POST /tasks/modal/tts/stream` → `/tasks/audio/speech` (`response_mode=stream`)
+    - `POST /tasks/modal/tts/stream-with-url` → `/tasks/audio/speech` (`response_mode=both`)
+    - `POST /tasks/modal/orpheus/tts/batch` → `POST /tasks/audio/speech/batch`
+    - `GET /tasks/modal/tts/speakers`, `GET /tasks/modal/orpheus/speakers`,
+      `GET /tasks/modal/orpheus/speakers/{language}` → `GET /tasks/voice/speakers`
+    - `GET /tasks/modal/tts/refresh-url` → `GET /tasks/audio/speech/url`
 
 ### Inference (Sunflower Chat)
 - **`POST /tasks/sunflower_inference`** - Conversational AI powered by Sunflower model with chat history
