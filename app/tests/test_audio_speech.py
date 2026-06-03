@@ -346,9 +346,7 @@ async def test_legacy_refresh_url_deprecated_with_headers(
 
 async def test_openapi_refresh_url_tags(async_client: AsyncClient):
     paths = (await async_client.get("/openapi.json")).json()["paths"]
-    assert paths["/tasks/audio/speech/url"]["get"]["tags"] == [
-        "Text-to-Speech (Unified)"
-    ]
+    assert paths["/tasks/audio/speech/url"]["get"]["tags"] == ["Text-to-Speech"]
     legacy = paths["/tasks/modal/tts/refresh-url"]["get"]
     assert legacy.get("deprecated") is True
     assert legacy["tags"] == ["legacy/deprecated"]

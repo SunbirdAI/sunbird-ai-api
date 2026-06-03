@@ -88,7 +88,7 @@ router = APIRouter()
         "organization workflow. Replaces /stt, /stt_from_gcs, /org/stt, and "
         "/modal/stt."
     ),
-    tags=["Speech-to-Text (Unified)"],
+    tags=["Speech-to-Text"],
 )
 @limiter.limit(get_account_type_limit)
 async def create_transcription(  # noqa: C901
@@ -281,7 +281,7 @@ async def create_transcription(  # noqa: C901
         "(response_mode='url'); spark-tts on Modal also supports 'stream'/'both'. "
         "Replaces /tasks/modal/tts, /tasks/runpod/tts, and /tasks/modal/orpheus/tts."
     ),
-    tags=["Text-to-Speech (Unified)"],
+    tags=["Text-to-Speech"],
 )
 @limiter.limit(get_account_type_limit)
 async def create_speech(  # noqa: C901
@@ -367,7 +367,7 @@ async def create_speech(  # noqa: C901
         "at least one item succeeds, 502 if every item fails. "
         "Replaces /tasks/modal/orpheus/tts/batch."
     ),
-    tags=["Text-to-Speech (Unified)"],
+    tags=["Text-to-Speech"],
 )
 @limiter.limit(get_account_type_limit)
 async def create_speech_batch(
@@ -502,7 +502,7 @@ def _schedule_speech_batch_feedback(
 @router.get(
     "/voice/speakers",
     response_model=None,
-    tags=["Text-to-Speech (Unified)"],
+    tags=["Text-to-Speech"],
     summary="List speakers/voices (unified)",
     description=(
         "List available speakers for the selected TTS model. "
@@ -534,7 +534,7 @@ async def list_voices(
 @router.get(
     "/audio/speech/url",
     response_model=RefreshedUrlResponse,
-    tags=["Text-to-Speech (Unified)"],
+    tags=["Text-to-Speech"],
     summary="Refresh a signed audio URL (unified)",
     description=(
         "Generate a fresh signed URL for an existing audio object in GCS (e.g. "

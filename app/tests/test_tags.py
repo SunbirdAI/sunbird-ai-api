@@ -50,34 +50,32 @@ def test_legacy_tag_does_not_leak_onto_live_endpoints():
 def test_all_deprecated_endpoints_are_grouped():
     """Sanity check: the unified endpoints stay under their own live tags."""
     by_path = {(path, method): op.get("tags", []) for path, method, op in _operations()}
-    assert by_path[("/tasks/audio/speech", "post")] == ["Text-to-Speech (Unified)"]
-    assert by_path[("/tasks/audio/speech/batch", "post")] == [
-        "Text-to-Speech (Unified)"
-    ]
-    assert by_path[("/tasks/voice/speakers", "get")] == ["Text-to-Speech (Unified)"]
-    assert by_path[("/tasks/audio/speech/url", "get")] == ["Text-to-Speech (Unified)"]
-    assert by_path[("/tasks/audio/transcriptions", "post")] == [
-        "Speech-to-Text (Unified)"
-    ]
+    assert by_path[("/tasks/audio/speech", "post")] == ["Text-to-Speech"]
+    assert by_path[("/tasks/audio/speech/batch", "post")] == ["Text-to-Speech"]
+    assert by_path[("/tasks/voice/speakers", "get")] == ["Text-to-Speech"]
+    assert by_path[("/tasks/audio/speech/url", "get")] == ["Text-to-Speech"]
+    assert by_path[("/tasks/audio/transcriptions", "post")] == ["Speech-to-Text"]
     # health moved onto the unified surface; refresh-url is now deprecated.
-    assert by_path[("/tasks/modal/health", "get")] == ["Text-to-Speech (Unified)"]
+    assert by_path[("/tasks/modal/health", "get")] == ["Text-to-Speech"]
     assert by_path[("/tasks/modal/tts/refresh-url", "get")] == ["legacy/deprecated"]
 
 
-# Tags removed after the legacy/deprecated consolidation — must not appear in
-# either the OpenAPI tag metadata or on any endpoint.
+# Provider-specific / legacy tags removed by the consolidation. (The plain
+# "Speech-to-Text" and "Text-to-Speech" names are now reused for the unified
+# surface, so they are intentionally NOT in this set.)
 REMOVED_TAGS = {
-    "Speech-to-Text",
     "TTS (Modal)",
     "TTS (Orpheus)",
     "TTS (RunPod)",
     "AI Tasks",
     "Frontend Routes",
+    "Speech-to-Text (Unified)",
+    "Text-to-Speech (Unified)",
 }
 
 
 def test_removed_tags_are_gone():
-    """The six redundant tags appear neither in metadata nor on any endpoint."""
+    """The removed tags appear neither in metadata nor on any endpoint."""
     schema = app.openapi()
     metadata_names = {t["name"] for t in schema.get("tags", [])}
     assert REMOVED_TAGS.isdisjoint(

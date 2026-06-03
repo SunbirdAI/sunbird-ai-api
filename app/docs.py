@@ -75,6 +75,14 @@ tags_metadata = [
         "description": "Operations for authentication, including user registration and login. Get access tokens to use protected endpoints.",
     },
     {
+        "name": "Speech-to-Text",
+        "description": "Convert speech audio to text. The unified /tasks/audio/transcriptions endpoint accepts an uploaded file or a GCS object, routes to the Modal or RunPod backend, and supports optional speaker diarization for Acholi, Ateso, English, Luganda, Lugbara, and Runyankole.",  # noqa: E501
+    },
+    {
+        "name": "Text-to-Speech",
+        "description": "Synthesize speech from text. Unified endpoints for single (/tasks/audio/speech) and batch (/tasks/audio/speech/batch) synthesis across the orpheus-3b-tts and spark-tts models, plus voice listing (/tasks/voice/speakers) and signed-URL refresh (/tasks/audio/speech/url). Returns signed GCS audio URLs.",  # noqa: E501
+    },
+    {
         "name": "Translation",
         "description": "Translate text between English and local languages using the NLLB model. Supports bidirectional translation for Acholi, Ateso, Luganda, Lugbara, and Runyankole.",
     },
@@ -93,5 +101,9 @@ tags_metadata = [
     {
         "name": "Webhooks",
         "description": "WhatsApp Business API webhook integration. Handle incoming messages and verify webhook endpoints for WhatsApp chatbot functionality.",
+    },
+    {
+        "name": "legacy/deprecated",
+        "description": "Deprecated endpoints retained for backward compatibility. Each is superseded by a unified endpoint — see its Deprecation/Sunset/Link response headers — and will be removed after the sunset date. Do not build new integrations against these.",  # noqa: E501
     },
 ]
