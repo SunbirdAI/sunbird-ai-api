@@ -59,7 +59,31 @@ def test_all_deprecated_endpoints_are_grouped():
     assert by_path[("/tasks/audio/transcriptions", "post")] == [
         "Speech-to-Text (Unified)"
     ]
-    # /tasks/modal/health is the last surviving live Modal utility endpoint;
-    # refresh-url has moved to the unified surface and is now deprecated.
-    assert by_path[("/tasks/modal/health", "get")] == ["TTS (Modal)"]
+    # health moved onto the unified surface; refresh-url is now deprecated.
+    assert by_path[("/tasks/modal/health", "get")] == ["Text-to-Speech (Unified)"]
     assert by_path[("/tasks/modal/tts/refresh-url", "get")] == ["legacy/deprecated"]
+
+
+# Tags removed after the legacy/deprecated consolidation — must not appear in
+# either the OpenAPI tag metadata or on any endpoint.
+REMOVED_TAGS = {
+    "Speech-to-Text",
+    "TTS (Modal)",
+    "TTS (Orpheus)",
+    "TTS (RunPod)",
+    "AI Tasks",
+    "Frontend Routes",
+}
+
+
+def test_removed_tags_are_gone():
+    """The six redundant tags appear neither in metadata nor on any endpoint."""
+    schema = app.openapi()
+    metadata_names = {t["name"] for t in schema.get("tags", [])}
+    assert REMOVED_TAGS.isdisjoint(
+        metadata_names
+    ), f"removed tags still in metadata: {REMOVED_TAGS & metadata_names}"
+    used = {tag for _, _, op in _operations() for tag in op.get("tags", [])}
+    assert REMOVED_TAGS.isdisjoint(
+        used
+    ), f"removed tags still used by endpoints: {REMOVED_TAGS & used}"

@@ -51,7 +51,7 @@ router = APIRouter()
 @router.get(
     "/health",
     response_model=HealthResponse,
-    tags=["TTS (Modal)"],
+    tags=["Text-to-Speech (Unified)"],
     summary="Health Check",
 )
 async def health_check():

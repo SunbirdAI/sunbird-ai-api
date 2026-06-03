@@ -75,28 +75,12 @@ tags_metadata = [
         "description": "Operations for authentication, including user registration and login. Get access tokens to use protected endpoints.",
     },
     {
-        "name": "Speech-to-Text",
-        "description": "Convert speech audio to text. Supports English, Acholi, Ateso, Luganda, Lugbara, and Runyankole.",
-    },
-    {
         "name": "Translation",
         "description": "Translate text between English and local languages using the NLLB model. Supports bidirectional translation for Acholi, Ateso, Luganda, Lugbara, and Runyankole.",
     },
     {
         "name": "Language",
         "description": "Language identification and detection. Automatically detect the language of text input from supported languages.",
-    },
-    {
-        "name": "TTS (Modal)",
-        "description": "Modal-based Text-to-Speech services for Ugandan languages. Generate audio from text with support for streaming, signed URLs, and multiple language voices.",
-    },
-    {
-        "name": "TTS (Orpheus)",
-        "description": "Multilingual, multi-speaker TTS via the Modal-deployed Orpheus-3B vLLM inference app. Supports single and batched synthesis with up-front speaker/language validation, returning v4 signed GCS URLs with stage-by-stage latency timings.",
-    },
-    {
-        "name": "TTS (RunPod)",
-        "description": "RunPod-based Text-to-Speech services for Ugandan languages. Fast inference using RunPod serverless infrastructure with support for multiple speaker voices.",
     },
     {
         "name": "Sunflower",
@@ -109,13 +93,5 @@ tags_metadata = [
     {
         "name": "Webhooks",
         "description": "WhatsApp Business API webhook integration. Handle incoming messages and verify webhook endpoints for WhatsApp chatbot functionality.",
-    },
-    {
-        "name": "AI Tasks",
-        "description": "Legacy AI task endpoints. Contains deprecated endpoints maintained for backward compatibility.",
-    },
-    {
-        "name": "Frontend Routes",
-        "description": "Web interface routes for the Sunbird AI application.",
     },
 ]
