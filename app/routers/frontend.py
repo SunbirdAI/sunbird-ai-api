@@ -3,7 +3,7 @@ import logging
 from datetime import timedelta
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Form, Query, Request, responses, status
+from fastapi import APIRouter, Depends, Form, Request, responses, status
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
@@ -23,6 +23,7 @@ from app.crud.users import (
     update_user_organization,
 )
 from app.deps import get_current_user, get_db
+
 # from app.routers.auth import get_current_user
 from app.schemas.audio_transcription import AudioTranscriptionBase, ItemQueryParams
 from app.schemas.users import User, UserCreate, UserInDB

@@ -21,9 +21,7 @@ from app.database.db import Base
 
 class UserUsage(Base):
     __tablename__ = "user_usage"
-    __table_args__ = (
-        PrimaryKeyConstraint("user_id", "day", name="pk_user_usage"),
-    )
+    __table_args__ = (PrimaryKeyConstraint("user_id", "day", name="pk_user_usage"),)
 
     user_id = Column(Integer, nullable=False, index=True)
     day = Column(Date, nullable=False, index=True, default=dt.date.today)

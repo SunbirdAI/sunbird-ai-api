@@ -45,7 +45,7 @@ Example:
 
 import logging
 from abc import ABC
-from typing import Any, Dict, Optional, Type, TypeVar
+from typing import Any, Dict, Optional, TypeVar
 
 from app.core.exceptions import (
     APIException,
@@ -296,13 +296,13 @@ class BaseService(ABC):
             ... )
         """
         self.log_info(
-            f"Calling external service",
+            "Calling external service",
             extra={"service": service_name, "operation": operation},
         )
         try:
             result = await coro
             self.log_info(
-                f"External service call completed",
+                "External service call completed",
                 extra={"service": service_name, "operation": operation},
             )
             return result
@@ -311,7 +311,7 @@ class BaseService(ABC):
             raise
         except Exception as e:
             self.log_error(
-                f"External service call failed",
+                "External service call failed",
                 extra={
                     "service": service_name,
                     "operation": operation,

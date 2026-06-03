@@ -104,7 +104,9 @@ async def aggregate_usage_for_user(db: AsyncSession, username: str):
     return aggregates
 
 
-async def get_dashboard_stats(db: AsyncSession, username: str, time_range: str = "7d"):
+async def get_dashboard_stats(  # noqa: C901
+    db: AsyncSession, username: str, time_range: str = "7d"
+):
     td = parse_time_range(time_range)
     fmt = _bucket_format(td)
 

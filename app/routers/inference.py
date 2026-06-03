@@ -22,7 +22,6 @@ Note:
 """
 
 import logging
-import os
 import time
 from typing import Any, Dict
 
@@ -40,7 +39,6 @@ from app.deps import QuotaServiceDep, get_current_user, get_db
 from app.schemas.inference import (
     SunflowerChatRequest,
     SunflowerChatResponse,
-    SunflowerSimpleResponse,
     SunflowerUsageStats,
 )
 from app.services.inference_service import (
@@ -73,7 +71,7 @@ def get_service() -> InferenceService:
     response_model=SunflowerChatResponse,
 )
 @limiter.limit(get_account_type_limit)
-async def sunflower_inference(
+async def sunflower_inference(  # noqa: C901
     request: Request,
     chat_request: SunflowerChatRequest,
     quota: QuotaServiceDep,
@@ -227,7 +225,7 @@ async def sunflower_inference(
         except TimeoutError as e:
             logging.error(f"Inference timeout: {e}")
             raise ServiceUnavailableError(
-                message="The request timed out. Please try again with a shorter prompt or check your network connection."
+                message="The request timed out. Please try again with a shorter prompt or check your network connection."  # noqa: E501
             )
         except ValueError as e:
             logging.error(f"Invalid request: {e}")
@@ -313,7 +311,7 @@ async def sunflower_inference(
     response_model=Dict[str, Any],
 )
 @limiter.limit(get_account_type_limit)
-async def sunflower_simple_inference(
+async def sunflower_simple_inference(  # noqa: C901
     request: Request,
     quota: QuotaServiceDep,
     background_tasks: BackgroundTasks,

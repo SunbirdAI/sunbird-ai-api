@@ -5,7 +5,7 @@ from datetime import timedelta
 
 from authlib.integrations.starlette_client import OAuth
 from dotenv import load_dotenv
-from fastapi import APIRouter, Depends, Form, Request, status
+from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -260,7 +260,6 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
 
         # Check if user exists
         db_user = await get_user_by_email(db, email)
-        is_new_user = False
 
         if not db_user:
             # Create new user
@@ -269,7 +268,6 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
                 username=username,
             )
             db_user = await create_user(db, user_data)
-            is_new_user = True
 
         if not db_user:
             raise BadRequestError(message="Failed to create user in database")

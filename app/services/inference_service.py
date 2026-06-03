@@ -177,7 +177,9 @@ class SunflowerChatResponse(BaseModel):
 # =============================================================================
 
 
-def classify_error(error: Exception, response_text: Optional[str] = None) -> Exception:
+def classify_error(  # noqa: C901
+    error: Exception, response_text: Optional[str] = None
+) -> Exception:
     """Classify errors to determine if they should trigger a retry.
 
     Args:
@@ -567,7 +569,7 @@ class InferenceService(BaseService):
         jitter=True,
         retryable_exceptions=(ModelLoadingError, InferenceTimeoutError),
     )
-    def run_inference(
+    def run_inference(  # noqa: C901
         self,
         instruction: Optional[str] = None,
         model_type: str = "qwen",
@@ -643,7 +645,7 @@ class InferenceService(BaseService):
             self.log_debug(f"Request payload: {json.dumps(payload, indent=2)}")
 
             response = client.chat.completions.create(**payload)
-            self.log_info(f"Raw response received")
+            self.log_info("Raw response received")
 
             end_time = time.time()
             processing_time = end_time - start_time

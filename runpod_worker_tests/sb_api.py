@@ -139,6 +139,6 @@ async def run_translate(req: TranslateRequest):
     try:
         resp = WorkerTranslationResponse.model_validate(normalized)
         return resp.model_dump()
-    except Exception as e:
+    except Exception:
         logging.exception("Failed to validate normalized response")
         raise HTTPException(status_code=500, detail="Invalid response from worker")

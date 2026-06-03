@@ -41,8 +41,6 @@ from typing import Any, Dict, Optional, Tuple
 import requests
 from runpod import AsyncioEndpoint, AsyncioJob, http_client
 
-from app.core.config import settings
-
 # Module-level logger
 logger = logging.getLogger(__name__)
 

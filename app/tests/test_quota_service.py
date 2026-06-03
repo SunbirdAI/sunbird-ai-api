@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import fakeredis.aioredis
 import pytest
 
-from app.services.quota_service import QuotaResult, QuotaService
+from app.services.quota_service import QuotaService
 from app.services.redis_client import SafeRedis
 
 pytestmark = pytest.mark.real_quota

@@ -479,7 +479,7 @@ class TestWhatsAppBusinessServiceProcessMessage:
         service = WhatsAppBusinessService(api_client=mock_client)
 
         # Process first time
-        result1 = await service.process_message(
+        await service.process_message(
             payload=sample_text_payload,
             from_number="256987654321",
             sender_name="John",
