@@ -53,9 +53,18 @@ from app.services.language_service import LanguageService, get_language_service
 from app.services.modal_stt_service import ModalSTTService, get_modal_stt_service
 from app.services.orpheus_tts_service import OrpheusTTSService, get_orpheus_tts_service
 from app.services.quota_service import QuotaService, get_quota_service
+from app.services.runpod_tts_service import (
+    RunpodSparkTTSService,
+    get_runpod_spark_tts_service,
+)
+from app.services.speech_service import SpeechService, get_speech_service
 from app.services.storage_service import StorageService
 from app.services.storage_service import get_storage_service as get_new_storage_service
 from app.services.stt_service import STTService, get_stt_service
+from app.services.transcription_service import (
+    TranscriptionService,
+    get_transcription_service,
+)
 from app.services.translation_service import TranslationService, get_translation_service
 from app.services.tts_service import TTSService, get_tts_service
 from app.services.whatsapp_service import WhatsAppBusinessService, get_whatsapp_service
@@ -72,6 +81,9 @@ from app.utils.storage import get_storage_service as get_legacy_storage_service
 # Service dependencies
 STTServiceDep = Annotated[STTService, Depends(get_stt_service)]
 ModalSTTServiceDep = Annotated[ModalSTTService, Depends(get_modal_stt_service)]
+TranscriptionServiceDep = Annotated[
+    TranscriptionService, Depends(get_transcription_service)
+]
 TTSServiceDep = Annotated[TTSService, Depends(get_tts_service)]
 OrpheusTTSServiceDep = Annotated[OrpheusTTSService, Depends(get_orpheus_tts_service)]
 TranslationServiceDep = Annotated[TranslationService, Depends(get_translation_service)]
@@ -81,6 +93,10 @@ WhatsAppServiceDep = Annotated[WhatsAppBusinessService, Depends(get_whatsapp_ser
 StorageServiceDep = Annotated[StorageService, Depends(get_new_storage_service)]
 GoogleAnalyticsServiceDep = Annotated[
     GoogleAnalyticsService, Depends(get_google_analytics_service)
+]
+SpeechServiceDep = Annotated[SpeechService, Depends(get_speech_service)]
+RunpodSparkTTSServiceDep = Annotated[
+    RunpodSparkTTSService, Depends(get_runpod_spark_tts_service)
 ]
 
 # Integration dependencies
@@ -211,6 +227,7 @@ __all__ = [
     # Service dependencies
     "STTServiceDep",
     "ModalSTTServiceDep",
+    "TranscriptionServiceDep",
     "TTSServiceDep",
     "OrpheusTTSServiceDep",
     "TranslationServiceDep",
@@ -220,6 +237,8 @@ __all__ = [
     "StorageServiceDep",
     "GoogleAnalyticsServiceDep",
     "QuotaServiceDep",
+    "SpeechServiceDep",
+    "RunpodSparkTTSServiceDep",
     # Integration dependencies
     "RunPodClientDep",
     "OpenAIClientDep",
@@ -232,6 +251,7 @@ __all__ = [
     # Service classes (for type hints)
     "STTService",
     "ModalSTTService",
+    "TranscriptionService",
     "TTSService",
     "OrpheusTTSService",
     "TranslationService",
@@ -241,6 +261,8 @@ __all__ = [
     "StorageService",
     "GoogleAnalyticsService",
     "QuotaService",
+    "SpeechService",
+    "RunpodSparkTTSService",
     # Integration classes (for type hints)
     "RunPodClient",
     "OpenAIClient",

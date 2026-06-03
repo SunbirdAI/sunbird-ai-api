@@ -22,6 +22,7 @@ from app.core.exceptions import (
 from app.docs import description, tags_metadata
 from app.middleware import MonitoringMiddleware
 from app.routers.admin_analytics import router as admin_analytics_router
+from app.routers.audio import router as audio_router
 from app.routers.auth import router as auth_router
 from app.routers.dashboard import router as dashboard_router
 from app.routers.google_analytics import router as google_analytics_router
@@ -165,22 +166,30 @@ app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.include_router(auth_router, prefix="/auth", tags=["Authentication Endpoints"])
 
 # Task endpoints
-app.include_router(stt_router, prefix="/tasks", tags=["Speech-to-Text"])
+app.include_router(stt_router, prefix="/tasks", tags=["legacy/deprecated"])
+app.include_router(audio_router, prefix="/tasks")
 app.include_router(translation_router, prefix="/tasks", tags=["Translation"])
 app.include_router(language_router, prefix="/tasks", tags=["Language"])
 app.include_router(inference_router, prefix="/tasks", tags=["Sunflower"])
 app.include_router(upload_router, prefix="/tasks", tags=["Upload"])
 app.include_router(webhooks_router, prefix="/tasks", tags=["Webhooks"])
-app.include_router(tasks_router, prefix="/tasks", tags=["AI Tasks"])  # Legacy endpoints
+app.include_router(
+    tasks_router, prefix="/tasks", tags=["legacy/deprecated"]
+)  # Legacy endpoints
 
 # TTS endpoints - organized by provider
-app.include_router(modal_tts_router, prefix="/tasks/modal", tags=["TTS (Modal)"])
+# NOTE: modal_tts_router mixes deprecated and live endpoints, so tags are set
+# per-endpoint in the router (no router-level tag here). All other TTS routers
+# below are fully legacy and carry the shared "legacy/deprecated" tag.
+app.include_router(modal_tts_router, prefix="/tasks/modal")
 app.include_router(
     orpheus_tts_router,
     prefix="/tasks/modal/orpheus",
-    tags=["TTS (Orpheus)"],
+    tags=["legacy/deprecated"],
 )
-app.include_router(runpod_tts_router, prefix="/tasks/runpod", tags=["TTS (RunPod)"])
+app.include_router(
+    runpod_tts_router, prefix="/tasks/runpod", tags=["legacy/deprecated"]
+)
 # Note: Legacy /tasks/tts endpoint maintained in tasks_router for backward compatibility
 
 # Frontend routes
