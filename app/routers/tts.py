@@ -11,7 +11,7 @@ import time
 from io import BytesIO
 
 import httpx
-from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request, Response
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -32,6 +32,12 @@ from app.schemas.tts import (
     TTSResponse,
     TTSStreamFinalResponse,
 )
+from app.utils.deprecation import (
+    SUCCESSOR_SPEECH,
+    SUCCESSOR_SPEECH_URL,
+    SUCCESSOR_VOICES,
+    add_deprecation_headers,
+)
 from app.utils.feedback import INFERENCE_TYPES, save_api_inference
 
 router = APIRouter()
@@ -45,7 +51,7 @@ router = APIRouter()
 @router.get(
     "/health",
     response_model=HealthResponse,
-    # tags=["Health"],
+    tags=["Text-to-Speech"],
     summary="Health Check",
 )
 async def health_check():
@@ -63,15 +69,22 @@ async def health_check():
 @router.get(
     "/tts/speakers",
     response_model=SpeakersListResponse,
-    # tags=["Speakers"],
+    tags=["legacy/deprecated"],
     summary="List Available Speakers",
     description="Get all available speaker voices for TTS generation.",
+    deprecated=True,
 )
 async def list_speakers(
+    http_response: Response,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     """Return a list of all available speaker voices."""
+    logging.warning(
+        "Deprecated endpoint /tasks/modal/tts/speakers called; "
+        "use GET /tasks/voice/speakers"
+    )
+    add_deprecation_headers(http_response, SUCCESSOR_VOICES)
     speakers = [SpeakerInfo(**speaker_data) for speaker_data in get_all_speakers()]
     return SpeakersListResponse(speakers=speakers)
 
@@ -89,15 +102,17 @@ async def list_speakers(
         400: {"description": "Invalid request", "model": ErrorResponse},
         500: {"description": "Server error", "model": ErrorResponse},
     },
-    # tags=["TTS"],
+    tags=["legacy/deprecated"],
     summary="Generate Text-to-Speech Audio",
     description="Convert text to speech and return a signed URL to the audio file.",
+    deprecated=True,
 )
 async def generate_tts(
     request: TTSRequest,
     storage_service: LegacyStorageServiceDep,
     tts_service: TTSServiceDep,
     background_tasks: BackgroundTasks,
+    http_response: Response,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
@@ -110,6 +125,10 @@ async def generate_tts(
 
     Returns a signed GCP Storage URL valid for 30 minutes.
     """
+    logging.warning(
+        "Deprecated endpoint /tasks/modal/tts called; use POST /tasks/audio/speech"
+    )
+
     # Handle streaming modes
     if request.response_mode == TTSResponseMode.STREAM:
         return await _stream_audio(request, tts_service)
@@ -118,6 +137,9 @@ async def generate_tts(
 
     # URL mode (default)
     start_time = time.time()
+    # Deprecation headers apply to the url-mode (model) response only; the
+    # streaming branches above return raw StreamingResponses without them.
+    add_deprecation_headers(http_response, SUCCESSOR_SPEECH)
     try:
         # Generate audio from TTS service
         audio_data = await tts_service.generate_audio(
@@ -171,9 +193,13 @@ async def generate_tts(
 
 @router.post(
     "/tts/stream",
-    # tags=["TTS"],
+    tags=["legacy/deprecated"],
     summary="Stream TTS Audio",
-    description="Stream audio chunks as they are generated.",
+    description=(
+        "Stream audio chunks as they are generated. "
+        "DEPRECATED: use POST /tasks/audio/speech with response_mode='stream'."
+    ),
+    deprecated=True,
 )
 async def stream_tts(
     request: TTSRequest,
@@ -182,14 +208,22 @@ async def stream_tts(
     current_user=Depends(get_current_user),
 ):
     """Stream audio directly without storing in GCP."""
+    logging.warning(
+        "Deprecated endpoint /tasks/modal/tts/stream called; "
+        "use POST /tasks/audio/speech with response_mode='stream'"
+    )
     return await _stream_audio(request, tts_service)
 
 
 @router.post(
     "/tts/stream-with-url",
-    # tags=["TTS"],
+    tags=["legacy/deprecated"],
     summary="Stream TTS Audio with Final URL",
-    description="Stream audio chunks and return a signed URL at completion.",
+    description=(
+        "Stream audio chunks and return a signed URL at completion. "
+        "DEPRECATED: use POST /tasks/audio/speech with response_mode='both'."
+    ),
+    deprecated=True,
 )
 async def stream_tts_with_url(
     request: TTSRequest,
@@ -199,23 +233,37 @@ async def stream_tts_with_url(
     current_user=Depends(get_current_user),
 ):
     """Stream audio and provide a URL for the complete file at the end."""
+    logging.warning(
+        "Deprecated endpoint /tasks/modal/tts/stream-with-url called; "
+        "use POST /tasks/audio/speech with response_mode='both'"
+    )
     return await _stream_audio_with_url(request, storage_service, tts_service)
 
 
 @router.get(
     "/tts/refresh-url",
     response_model=TTSResponse,
-    # tags=["TTS"],
+    tags=["legacy/deprecated"],
     summary="Refresh Signed URL",
-    description="Generate a new signed URL for an existing audio file.",
+    description=(
+        "Generate a new signed URL for an existing audio file. "
+        "DEPRECATED: use GET /tasks/audio/speech/url."
+    ),
+    deprecated=True,
 )
 async def refresh_signed_url(
     storage_service: LegacyStorageServiceDep,
+    http_response: Response,
     file_name: str = Query(..., description="The file name in GCP Storage"),
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     """Generate a fresh signed URL for an existing audio file."""
+    logging.warning(
+        "Deprecated endpoint /tasks/modal/tts/refresh-url called; "
+        "use GET /tasks/audio/speech/url"
+    )
+    add_deprecation_headers(http_response, SUCCESSOR_SPEECH_URL)
     try:
         signed_url, expires_at = storage_service.get_signed_url_for_file(file_name)
 

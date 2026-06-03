@@ -10,16 +10,22 @@ from typing import Dict
 
 from fastapi import Response
 
-# RFC 7231 HTTP-date. 2026-12-01 is a Tuesday.
-STT_SUNSET_DATE = "Tue, 01 Dec 2026 00:00:00 GMT"
+# RFC 7231 HTTP-date. 2026-12-01 is a Tuesday. Shared sunset horizon for all
+# deprecated /tasks endpoints.
+SUNSET_DATE = "Tue, 01 Dec 2026 00:00:00 GMT"
 
-# Successor endpoint for the legacy STT routes.
+# Backwards-compatible alias (Phase 1 STT).
+STT_SUNSET_DATE = SUNSET_DATE
+
+# Successor endpoints.
 SUCCESSOR_TRANSCRIPTIONS = "/tasks/audio/transcriptions"
+SUCCESSOR_SPEECH = "/tasks/audio/speech"
+SUCCESSOR_VOICES = "/tasks/voice/speakers"
+SUCCESSOR_SPEECH_BATCH = "/tasks/audio/speech/batch"
+SUCCESSOR_SPEECH_URL = "/tasks/audio/speech/url"
 
 
-def deprecation_headers(
-    successor: str, sunset: str = STT_SUNSET_DATE
-) -> Dict[str, str]:
+def deprecation_headers(successor: str, sunset: str = SUNSET_DATE) -> Dict[str, str]:
     """Build RFC-8594 deprecation headers pointing at a successor endpoint.
 
     Args:
@@ -37,7 +43,7 @@ def deprecation_headers(
 
 
 def add_deprecation_headers(
-    response: Response, successor: str, sunset: str = STT_SUNSET_DATE
+    response: Response, successor: str, sunset: str = SUNSET_DATE
 ) -> None:
     """Set RFC-8594 deprecation headers on an injected FastAPI ``Response``.
 

@@ -21,7 +21,7 @@ URL with the configured expiry (default 30 minutes).
 import logging
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.deps import QuotaServiceDep, get_current_user, get_db, get_orpheus_tts_service
@@ -35,6 +35,12 @@ from app.schemas.orpheus_tts import (
     OrpheusTTSBatchResponse,
     OrpheusTTSRequest,
     OrpheusTTSResponse,
+)
+from app.utils.deprecation import (
+    SUCCESSOR_SPEECH,
+    SUCCESSOR_SPEECH_BATCH,
+    SUCCESSOR_VOICES,
+    add_deprecation_headers,
 )
 from app.utils.feedback import INFERENCE_TYPES, save_api_inference
 from app.utils.quota_guard import check_quota
@@ -56,11 +62,18 @@ router = APIRouter()
         "Returns the full Orpheus speaker catalog. `total` and `languages` are "
         "derived convenience fields. Auth required."
     ),
+    deprecated=True,
 )
 async def get_speakers(
+    http_response: Response,
     service=Depends(get_orpheus_tts_service),
     current_user=Depends(get_current_user),
 ) -> OrpheusSpeakersResponse:
+    logger.warning(
+        "Deprecated endpoint /tasks/modal/orpheus/speakers called; "
+        "use GET /tasks/voice/speakers"
+    )
+    add_deprecation_headers(http_response, SUCCESSOR_VOICES)
     catalog = await service.list_speakers()
     return OrpheusSpeakersResponse(
         default=catalog.default, by_language=catalog.by_language
@@ -75,12 +88,19 @@ async def get_speakers(
         "Convenience endpoint for two-step pickers (language then speaker). "
         "Returns 400 invalid_request if the language code is not in the catalog."
     ),
+    deprecated=True,
 )
 async def get_speakers_for_language(
+    http_response: Response,
     language: str,
     service=Depends(get_orpheus_tts_service),
     current_user=Depends(get_current_user),
 ) -> OrpheusLanguageSpeakersResponse:
+    logger.warning(
+        "Deprecated endpoint /tasks/modal/orpheus/speakers/{language} called; "
+        "use GET /tasks/voice/speakers"
+    )
+    add_deprecation_headers(http_response, SUCCESSOR_VOICES)
     speakers = await service.speakers_for_language(language)
     return OrpheusLanguageSpeakersResponse(language=language, speakers=speakers)
 
@@ -98,6 +118,7 @@ async def get_speakers_for_language(
         "valid for the configured expiry window (default 30 minutes), together "
         "with metadata and stage-by-stage latency timings."
     ),
+    deprecated=True,
 )
 @limiter.limit(get_account_type_limit)
 async def synthesize_tts(
@@ -105,11 +126,16 @@ async def synthesize_tts(
     body: OrpheusTTSRequest,
     quota: QuotaServiceDep,
     background_tasks: BackgroundTasks,
+    http_response: Response,
     db: AsyncSession = Depends(get_db),
     service=Depends(get_orpheus_tts_service),
     current_user=Depends(get_current_user),
 ) -> OrpheusTTSResponse:
     await check_quota(quota, db, current_user)
+    logger.warning(
+        "Deprecated endpoint /tasks/modal/orpheus/tts called; use POST /tasks/audio/speech"
+    )
+    add_deprecation_headers(http_response, SUCCESSOR_SPEECH)
     result = await service.synthesize(
         text=body.text,
         speaker_id=body.speaker_id,
@@ -165,8 +191,10 @@ async def synthesize_tts(
         "continuous-batched pass) and uploads each generated WAV to GCS in "
         "parallel. Per-item failures are reported in the response with "
         '`status: "error"`; the request as a whole returns 200 if at least '
-        "one item succeeds, 502 if every item failed."
+        "one item succeeds, 502 if every item failed. "
+        "DEPRECATED: use POST /tasks/audio/speech/batch."
     ),
+    deprecated=True,
 )
 @limiter.limit(get_account_type_limit)
 async def synthesize_tts_batch(
@@ -174,11 +202,17 @@ async def synthesize_tts_batch(
     body: OrpheusTTSBatchRequest,
     quota: QuotaServiceDep,
     background_tasks: BackgroundTasks,
+    http_response: Response,
     db: AsyncSession = Depends(get_db),
     service=Depends(get_orpheus_tts_service),
     current_user=Depends(get_current_user),
 ) -> OrpheusTTSBatchResponse:
     await check_quota(quota, db, current_user)
+    logger.warning(
+        "Deprecated endpoint /tasks/modal/orpheus/tts/batch called; "
+        "use POST /tasks/audio/speech/batch"
+    )
+    add_deprecation_headers(http_response, SUCCESSOR_SPEECH_BATCH)
     items_payload = [
         {
             "text": it.text,

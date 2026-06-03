@@ -2,40 +2,74 @@
 
 Hosts the consolidated Speech-to-Text endpoint ``POST /tasks/audio/transcriptions``
 that supersedes the legacy /stt, /stt_from_gcs, /org/stt, and /modal/stt routes.
-The text-to-speech endpoint (/tasks/audio/speech) will be added in Phase 2.
+Also hosts the unified TTS endpoint ``POST /tasks/audio/speech``.
 """
 
 import logging
 import os
 import tempfile
 import time
+import uuid
 from typing import Optional
 
 import aiofiles
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Request, UploadFile
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Body,
+    Depends,
+    File,
+    Form,
+    Query,
+    Request,
+    UploadFile,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import (
     BadRequestError,
     ExternalServiceError,
+    NotFoundError,
     ServiceUnavailableError,
     ValidationError,
 )
 from app.crud.audio_transcription import create_audio_transcription
-from app.deps import QuotaServiceDep, TranscriptionServiceDep, get_current_user, get_db
+from app.deps import (
+    LegacyStorageServiceDep,
+    QuotaServiceDep,
+    SpeechServiceDep,
+    TranscriptionServiceDep,
+    TTSServiceDep,
+    get_current_user,
+    get_db,
+)
+from app.models.enums import TTSResponseMode
 from app.routers.stt import _schedule_stt_feedback
+from app.routers.tts import _stream_audio, _stream_audio_with_url
+from app.schemas.speech import (
+    RefreshedUrlResponse,
+    SpeechBatchItemResponse,
+    SpeechBatchRequest,
+    SpeechBatchResponse,
+    SpeechRequest,
+    SpeechResponse,
+    TTSModel,
+)
 from app.schemas.stt import (
     CHUNK_SIZE,
     SttbLanguage,
     STTTranscript,
     TranscriptionPlatform,
 )
+from app.schemas.tts import TTSRequest as ModalTTSRequest
+from app.services.speech_service import SpeechService
 from app.services.stt_service import (
     AudioProcessingError,
     AudioValidationError,
     TranscriptionError,
 )
 from app.utils.audio import get_audio_extension
+from app.utils.feedback import INFERENCE_TYPES, save_api_inference
 from app.utils.quota_guard import check_quota
 from app.utils.rate_limit import get_account_type_limit, limiter
 
@@ -54,6 +88,7 @@ router = APIRouter()
         "organization workflow. Replaces /stt, /stt_from_gcs, /org/stt, and "
         "/modal/stt."
     ),
+    tags=["Speech-to-Text"],
 )
 @limiter.limit(get_account_type_limit)
 async def create_transcription(  # noqa: C901
@@ -234,3 +269,296 @@ async def create_transcription(  # noqa: C901
                 os.remove(file_path)
             except OSError:
                 pass
+
+
+@router.post(
+    "/audio/speech",
+    response_model=SpeechResponse,
+    summary="Generate speech (unified TTS endpoint)",
+    description=(
+        "Unified Text-to-Speech endpoint. Routes by model (orpheus-3b-tts | "
+        "spark-tts) and platform (modal | runpod). Returns a signed audio URL "
+        "(response_mode='url'); spark-tts on Modal also supports 'stream'/'both'. "
+        "Replaces /tasks/modal/tts, /tasks/runpod/tts, and /tasks/modal/orpheus/tts."
+    ),
+    tags=["Text-to-Speech"],
+)
+@limiter.limit(get_account_type_limit)
+async def create_speech(  # noqa: C901
+    request: Request,
+    background_tasks: BackgroundTasks,
+    quota: QuotaServiceDep,
+    speech_service: SpeechServiceDep,
+    tts_service: TTSServiceDep,
+    storage_service: LegacyStorageServiceDep,
+    body: SpeechRequest = Body(...),
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Generate speech via the selected model + platform."""
+    await check_quota(quota, db, current_user)
+    start_time = time.time()
+
+    speech_service.validate_request(body)
+
+    if body.response_mode in (TTSResponseMode.STREAM, TTSResponseMode.BOTH):
+        # NOTE: feedback/request_id are not captured for stream/both modes
+        # (parity with the legacy Modal streaming endpoints).
+        speaker = SpeechService.resolve_spark_speaker(body.voice)
+        modal_req = ModalTTSRequest(
+            text=body.text, speaker_id=speaker, response_mode=body.response_mode
+        )
+        if body.response_mode == TTSResponseMode.STREAM:
+            return await _stream_audio(modal_req, tts_service)
+        return await _stream_audio_with_url(modal_req, storage_service, tts_service)
+
+    try:
+        result = await speech_service.synthesize(body)
+        request_id = uuid.uuid4().hex
+
+        response = SpeechResponse(
+            audio_url=result.audio_url,
+            model=result.model,
+            platform=result.platform,
+            voice=result.voice,
+            audio_url_expires_at=result.audio_url_expires_at,
+            language=result.language,
+            sample_rate=result.sample_rate,
+            duration_seconds=result.duration_seconds,
+            gcs_object=result.gcs_object,
+            request_id=request_id,
+            timings_ms=result.timings_ms,
+        )
+
+        _schedule_speech_feedback(
+            background_tasks=background_tasks,
+            user=current_user,
+            text=body.text,
+            result=result,
+            request_id=request_id,
+            processing_time=time.time() - start_time,
+        )
+
+        return response
+    except (
+        BadRequestError,
+        ValidationError,
+        ExternalServiceError,
+        ServiceUnavailableError,
+    ):
+        raise
+    except Exception as e:
+        logging.error(f"Unexpected error in create_speech: {str(e)}")
+        raise ExternalServiceError(
+            service_name="Speech Service",
+            message="An unexpected error occurred while generating speech",
+            original_error=str(e),
+        )
+
+
+@router.post(
+    "/audio/speech/batch",
+    response_model=SpeechBatchResponse,
+    summary="Batch-generate speech (unified, orpheus-3b-tts only)",
+    description=(
+        "Unified batch Text-to-Speech endpoint. Synthesizes 1-128 items in a "
+        "single orpheus-3b-tts pass and uploads each result to GCS. Per-item "
+        "failures are reported with status='error'; the request returns 200 if "
+        "at least one item succeeds, 502 if every item fails. "
+        "Replaces /tasks/modal/orpheus/tts/batch."
+    ),
+    tags=["Text-to-Speech"],
+)
+@limiter.limit(get_account_type_limit)
+async def create_speech_batch(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    quota: QuotaServiceDep,
+    speech_service: SpeechServiceDep,
+    body: SpeechBatchRequest = Body(...),
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+) -> SpeechBatchResponse:
+    """Batch-generate speech via orpheus-3b-tts."""
+    await check_quota(quota, db, current_user)
+
+    try:
+        batch = await speech_service.synthesize_batch(body)
+        request_id = uuid.uuid4().hex
+
+        results = [
+            SpeechBatchItemResponse(
+                index=r.index,
+                status=r.status,
+                voice=r.speaker_id,
+                audio_url=r.audio_url,
+                audio_url_expires_at=r.audio_url_expires_at,
+                language=r.language,
+                sample_rate=r.sample_rate,
+                duration_seconds=r.duration_seconds,
+                audio_size_bytes=r.audio_size_bytes,
+                gcs_object=r.gcs_object,
+                request_id=request_id if r.status == "ok" else None,
+                error_code=r.error_code,
+                error_detail=r.error_detail,
+            )
+            for r in batch.results
+        ]
+
+        response = SpeechBatchResponse(
+            model="orpheus-3b-tts",
+            platform="modal",
+            results=results,
+            request_id=request_id,
+            timings_ms={
+                "inference_ms": batch.inference_ms,
+                "upload_ms": batch.upload_ms,
+                "total_ms": batch.total_ms,
+            },
+        )
+
+        _schedule_speech_batch_feedback(
+            background_tasks=background_tasks,
+            user=current_user,
+            items=body.items,
+            batch=batch,
+            request_id=request_id,
+        )
+
+        return response
+    except (
+        BadRequestError,
+        ValidationError,
+        ExternalServiceError,
+        ServiceUnavailableError,
+    ):
+        raise
+    except Exception as e:
+        logging.error(f"Unexpected error in create_speech_batch: {str(e)}")
+        raise ExternalServiceError(
+            service_name="Speech Service",
+            message="An unexpected error occurred while generating batch speech",
+            original_error=str(e),
+        )
+
+
+def _schedule_speech_feedback(
+    *, background_tasks, user, text, result, request_id, processing_time
+):
+    """Best-effort feedback save for a unified speech request."""
+    try:
+        background_tasks.add_task(
+            save_api_inference,
+            text,
+            {"audio_url": result.audio_url, "gcs_object": result.gcs_object},
+            user,
+            model_type=f"{result.model}:{result.voice}",
+            processing_time=processing_time,
+            inference_type=INFERENCE_TYPES["tts"],
+            job_details={
+                "model": result.model,
+                "platform": result.platform,
+                "voice": result.voice,
+                "audio_url": result.audio_url,
+                "gcs_object": result.gcs_object,
+                "request_id": request_id,
+            },
+        )
+    except Exception as e:
+        logging.warning(f"Failed to schedule speech feedback save task: {e}")
+
+
+def _schedule_speech_batch_feedback(
+    *, background_tasks, user, items, batch, request_id
+):
+    """Best-effort feedback save: one record per successful batch item."""
+    try:
+        for item, result in zip(items, batch.results):
+            if result.status != "ok":
+                continue
+            voice = result.speaker_id
+            background_tasks.add_task(
+                save_api_inference,
+                item.text,
+                {"audio_url": result.audio_url, "gcs_object": result.gcs_object},
+                user,
+                model_type=f"orpheus-3b-tts:{voice}",
+                processing_time=batch.total_ms / 1000.0,
+                inference_type=INFERENCE_TYPES["tts"],
+                job_details={
+                    "model": "orpheus-3b-tts",
+                    "platform": "modal",
+                    "voice": voice,
+                    "audio_url": result.audio_url,
+                    "gcs_object": result.gcs_object,
+                    "batch_index": result.index,
+                    "request_id": request_id,
+                },
+            )
+    except Exception as e:
+        logging.warning(f"Failed to schedule batch speech feedback save task: {e}")
+
+
+@router.get(
+    "/voice/speakers",
+    response_model=None,
+    tags=["Text-to-Speech"],
+    summary="List speakers/voices (unified)",
+    description=(
+        "List available speakers for the selected TTS model. "
+        "model='orpheus-3b-tts' (default) returns the catalog grouped by "
+        "language (OrpheusSpeakersResponse); add 'language' to get one "
+        "language's voices (OrpheusLanguageSpeakersResponse). "
+        "model='spark-tts' returns the fixed SpeakerID voices "
+        "(SpeakersListResponse); 'language' is not allowed for spark-tts. "
+        "Replaces /tasks/modal/orpheus/speakers, "
+        "/tasks/modal/orpheus/speakers/{language}, and /tasks/modal/tts/speakers."
+    ),
+)
+async def list_voices(
+    speech_service: SpeechServiceDep,
+    model: TTSModel = Query(
+        default=TTSModel.orpheus_3b_tts,
+        description="TTS model: 'orpheus-3b-tts' (default) or 'spark-tts'.",
+    ),
+    language: Optional[str] = Query(
+        default=None,
+        description="orpheus-only ISO 639-3 code (e.g. 'lug'). Rejected for spark-tts.",
+    ),
+    current_user=Depends(get_current_user),
+):
+    """List speakers/voices for the selected model (and optional language)."""
+    return await speech_service.list_voices(model.value, language)
+
+
+@router.get(
+    "/audio/speech/url",
+    response_model=RefreshedUrlResponse,
+    tags=["Text-to-Speech"],
+    summary="Refresh a signed audio URL (unified)",
+    description=(
+        "Generate a fresh signed URL for an existing audio object in GCS (e.g. "
+        "a previously synthesized speech file whose signed URL has expired). "
+        "Replaces /tasks/modal/tts/refresh-url."
+    ),
+)
+async def refresh_speech_url(
+    storage_service: LegacyStorageServiceDep,
+    gcs_object: str = Query(
+        ..., description="GCS object name to re-sign (e.g. 'orpheus_tts/.../x.wav')."
+    ),
+    current_user=Depends(get_current_user),
+) -> RefreshedUrlResponse:
+    """Return a freshly signed URL for a stored audio object."""
+    try:
+        signed_url, expires_at = storage_service.get_signed_url_for_file(gcs_object)
+    except Exception as e:
+        raise NotFoundError(
+            resource="Audio file",
+            message=f"File not found or error generating URL: {str(e)}",
+        )
+    return RefreshedUrlResponse(
+        audio_url=signed_url,
+        audio_url_expires_at=expires_at,
+        gcs_object=gcs_object,
+    )
