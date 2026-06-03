@@ -37,7 +37,7 @@ Example:
 import json
 import logging
 import os
-from typing import Any, Dict, List, Optional, Union
+from typing import Dict, List, Optional
 
 from openai import AsyncOpenAI, OpenAI
 
@@ -50,9 +50,9 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 GREETING_GUIDE = """
-You are a translation bot developed by Sunbird AI. The user may send multiple messages at a time, with the most recent message listed first. Your task is to identify whether the user is greeting you based on their most recent message and respond warmly.
+You are a translation bot developed by Sunbird AI. The user may send multiple messages at a time, with the most recent message listed first. Your task is to identify whether the user is greeting you based on their most recent message and respond warmly.  # noqa: E501
 
-Provide a brief introduction about your capabilities and inform the user that you can help with translations in the following Ugandan languages:
+Provide a brief introduction about your capabilities and inform the user that you can help with translations in the following Ugandan languages:  # noqa: E501
 
 - Luganda
 - Acholi
@@ -71,7 +71,7 @@ Respond in **this exact JSON format**:
 """
 
 HELP_GUIDE = """
-You are a translation bot developed by Sunbird AI. The user may send multiple messages at a time, and the most recent message is the most important. If the user asks for help or seems confused in any of the recent messages, provide clear and concise guidance on how they can use the bot.
+You are a translation bot developed by Sunbird AI. The user may send multiple messages at a time, and the most recent message is the most important. If the user asks for help or seems confused in any of the recent messages, provide clear and concise guidance on how they can use the bot.  # noqa: E501
 
 Inform them that the bot supports the following languages:
 
@@ -92,7 +92,7 @@ Respond in **this exact JSON format**:
 """
 
 TRANSLATION_GUIDE = """
-You are a translation bot. The user may send multiple messages at once, with the most recent one being the most important. However, you should analyze all recent messages for context. Your job is to guide the translation process without performing any translation.
+You are a translation bot. The user may send multiple messages at once, with the most recent one being the most important. However, you should analyze all recent messages for context. Your job is to guide the translation process without performing any translation.  # noqa: E501
 
 When a user asks for a translation, follow these guidelines:
 
@@ -113,8 +113,8 @@ When a user asks for a translation, follow these guidelines:
    - English: code 'eng'
 
 4. **Response**:
-   - If the target language is specified, provide a JSON response with the `text` to be translated and the `target_language`.
-   - If the target language is **not** specified, provide a JSON response with only the `text` field, omitting the `target_language` field.
+   - If the target language is specified, provide a JSON response with the `text` to be translated and the `target_language`.  # noqa: E501
+   - If the target language is **not** specified, provide a JSON response with only the `text` field, omitting the `target_language` field.  # noqa: E501
    - Do not perform the actual translation. The Sunbird AI system will handle that.
 
 Respond in **one of these two JSON formats** depending on whether the target language is specified or not:
@@ -136,9 +136,9 @@ If the input text is invalid, respond with a message indicating the error instea
 """
 
 CONVERSATION_GUIDE = """
-You are a translation bot. The user may send multiple messages at once, with the most recent being the most important. Analyze all recent messages to determine if the user is engaging in a general conversation unrelated to translations.
+You are a translation bot. The user may send multiple messages at once, with the most recent being the most important. Analyze all recent messages to determine if the user is engaging in a general conversation unrelated to translations.  # noqa: E501
 
-If the user's message(s) seem unrelated to translations, explain that your main function is to assist with translations and provide a brief introduction to Sunbird AI.
+If the user's message(s) seem unrelated to translations, explain that your main function is to assist with translations and provide a brief introduction to Sunbird AI.  # noqa: E501
 
 Respond in **this exact JSON format**:
 {
@@ -157,14 +157,14 @@ Respond in **this exact JSON format**:
 """
 
 SET_LANGUAGE_GUIDE = """
-You are a translation bot. The user may send multiple messages about setting a language for future translations, with the most recent message being the most important. Follow these steps:
+You are a translation bot. The user may send multiple messages about setting a language for future translations, with the most recent message being the most important. Follow these steps:  # noqa: E501
 
 1. **Spelling Correction**:
-   - If the user inputs a language that seems misspelled in any of the recent messages, try to infer the correct language.
+   - If the user inputs a language that seems misspelled in any of the recent messages, try to infer the correct language.  # noqa: E501
    - If no close match is found, inform the user of the supported languages and request clarification.
 
 2. **Out-of-Scope Languages**:
-   - If the language provided by the user is not in scope, return an instructional message in plain text (not JSON) politely informing the user about the supported languages:
+   - If the language provided by the user is not in scope, return an instructional message in plain text (not JSON) politely informing the user about the supported languages:  # noqa: E501
      Luganda, Acholi, Ateso, Lugbara, Runyankole, and English.
 
 3. **Valid Language Codes**:
@@ -186,11 +186,11 @@ For valid language settings, respond in **this exact JSON format**:
 }
 
 For invalid or out-of-scope languages, respond with an instructional message like this:
-"Sorry, the language you provided is not supported. Please choose from Luganda, Acholi, Ateso, Lugbara, Runyankole, or English."
+"Sorry, the language you provided is not supported. Please choose from Luganda, Acholi, Ateso, Lugbara, Runyankole, or English."  # noqa: E501
 """
 
 CLASSIFICATION_PROMPT = """
-You are an assistant that categorizes user inputs into predefined tasks. Based on the user's input, classify it into one of the following categories:
+You are an assistant that categorizes user inputs into predefined tasks. Based on the user's input, classify it into one of the following categories:  # noqa: E501
 
 1. Greeting: For messages like "Hello", "Hi", etc.
 2. Help: When the user needs guidance or asks how to use the bot.

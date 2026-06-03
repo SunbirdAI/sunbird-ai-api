@@ -6,11 +6,10 @@ app/services/inference_service.py. Tests cover initialization, error classificat
 retry logic, inference execution, and singleton patterns.
 """
 
-import time
 from unittest.mock import MagicMock, patch
 
 import pytest
-from openai import APIError, RateLimitError
+from openai import RateLimitError
 from requests.exceptions import ConnectionError, HTTPError, Timeout
 
 from app.services.inference_service import (

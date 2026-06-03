@@ -478,7 +478,7 @@ class OptimizedMessageProcessor:
             should_save=False,
         )
 
-    async def _handle_audio_with_ug40_background(
+    async def _handle_audio_with_ug40_background(  # noqa: C901
         self,
         payload: Dict,
         target_language: str,
@@ -814,7 +814,7 @@ class OptimizedMessageProcessor:
                         f"{cleanup_error}"
                     )
 
-    async def _handle_text_optimized(
+    async def _handle_text_optimized(  # noqa: C901
         self,
         payload: Dict,
         target_language: str,
@@ -951,7 +951,7 @@ class OptimizedMessageProcessor:
                 "I'm experiencing issues. Please try again.", ResponseType.TEXT
             )
 
-    async def _handle_quick_commands(
+    async def _handle_quick_commands(  # noqa: C901
         self,
         input_text: str,
         target_language: str,
@@ -1340,7 +1340,7 @@ class OptimizedMessageProcessor:
         )
         return SpeakerID.LUGANDA_FEMALE
 
-    async def send_tts_audio_response(
+    async def send_tts_audio_response(  # noqa: C901
         self,
         response_text: str,
         target_language: str,

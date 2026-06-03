@@ -7,13 +7,11 @@ error responses, and integration with the InferenceService.
 """
 
 from typing import Any, Dict
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from httpx import AsyncClient
 
-from app.api import app
-from app.routers.inference import get_service
 from app.services.inference_service import InferenceService, ModelLoadingError
 
 

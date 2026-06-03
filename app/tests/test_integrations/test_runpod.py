@@ -5,7 +5,7 @@ This module contains unit tests for the RunPodClient class and related
 functions defined in app/integrations/runpod.py.
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 

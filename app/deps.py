@@ -34,12 +34,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import AuthorizationError
 from app.crud.users import get_user_by_username
 from app.database.db import async_session_maker
+
 # Integration imports
 from app.integrations.openai_client import OpenAIClient, get_openai_client
 from app.integrations.orpheus_modal import OrpheusModalClient, get_orpheus_modal_client
 from app.integrations.runpod import RunPodClient, get_runpod_client
 from app.integrations.whatsapp_api import WhatsAppAPIClient, get_whatsapp_api_client
 from app.schemas.users import TokenData, User
+
 # Service imports
 from app.services.cache import CacheBackend, get_cache_backend
 from app.services.google_analytics_service import (
@@ -57,6 +59,7 @@ from app.services.stt_service import STTService, get_stt_service
 from app.services.translation_service import TranslationService, get_translation_service
 from app.services.tts_service import TTSService, get_tts_service
 from app.services.whatsapp_service import WhatsAppBusinessService, get_whatsapp_service
+
 # Legacy imports (maintained for backward compatibility)
 from app.utils.auth import get_username_from_token
 from app.utils.storage import GCPStorageService

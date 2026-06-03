@@ -38,11 +38,7 @@ import runpod
 from dotenv import load_dotenv
 
 from app.integrations.runpod import normalize_runpod_response, run_job_and_get_output
-from app.schemas.translation import (
-    NllbLanguage,
-    WorkerTranslationOutput,
-    WorkerTranslationResponse,
-)
+from app.schemas.translation import NllbLanguage, WorkerTranslationResponse
 from app.services.base import BaseService
 
 load_dotenv()
