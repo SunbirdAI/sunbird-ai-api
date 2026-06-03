@@ -110,11 +110,13 @@ language_codes: {
 
 ## Part 3: Speech-to-Text (STT)
 
-Convert speech audio to text for supported languages. The API supports various audio formats including MP3, WAV, and M4A.
+Convert speech audio to text. The unified **`POST /tasks/audio/transcriptions`** endpoint accepts an uploaded audio file (or a GCS object) and routes to the Modal (Whisper large-v3) or RunPod backend. Supports MP3, WAV, M4A, and more.
 
-### Modal STT (Recommended)
+> **Migrating from the legacy STT routes?** `/tasks/modal/stt`, `/tasks/stt`, `/tasks/stt_from_gcs`, and `/tasks/org/stt` are **deprecated** (they still work but return `Deprecation`/`Sunset` headers). Switch to `/tasks/audio/transcriptions`.
 
-The Modal-based STT endpoint uses the Whisper large-v3 model for high-quality transcription. Simply upload an audio file and get the transcription back. You can optionally specify a `language` to improve accuracy; if omitted the model auto-detects the language.
+### Transcribe a file (Modal / Whisper)
+
+`language` is **required**. `platform` defaults to `modal` (Whisper large-v3).
 
 ```python
 import os
@@ -123,7 +125,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-url = "https://api.sunbird.ai/tasks/modal/stt"
+url = "https://api.sunbird.ai/tasks/audio/transcriptions"
 access_token = os.getenv("AUTH_TOKEN")
 
 headers = {
@@ -131,88 +133,58 @@ headers = {
     "Authorization": f"Bearer {access_token}",
 }
 
-# Replace with your audio file path
 audio_file_path = "/path/to/audio_file.wav"
 
 files = {
-    "audio": (
-        "recording.wav",
-        open(audio_file_path, "rb"),
-        "audio/wav",
-    ),
+    "audio": ("recording.wav", open(audio_file_path, "rb"), "audio/wav"),
+}
+data = {
+    "language": "lug",     # required: 3-letter code or full name (e.g. "Luganda")
+    "platform": "modal",   # "modal" (default, Whisper) or "runpod"
 }
 
-# Without language (auto-detect)
-response = requests.post(url, headers=headers, files=files)
+response = requests.post(url, headers=headers, files=files, data=data)
 result = response.json()
 print(f"Transcription: {result['audio_transcription']}")
 ```
 
-#### Specifying a language
+### Transcribe with RunPod (adapter, Whisper, diarization)
 
-Pass a `language` field to guide the model. Accepts either a 3-letter ISO 639-2 code or a full language name (case-insensitive).
+The RunPod backend adds a language `adapter`, the `whisper` flag, and optional speaker diarization (`recognise_speakers`).
 
 ```python
 files = {
-    "audio": (
-        "recording.wav",
-        open(audio_file_path, "rb"),
-        "audio/wav",
-    ),
+    "audio": ("recording.mp3", open("/path/to/audio_file.mp3", "rb"), "audio/mpeg"),
 }
-
-# Using a 3-letter code
-data = {"language": "lug"}
-response = requests.post(url, headers=headers, files=files, data=data)
-
-# Or using a full language name
-data = {"language": "Luganda"}
-response = requests.post(url, headers=headers, files=files, data=data)
-```
-
-**Supported languages:** English (`eng`), Luganda (`lug`), Runyankole (`nyn`), Acholi (`ach`), Ateso (`teo`), Lugbara (`lgg`), Swahili (`swa`), Kinyarwanda (`kin`), Lusoga (`xog`), Lumasaba (`myx`).
-
-### RunPod STT (with language selection)
-
-The RunPod-based STT endpoint allows you to specify a target language and adapter for transcription.
-
-```python
-import os
-import requests
-from dotenv import load_dotenv
-
-load_dotenv()
-
-url = "https://api.sunbird.ai/tasks/stt"
-access_token = os.getenv("AUTH_TOKEN")
-
-headers = {
-    "accept": "application/json",
-    "Authorization": f"Bearer {access_token}",
-}
-
-# Replace with your audio file path
-audio_file_path = "/path/to/audio_file.mp3"
-
-files = {
-    "audio": (
-        "recording.mp3",
-        open(audio_file_path, "rb"),
-        "audio/mpeg",
-    ),
-}
-
 data = {
-    "language": "lug",  # Language code (eng, ach, teo, lug, lgg, nyn)
-    "adapter": "lug",   # Model adapter to use
-    "whisper": True,    # Use Whisper model
+    "language": "lug",
+    "platform": "runpod",
+    "adapter": "lug",             # optional; defaults to `language`
+    "whisper": True,             # RunPod only
+    "recognise_speakers": False,  # RunPod only — speaker diarization
 }
 
 response = requests.post(url, headers=headers, files=files, data=data)
 print(response.json())
 ```
 
-**Supported Languages:** English, Acholi, Ateso, Luganda, Lugbara, Runyankole, Lusoga, Rutooro, Lumasaba, Kinyarwanda, Swahili.
+You can also transcribe audio already in GCS by passing `gcs_blob_name` (with `platform="runpod"`) instead of an `audio` file — see **Part 7: File Upload** for generating upload URLs.
+
+**Example response:**
+```json
+{
+  "audio_transcription": "Ekibiina ekiddukanya ...",
+  "language": "lug",
+  "audio_url": "https://storage.googleapis.com/.../audio.wav?...",
+  "audio_transcription_id": 123,
+  "diarization_output": null,
+  "formatted_diarization_output": null,
+  "was_audio_trimmed": false,
+  "original_duration_minutes": null
+}
+```
+
+**Supported languages:** English (`eng`), Luganda (`lug`), Runyankole (`nyn`), Acholi (`ach`), Ateso (`teo`), Lugbara (`lgg`), Swahili (`swa`), Lusoga (`xog`), Rutooro (`ttj`), Kinyarwanda (`kin`), Lumasaba (`myx`).
 
 **Note:** For files larger than 100MB, only the first 10 minutes will be transcribed.
 
@@ -273,7 +245,14 @@ print(f"Detected language: {result}")
 
 ## Part 5: Text-to-Speech (TTS)
 
-Convert text to audio using Ugandan language voices. The API supports multiple response modes including streaming and signed URLs.
+Synthesize speech from text. The unified **`POST /tasks/audio/speech`** endpoint replaces `/tasks/modal/tts`, `/tasks/runpod/tts`, and `/tasks/modal/orpheus/tts`. Two models are available:
+
+- **`orpheus-3b-tts`** (default) — multilingual, multi-speaker; voices are catalog tags (e.g. `salt_lug_0001`). List them with `GET /tasks/voice/speakers`.
+- **`spark-tts`** — the six fixed Ugandan voices below; supports streaming on Modal.
+
+> **Migrating?** The legacy TTS, streaming (`/stream`, `/stream-with-url`), Orpheus batch, speaker-listing, and `refresh-url` endpoints are **deprecated**. Use the unified endpoints below.
+
+### Single synthesis (orpheus-3b-tts, default)
 
 ```python
 import os
@@ -282,7 +261,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-url = "https://api.sunbird.ai/tasks/modal/tts"
+url = "https://api.sunbird.ai/tasks/audio/speech"
 access_token = os.getenv("AUTH_TOKEN")
 
 headers = {
@@ -292,44 +271,105 @@ headers = {
 }
 
 payload = {
-    "response_mode": "url",
-    "speaker_id": 248,
     "text": "I am a nurse who takes care of many people.",
+    "model": "orpheus-3b-tts",   # default
+    "voice": "salt_lug_0001",     # catalog tag; see GET /tasks/voice/speakers
 }
 
 response = requests.post(url, headers=headers, json=payload)
-
 print(response.status_code)
 print(response.json())
 ```
 
-### Speaker IDs
+### Single synthesis (spark-tts, fixed voices)
 
-| Speaker ID | Voice |
-|---|---|
-| 241 | Acholi (female) |
-| 242 | Ateso (female) |
-| 243 | Runyankore (female) |
-| 245 | Lugbara (female) |
-| 246 | Swahili (male) |
-| 248 | Luganda (female) |
+```python
+payload = {
+    "text": "I am a nurse who takes care of many people.",
+    "model": "spark-tts",
+    "voice": "luganda_female",   # voice name, or the numeric id as a string e.g. "248"
+    "response_mode": "url",       # "url" (default), "stream", or "both"
+}
+response = requests.post(url, headers=headers, json=payload)
+print(response.json())
+```
 
-### Response Modes
-- `url` - Generate audio, upload to GCP, return signed URL (valid for 30 minutes)
-- `stream` - Stream raw audio chunks directly
-- `both` - Stream audio AND return final signed URL
+#### spark-tts voices
 
-**Example Response:**
+| Voice name | ID | Description |
+|---|---|---|
+| `acholi_female` | 241 | Acholi (female) |
+| `ateso_female` | 242 | Ateso (female) |
+| `runyankore_female` | 243 | Runyankore (female) |
+| `lugbara_female` | 245 | Lugbara (female) |
+| `swahili_male` | 246 | Swahili (male) |
+| `luganda_female` | 248 | Luganda (female) |
+
+### Response modes
+
+`response_mode` applies to **spark-tts on Modal**:
+- `url` — generate audio, upload to GCP, return a signed URL (valid ~30 minutes) — default
+- `stream` — stream raw audio chunks directly
+- `both` — stream audio **and** return a final signed URL
+
+### Listing voices
+
+```python
+auth = {"Authorization": f"Bearer {access_token}"}
+
+# Orpheus voices grouped by language (default)
+print(requests.get("https://api.sunbird.ai/tasks/voice/speakers", headers=auth).json())
+
+# spark-tts fixed voices
+print(requests.get(
+    "https://api.sunbird.ai/tasks/voice/speakers",
+    headers=auth,
+    params={"model": "spark-tts"},
+).json())
+```
+
+### Batch synthesis (orpheus-3b-tts)
+
+Synthesize up to 128 items in a single request:
+
+```python
+url = "https://api.sunbird.ai/tasks/audio/speech/batch"
+payload = {
+    "items": [
+        {"text": "Good morning.", "voice": "salt_lug_0001"},
+        {"text": "How are you?", "voice": "salt_eng_0001"},
+    ]
+}
+response = requests.post(url, headers=headers, json=payload)
+print(response.json())
+```
+
+### Refreshing an expired URL
+
+Signed URLs expire after ~30 minutes. Re-sign a stored object with `GET /tasks/audio/speech/url`:
+
+```python
+print(requests.get(
+    "https://api.sunbird.ai/tasks/audio/speech/url",
+    headers={"Authorization": f"Bearer {access_token}"},
+    params={"gcs_object": "orpheus_tts/2026-06-03/abc.wav"},
+).json())
+```
+
+**Example response (`POST /tasks/audio/speech`):**
 ```json
 {
-  "success": true,
-  "audio_url": "https://storage.googleapis.com/sb-asr-audio-content-sb-gcp-project-01/tts_audio/20260212_222936_2a9f1f83_da308cdb.wav?...",
-  "expires_at": "2026-02-12T22:59:36.954061Z",
-  "file_name": "tts_audio/20260212_222936_2a9f1f83_da308cdb.wav",
-  "duration_estimate_seconds": 4,
-  "text_length": 43,
-  "speaker_id": 248,
-  "speaker_name": "Luganda (female)"
+  "audio_url": "https://storage.googleapis.com/.../tts_audio/....wav?...",
+  "model": "orpheus-3b-tts",
+  "platform": "modal",
+  "voice": "salt_lug_0001",
+  "audio_url_expires_at": "2026-06-03T22:59:36.954061Z",
+  "language": "lug",
+  "sample_rate": 24000,
+  "duration_seconds": 4.0,
+  "gcs_object": "orpheus_tts/2026-06-03/....wav",
+  "request_id": "0f1e2d3c4b5a...",
+  "timings_ms": {"inference_ms": 1820.5, "upload_ms": 234.1, "total_ms": 2095.6}
 }
 ```
 
