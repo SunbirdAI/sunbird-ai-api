@@ -54,13 +54,7 @@ from app.core.exceptions import (
 )
 from app.crud.audio_transcription import create_audio_transcription
 from app.deps import ModalSTTServiceDep, QuotaServiceDep, get_current_user, get_db
-from app.schemas.stt import (
-    ALLOWED_AUDIO_TYPES,
-    CHUNK_SIZE,
-    MAX_AUDIO_DURATION_MINUTES,
-    SttbLanguage,
-    STTTranscript,
-)
+from app.schemas.stt import CHUNK_SIZE, SttbLanguage, STTTranscript
 from app.services.stt_service import (
     AudioProcessingError,
     AudioValidationError,
@@ -226,7 +220,7 @@ async def speech_to_text_from_gcs(
 
 @router.post("/stt", deprecated=True)
 @limiter.limit(get_account_type_limit)
-async def speech_to_text(
+async def speech_to_text(  # noqa: C901
     request: Request,
     background_tasks: BackgroundTasks,
     quota: QuotaServiceDep,

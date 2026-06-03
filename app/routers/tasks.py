@@ -22,20 +22,12 @@ from tenacity import (
     wait_exponential,
 )
 
-from app.crud.audio_transcription import create_audio_transcription
 from app.deps import QuotaServiceDep, get_current_user, get_db
-from app.schemas.tasks import (
-    ChatRequest,
-    ChatResponse,
-    SummarisationRequest,
-    SummarisationResponse,
-    TTSRequest,
-)
+from app.schemas.tasks import SummarisationRequest, SummarisationResponse, TTSRequest
 from app.utils.deprecation import SUCCESSOR_SPEECH, add_deprecation_headers
 from app.utils.feedback import INFERENCE_TYPES, save_api_inference
 from app.utils.quota_guard import check_quota
 from app.utils.rate_limit import get_account_type_limit, limiter
-from app.utils.upload_audio_file_gcp import upload_file_to_bucket
 
 router = APIRouter()
 

@@ -159,7 +159,7 @@ async def get_by_sector(
 
 
 @router.get("/export")
-async def export_csv(
+async def export_csv(  # noqa: C901
     view: str = "overview",
     time_range: str = "7d",
     organization: str = None,

@@ -5,8 +5,7 @@ This module contains unit tests for the BaseService abstract class
 and ServiceMixin defined in app/services/base.py.
 """
 
-import logging
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 

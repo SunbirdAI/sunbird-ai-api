@@ -11,7 +11,7 @@ import time
 from io import BytesIO
 
 import httpx
-from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Response
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,7 +22,7 @@ from app.core.exceptions import (
     ServiceUnavailableError,
 )
 from app.deps import LegacyStorageServiceDep, TTSServiceDep, get_current_user, get_db
-from app.models.enums import SpeakerID, TTSResponseMode, get_all_speakers
+from app.models.enums import TTSResponseMode, get_all_speakers
 from app.schemas.tts import (
     ErrorResponse,
     HealthResponse,

@@ -7,7 +7,6 @@ and integration with the StorageService.
 """
 
 from datetime import datetime, timezone
-from typing import Dict
 from unittest.mock import MagicMock, patch
 
 import pytest

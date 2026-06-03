@@ -42,7 +42,6 @@ from fastapi import Request, Response
 from jose import JWTError, jwt
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from app.core.exceptions import AuthenticationError
 from app.crud.monitoring import log_endpoint
 from app.crud.users import get_user_by_username
 from app.database.db import async_session_maker
@@ -255,7 +254,7 @@ class MonitoringMiddleware(BaseHTTPMiddleware):
             logger.error(f"Failed to log endpoint usage: {e}", exc_info=True)
 
 
-async def log_request(request: Request, call_next: Callable) -> Response:
+async def log_request(request: Request, call_next: Callable) -> Response:  # noqa: C901
     """
     Function-based monitoring middleware for logging API endpoint usage.
 

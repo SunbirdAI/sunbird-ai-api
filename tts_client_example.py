@@ -72,7 +72,7 @@ async def tts_url_mode(
         response.raise_for_status()
         data = response.json()
 
-        print(f"✓ Audio generated successfully")
+        print("✓ Audio generated successfully")
         print(f"  Speaker: {data.get('speaker_name', 'N/A')}")
         print(f"  URL: {data['audio_url'][:80]}...")
         print(f"  Expires: {data['expires_at']}")
@@ -166,7 +166,7 @@ async def tts_stream_with_url_mode(
 
                 elif event_type == "complete":
                     final_response = event_data
-                    print(f"✓ Stream complete!")
+                    print("✓ Stream complete!")
                     print(f"  Total bytes: {event_data['total_bytes']:,}")
                     print(f"  URL: {event_data['audio_url'][:80]}...")
                     print(f"  Expires: {event_data['expires_at']}")
@@ -200,7 +200,7 @@ async def refresh_url(file_name: str) -> dict:
         response.raise_for_status()
         data = response.json()
 
-        print(f"✓ URL refreshed")
+        print("✓ URL refreshed")
         print(f"  New URL: {data['audio_url'][:80]}...")
         print(f"  Expires: {data['expires_at']}")
 

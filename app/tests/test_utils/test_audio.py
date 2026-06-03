@@ -6,8 +6,6 @@ app/utils/audio.py. Tests verify audio file handling, validation,
 and metadata extraction.
 """
 
-import pytest
-
 from app.utils.audio import (
     AUDIO_MIME_TYPES,
     EXTENSION_TO_MIME,

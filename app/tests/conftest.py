@@ -37,7 +37,7 @@ if app_base_directory not in sys.path:
 from app.api import app
 from app.database.db import Base
 from app.deps import get_db
-from app.schemas.users import AccountType, User
+from app.schemas.users import AccountType
 from app.utils.auth import create_access_token, get_password_hash
 
 # ---------------------------------------------------------------------------

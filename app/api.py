@@ -25,7 +25,6 @@ from app.routers.admin_analytics import router as admin_analytics_router
 from app.routers.audio import router as audio_router
 from app.routers.auth import router as auth_router
 from app.routers.dashboard import router as dashboard_router
-from app.routers.frontend import router as frontend_router
 from app.routers.google_analytics import router as google_analytics_router
 from app.routers.inference import router as inference_router
 from app.routers.language import router as language_router
@@ -60,10 +59,10 @@ class LargeUploadMiddleware(BaseHTTPMiddleware):
                 content_length = int(content_length)
                 if content_length > MAX_UPLOAD_SIZE:
                     logger.warning(
-                        f"File upload rejected: size {content_length/1024/1024:.1f}MB exceeds limit of {MAX_UPLOAD_SIZE/1024/1024:.1f}MB"
+                        f"File upload rejected: size {content_length / 1024 / 1024:.1f}MB exceeds limit of {MAX_UPLOAD_SIZE / 1024 / 1024:.1f}MB"  # noqa: E501
                     )
                     return Response(
-                        content=f"File too large. Maximum size is {MAX_UPLOAD_SIZE/1024/1024:.1f}MB. For larger files, only the first 10 minutes will be transcribed.",
+                        content=f"File too large. Maximum size is {MAX_UPLOAD_SIZE / 1024 / 1024:.1f}MB. For larger files, only the first 10 minutes will be transcribed.",  # noqa: E501
                         status_code=413,
                     )
         response = await call_next(request)

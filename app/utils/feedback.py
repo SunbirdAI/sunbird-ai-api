@@ -79,7 +79,7 @@ INFERENCE_TYPES = {
 }
 
 
-async def save_api_inference(
+async def save_api_inference(  # noqa: C901
     source_text: Any,
     model_results: Any,
     username: Any,
