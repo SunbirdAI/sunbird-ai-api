@@ -6,7 +6,14 @@ import time
 import requests
 import runpod
 from dotenv import load_dotenv
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    HTTPException,
+    Request,
+    Response,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 from tenacity import (
     retry,
@@ -17,6 +24,7 @@ from tenacity import (
 
 from app.deps import QuotaServiceDep, get_current_user, get_db
 from app.schemas.tasks import SummarisationRequest, SummarisationResponse, TTSRequest
+from app.utils.deprecation import SUCCESSOR_SPEECH, add_deprecation_headers
 from app.utils.feedback import INFERENCE_TYPES, save_api_inference
 from app.utils.quota_guard import check_quota
 from app.utils.rate_limit import get_account_type_limit, limiter
@@ -152,6 +160,7 @@ async def text_to_speech(  # noqa: C901
     tts_request: TTSRequest,
     quota: QuotaServiceDep,
     background_tasks: BackgroundTasks,
+    http_response: Response,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
@@ -194,10 +203,10 @@ async def text_to_speech(  # noqa: C901
         }
     """
     await check_quota(quota, db, current_user)
-    # Log deprecation warning
     logging.warning(
-        "DEPRECATED: /tasks/tts endpoint called. Please migrate to /tasks/runpod/tts"
+        "Deprecated endpoint /tasks/tts called; use POST /tasks/audio/speech"
     )
+    add_deprecation_headers(http_response, SUCCESSOR_SPEECH)
 
     endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
     user = current_user

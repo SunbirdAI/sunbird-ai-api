@@ -1,0 +1,87 @@
+"""OpenAPI tag-consolidation tests.
+
+Every deprecated endpoint (and the non-deprecated legacy `/tasks/summarise`)
+must be grouped under the single ``legacy/deprecated`` tag, and that tag must
+not leak onto any live endpoint.
+"""
+
+from app.api import app
+
+LEGACY_TAG = "legacy/deprecated"
+
+# Non-deprecated endpoints that are legacy by convention (backward-compat
+# tasks_router) and should still carry the shared legacy tag.
+EXTRA_LEGACY_PATHS = {"/tasks/summarise"}
+
+_HTTP_METHODS = {"get", "post", "put", "delete", "patch"}
+
+
+def _operations():
+    """Yield (path, method, operation) for every real HTTP operation."""
+    for path, methods in app.openapi()["paths"].items():
+        for method, op in methods.items():
+            if method in _HTTP_METHODS:
+                yield path, method, op
+
+
+def test_deprecated_endpoints_only_carry_legacy_tag():
+    """Each deprecated op (and EXTRA_LEGACY_PATHS) has exactly [legacy/deprecated]."""
+    offenders = [
+        (method.upper(), path, op.get("tags"))
+        for path, method, op in _operations()
+        if (op.get("deprecated") or path in EXTRA_LEGACY_PATHS)
+        and op.get("tags") != [LEGACY_TAG]
+    ]
+    assert not offenders, f"legacy/deprecated endpoints with wrong tags: {offenders}"
+
+
+def test_legacy_tag_does_not_leak_onto_live_endpoints():
+    """No live (non-deprecated, non-legacy) endpoint carries the legacy tag."""
+    leaks = [
+        (method.upper(), path)
+        for path, method, op in _operations()
+        if LEGACY_TAG in op.get("tags", [])
+        and not op.get("deprecated")
+        and path not in EXTRA_LEGACY_PATHS
+    ]
+    assert not leaks, f"live endpoints incorrectly tagged legacy/deprecated: {leaks}"
+
+
+def test_all_deprecated_endpoints_are_grouped():
+    """Sanity check: the unified endpoints stay under their own live tags."""
+    by_path = {(path, method): op.get("tags", []) for path, method, op in _operations()}
+    assert by_path[("/tasks/audio/speech", "post")] == ["Text-to-Speech"]
+    assert by_path[("/tasks/audio/speech/batch", "post")] == ["Text-to-Speech"]
+    assert by_path[("/tasks/voice/speakers", "get")] == ["Text-to-Speech"]
+    assert by_path[("/tasks/audio/speech/url", "get")] == ["Text-to-Speech"]
+    assert by_path[("/tasks/audio/transcriptions", "post")] == ["Speech-to-Text"]
+    # health moved onto the unified surface; refresh-url is now deprecated.
+    assert by_path[("/tasks/modal/health", "get")] == ["Text-to-Speech"]
+    assert by_path[("/tasks/modal/tts/refresh-url", "get")] == ["legacy/deprecated"]
+
+
+# Provider-specific / legacy tags removed by the consolidation. (The plain
+# "Speech-to-Text" and "Text-to-Speech" names are now reused for the unified
+# surface, so they are intentionally NOT in this set.)
+REMOVED_TAGS = {
+    "TTS (Modal)",
+    "TTS (Orpheus)",
+    "TTS (RunPod)",
+    "AI Tasks",
+    "Frontend Routes",
+    "Speech-to-Text (Unified)",
+    "Text-to-Speech (Unified)",
+}
+
+
+def test_removed_tags_are_gone():
+    """The removed tags appear neither in metadata nor on any endpoint."""
+    schema = app.openapi()
+    metadata_names = {t["name"] for t in schema.get("tags", [])}
+    assert REMOVED_TAGS.isdisjoint(
+        metadata_names
+    ), f"removed tags still in metadata: {REMOVED_TAGS & metadata_names}"
+    used = {tag for _, _, op in _operations() for tag in op.get("tags", [])}
+    assert REMOVED_TAGS.isdisjoint(
+        used
+    ), f"removed tags still used by endpoints: {REMOVED_TAGS & used}"
