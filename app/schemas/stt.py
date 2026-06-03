@@ -55,6 +55,18 @@ class SttbLanguage(str, Enum):
     lumasaba = "myx"
 
 
+class TranscriptionPlatform(str, Enum):
+    """Supported transcription platforms for the unified endpoint.
+
+    Attributes:
+        modal: Modal-hosted Whisper ASR.
+        runpod: RunPod serverless transcription.
+    """
+
+    modal = "modal"
+    runpod = "runpod"
+
+
 class STTTranscript(BaseModel):
     """Response model for speech-to-text transcription results.
 

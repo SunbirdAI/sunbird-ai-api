@@ -54,7 +54,6 @@ from app.core.exceptions import (
 )
 from app.crud.audio_transcription import create_audio_transcription
 from app.deps import ModalSTTServiceDep, QuotaServiceDep, get_current_user, get_db
-from app.utils.quota_guard import check_quota
 from app.schemas.stt import (
     ALLOWED_AUDIO_TYPES,
     CHUNK_SIZE,
@@ -70,7 +69,13 @@ from app.services.stt_service import (
     get_stt_service,
 )
 from app.utils.audio import get_audio_extension
+from app.utils.deprecation import (
+    SUCCESSOR_TRANSCRIPTIONS,
+    add_deprecation_headers,
+    deprecation_headers,
+)
 from app.utils.feedback import INFERENCE_TYPES, save_api_inference
+from app.utils.quota_guard import check_quota
 from app.utils.rate_limit import get_account_type_limit, limiter
 
 load_dotenv()
@@ -88,10 +93,11 @@ def get_service() -> STTService:
     return get_stt_service()
 
 
-@router.post("/stt_from_gcs")
+@router.post("/stt_from_gcs", deprecated=True)
 async def speech_to_text_from_gcs(
     request: Request,
     background_tasks: BackgroundTasks,
+    http_response: Response,
     gcs_blob_name: str = Form(...),
     language: SttbLanguage = Form(SttbLanguage.luganda),
     adapter: SttbLanguage = Form(SttbLanguage.luganda),
@@ -128,6 +134,11 @@ async def speech_to_text_from_gcs(
         ExternalServiceError: If transcription service fails.
     """
     start_time = time.time()
+    logging.warning(
+        "Deprecated endpoint /tasks/stt_from_gcs called; "
+        "use POST /tasks/audio/transcriptions"
+    )
+    add_deprecation_headers(http_response, SUCCESSOR_TRANSCRIPTIONS)
 
     try:
         result = await service.transcribe_from_gcs(
@@ -190,6 +201,7 @@ async def speech_to_text_from_gcs(
             return Response(
                 content=response.model_dump_json(),
                 media_type="application/json",
+                headers=deprecation_headers(SUCCESSOR_TRANSCRIPTIONS),
             )
 
         return response
@@ -212,12 +224,13 @@ async def speech_to_text_from_gcs(
         )
 
 
-@router.post("/stt")
+@router.post("/stt", deprecated=True)
 @limiter.limit(get_account_type_limit)
 async def speech_to_text(
     request: Request,
     background_tasks: BackgroundTasks,
     quota: QuotaServiceDep,
+    http_response: Response,
     audio: UploadFile = File(..., description="Audio file to transcribe"),
     language: SttbLanguage = Form(SttbLanguage.luganda),
     adapter: SttbLanguage = Form(SttbLanguage.luganda),
@@ -267,6 +280,10 @@ async def speech_to_text(
     """
     await check_quota(quota, db, current_user)
     start_time = time.time()
+    logging.warning(
+        "Deprecated endpoint /tasks/stt called; " "use POST /tasks/audio/transcriptions"
+    )
+    add_deprecation_headers(http_response, SUCCESSOR_TRANSCRIPTIONS)
 
     try:
         # Validate file type
@@ -362,6 +379,7 @@ async def speech_to_text(
             return Response(
                 content=response.model_dump_json(),
                 media_type="application/json",
+                headers=deprecation_headers(SUCCESSOR_TRANSCRIPTIONS),
             )
 
         return response
@@ -384,12 +402,13 @@ async def speech_to_text(
         )
 
 
-@router.post("/org/stt")
+@router.post("/org/stt", deprecated=True)
 @limiter.limit(get_account_type_limit)
 async def speech_to_text_org(
     request: Request,
     background_tasks: BackgroundTasks,
     quota: QuotaServiceDep,
+    http_response: Response,
     audio: UploadFile = File(...),
     recognise_speakers: bool = Form(False),
     db: AsyncSession = Depends(get_db),
@@ -422,6 +441,11 @@ async def speech_to_text_org(
     """
     await check_quota(quota, db, current_user)
     start_time = time.time()
+    logging.warning(
+        "Deprecated endpoint /tasks/org/stt called; "
+        "use POST /tasks/audio/transcriptions"
+    )
+    add_deprecation_headers(http_response, SUCCESSOR_TRANSCRIPTIONS)
 
     try:
         # Save uploaded file to temp location
@@ -518,12 +542,14 @@ async def speech_to_text_org(
         "Upload an audio file and get transcription using the Modal-hosted "
         "Whisper model. Optionally specify a language to improve accuracy."
     ),
+    deprecated=True,
 )
 @limiter.limit(get_account_type_limit)
 async def modal_speech_to_text(
     request: Request,
     background_tasks: BackgroundTasks,
     quota: QuotaServiceDep,
+    http_response: Response,
     audio: UploadFile = File(..., description="Audio file to transcribe"),
     language: Optional[str] = Form(
         default=None,
@@ -564,6 +590,11 @@ async def modal_speech_to_text(
     """
     await check_quota(quota, db, current_user)
     start_time = time.time()
+    logging.warning(
+        "Deprecated endpoint /tasks/modal/stt called; "
+        "use POST /tasks/audio/transcriptions"
+    )
+    add_deprecation_headers(http_response, SUCCESSOR_TRANSCRIPTIONS)
 
     try:
         # Read audio bytes from uploaded file
