@@ -1,13 +1,16 @@
 description = """
-Welcome to the Sunbird AI API documentation. The Sunbird AI API provides access to Sunbird's language models and AI services for Ugandan languages.  # noqa: E501
+Welcome to the Sunbird AI API documentation. The Sunbird AI API provides access to
+Sunbird's language models and AI services for Ugandan languages.
 
 ## Supported Languages
-**English**, **Acholi**, **Ateso**, **Luganda**, **Lugbara**, **Runyankole**, **Swahili** and **20+** more Ugandan languages supported via sunflower.  # noqa: E501
+**English**, **Acholi**, **Ateso**, **Luganda**, **Lugbara**, **Runyankole**, **Swahili**
+and **20+** more Ugandan languages supported via sunflower.
 
 ## Getting Started
 You can checkout the [usage guide](https://salt.sunbird.ai/API/) for a full tutorial.
 
-For quickstart tutorials, visit our [GitHub repository](https://github.com/SunbirdAI/sunbird-ai-api/blob/main/docs/tutorial.md)  # noqa: E501
+For quickstart tutorials, visit our
+[GitHub repository](https://github.com/SunbirdAI/sunbird-ai-api/blob/main/docs/tutorial.md)
 
 ### Authentication
 
@@ -15,7 +18,8 @@ For quickstart tutorials, visit our [GitHub repository](https://github.com/Sunbi
 If you don't already have an account, use the `/auth/register` endpoint to create one.
 
 #### Getting an Access Token
-Authentication is done via a Bearer token. Use the `/auth/token` endpoint to get your access token. This token lasts for 7 days.  # noqa: E501
+Authentication is done via a Bearer token. Use the `/auth/token` endpoint to get your
+access token. This token lasts for 7 days.
 
 Use the `Authorize` button below to login and access the protected endpoints.
 
@@ -26,14 +30,18 @@ Use the `Authorize` button below to login and access the protected endpoints.
   - Upload audio files directly for transcription
   - Powered by Modal serverless GPU infrastructure
   - Supports various audio formats (WAV, MP3, OGG, M4A, etc.)
-  - Optional `language` parameter: pass a 3-letter code (e.g. `eng`, `lug`) or full name (e.g. `english`, `luganda`) to improve transcription accuracy for local languages. Auto-detects if omitted.  # noqa: E501
+  - Optional `language` parameter: pass a 3-letter code (e.g. `eng`, `lug`) or full name
+    (e.g. `english`, `luganda`) to improve transcription accuracy for local languages.
+    Auto-detects if omitted.
 - **`POST /tasks/stt`** - RunPod-based STT for supported languages with language/adapter selection
 
 ### Translation
-- **`POST /tasks/translate`** - Translate text between English and local languages (Acholi, Ateso, Luganda, Lugbara, Runyankole)  # noqa: E501
+- **`POST /tasks/translate`** - Translate text between English and local languages
+  (Acholi, Ateso, Luganda, Lugbara, Runyankole)
 
 ### Language Detection
-- **`POST /tasks/language_id`** - Auto-detect the language of text input (supports Acholi, Ateso, English, Luganda, Lugbara, Runyankole)  # noqa: E501
+- **`POST /tasks/language_id`** - Auto-detect the language of text input
+  (supports Acholi, Ateso, English, Luganda, Lugbara, Runyankole)
 
 ### Text-to-Speech (TTS)
 - **`POST /tasks/modal/tts`** - Modal-based TTS with streaming support
