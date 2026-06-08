@@ -30,17 +30,13 @@ class SpeechRequest(BaseModel):
     SpeechService validates combinations and returns 400 on a mismatch.
     """
 
-    text: str = Field(
-        default="I am a nurse who takes care of many people.",
-        min_length=1,
-        description="Text to synthesize.",
-    )
+    text: str = Field(..., min_length=1, description="Text to synthesize.")
     model: TTSModel = Field(default=TTSModel.orpheus_3b_tts, description="TTS model.")
     platform: TTSPlatform = Field(
         default=TTSPlatform.modal, description="Inference platform."
     )
     voice: Optional[str] = Field(
-        default="salt_eng_0001",
+        default=None,
         description="Voice/speaker. spark-tts: SpeakerID name (e.g. 'luganda_female') "
         "or id (e.g. '248'); orpheus-3b-tts: catalog tag (e.g. 'salt_lug_0001').",
     )
@@ -50,20 +46,38 @@ class SpeechRequest(BaseModel):
         "stream/both require model='spark-tts' on platform='modal'.",
     )
     language: Optional[str] = Field(
-        default="eng", description="orpheus only (ISO 639-3)."
+        default=None, description="orpheus only (ISO 639-3)."
     )
     temperature: Optional[float] = Field(
-        default=0.6, description="orpheus + runpod-spark."
+        default=None, description="orpheus + runpod-spark."
     )
-    top_p: Optional[float] = Field(default=0.95, description="orpheus only.")
+    top_p: Optional[float] = Field(default=None, description="orpheus only.")
     repetition_penalty: Optional[float] = Field(
-        default=1.1, description="orpheus only."
+        default=None, description="orpheus only."
     )
-    max_tokens: Optional[int] = Field(default=1200, description="orpheus only.")
-    seed: Optional[int] = Field(default=42, description="orpheus only.")
+    max_tokens: Optional[int] = Field(default=None, description="orpheus only.")
+    seed: Optional[int] = Field(default=None, description="orpheus only.")
     max_new_audio_tokens: Optional[int] = Field(
-        default=2048, description="runpod-spark only."
+        default=None, description="runpod-spark only."
     )
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "text": "I am a nurse who takes care of many people.",
+                "model": "orpheus-3b-tts",
+                "platform": "modal",
+                "voice": "salt_eng_0001",
+                "response_mode": "url",
+                "language": "eng",
+                "temperature": 0.6,
+                "top_p": 0.95,
+                "repetition_penalty": 1.1,
+                "max_tokens": 1200,
+                "seed": 42,
+            }
+        }
+    }
 
     @field_validator("text")
     @classmethod
@@ -103,24 +117,35 @@ class RefreshedUrlResponse(BaseModel):
 class SpeechBatchItem(BaseModel):
     """One item in a batch speech request (orpheus-3b-tts only)."""
 
-    text: str = Field(
-        default="I am a nurse who takes care of many people.",
-        min_length=1,
-        description="Text to synthesize.",
-    )
+    text: str = Field(..., min_length=1, description="Text to synthesize.")
     voice: Optional[str] = Field(
-        default="salt_eng_0001",
+        default=None,
         description="orpheus catalog tag (e.g. 'salt_lug_0001'). "
         "If omitted, the service uses salt_lug_0001.",
     )
     language: Optional[str] = Field(
-        default="eng", description="orpheus ISO 639-3 code (e.g. 'lug')."
+        default=None, description="orpheus ISO 639-3 code (e.g. 'lug')."
     )
-    temperature: Optional[float] = Field(default=0.6)
-    top_p: Optional[float] = Field(default=0.95)
-    repetition_penalty: Optional[float] = Field(default=1.1)
-    max_tokens: Optional[int] = Field(default=1200)
-    seed: Optional[int] = Field(default=42)
+    temperature: Optional[float] = Field(default=None)
+    top_p: Optional[float] = Field(default=None)
+    repetition_penalty: Optional[float] = Field(default=None)
+    max_tokens: Optional[int] = Field(default=None)
+    seed: Optional[int] = Field(default=None)
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "text": "I am a nurse who takes care of many people.",
+                "voice": "salt_eng_0001",
+                "language": "eng",
+                "temperature": 0.6,
+                "top_p": 0.95,
+                "repetition_penalty": 1.1,
+                "max_tokens": 1200,
+                "seed": 42,
+            }
+        }
+    }
 
     @field_validator("text")
     @classmethod
