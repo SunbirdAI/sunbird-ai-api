@@ -61,6 +61,24 @@ class SpeechRequest(BaseModel):
         default=None, description="runpod-spark only."
     )
 
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "text": "I am a nurse who takes care of many people.",
+                "model": "orpheus-3b-tts",
+                "platform": "modal",
+                "voice": "salt_eng_0001",
+                "response_mode": "url",
+                "language": "eng",
+                "temperature": 0.6,
+                "top_p": 0.95,
+                "repetition_penalty": 1.1,
+                "max_tokens": 1200,
+                "seed": 42,
+            }
+        }
+    }
+
     @field_validator("text")
     @classmethod
     def _strip_text(cls, v: str) -> str:
@@ -113,6 +131,21 @@ class SpeechBatchItem(BaseModel):
     repetition_penalty: Optional[float] = Field(default=None)
     max_tokens: Optional[int] = Field(default=None)
     seed: Optional[int] = Field(default=None)
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "text": "I am a nurse who takes care of many people.",
+                "voice": "salt_eng_0001",
+                "language": "eng",
+                "temperature": 0.6,
+                "top_p": 0.95,
+                "repetition_penalty": 1.1,
+                "max_tokens": 1200,
+                "seed": 42,
+            }
+        }
+    }
 
     @field_validator("text")
     @classmethod
