@@ -356,3 +356,164 @@ class TestChatCompletionsEndpoint:
         assert kwargs["max_tokens"] == 256
         assert kwargs["top_p"] == 0.8
         assert kwargs["stop"] == ["###"]
+
+
+import json as jsonlib  # noqa: E402
+
+
+async def _read_sse_events(response) -> list:
+    """Collect SSE `data:` payloads from a streaming httpx response."""
+    events = []
+    buffer = ""
+    async for text in response.aiter_text():
+        buffer += text
+    for line in buffer.split("\n"):
+        line = line.strip()
+        if line.startswith("data: "):
+            events.append(line[len("data: "):])
+    return events
+
+
+class TestChatCompletionsStreaming:
+    """Tests for POST /tasks/chat/completions with stream=true."""
+
+    def _stream_items(self):
+        return iter(
+            [
+                {"type": "delta", "content": "Oli "},
+                {"type": "delta", "content": "otya?"},
+                {
+                    "type": "usage",
+                    "usage": {
+                        "completion_tokens": 3,
+                        "prompt_tokens": 5,
+                        "total_tokens": 8,
+                    },
+                },
+            ]
+        )
+
+    async def test_streaming_sse_chunks(
+        self,
+        async_client: AsyncClient,
+        test_user: Dict,
+        override_service: MagicMock,
+    ) -> None:
+        override_service.run_inference_stream.return_value = self._stream_items()
+        async with async_client.stream(
+            "POST",
+            "/tasks/chat/completions",
+            json={
+                "messages": [{"role": "user", "content": "Greet me"}],
+                "stream": True,
+            },
+            headers={"Authorization": f"Bearer {test_user['token']}"},
+        ) as response:
+            assert response.status_code == 200
+            assert response.headers["content-type"].startswith(
+                "text/event-stream"
+            )
+            events = await _read_sse_events(response)
+
+        assert events[-1] == "[DONE]"
+        chunks = [jsonlib.loads(e) for e in events[:-1]]
+
+        # Every chunk is a chat.completion.chunk with a stable id
+        ids = {c["id"] for c in chunks}
+        assert len(ids) == 1
+        assert ids.pop().startswith("chatcmpl-")
+        assert all(c["object"] == "chat.completion.chunk" for c in chunks)
+        assert all(c["model"] == "Sunbird/Sunflower-14B" for c in chunks)
+
+        # First chunk primes the assistant role
+        assert chunks[0]["choices"][0]["delta"]["role"] == "assistant"
+
+        # Accumulated content equals the full text
+        content = "".join(
+            c["choices"][0]["delta"].get("content") or ""
+            for c in chunks
+            if c["choices"]
+        )
+        assert content == "Oli otya?"
+
+        # A finish chunk with finish_reason == "stop" exists
+        assert any(
+            c["choices"] and c["choices"][0]["finish_reason"] == "stop"
+            for c in chunks
+        )
+
+        # The usage chunk carries usage and no choices
+        usage_chunks = [c for c in chunks if c.get("usage")]
+        assert len(usage_chunks) == 1
+        assert usage_chunks[0]["usage"]["total_tokens"] == 8
+        assert usage_chunks[0]["choices"] == []
+
+    async def test_streaming_model_loading_maps_to_503(
+        self,
+        async_client: AsyncClient,
+        test_user: Dict,
+        override_service: MagicMock,
+    ) -> None:
+        def _raise(*args, **kwargs):
+            raise ModelLoadingError("cold start")
+            yield  # pragma: no cover - makes this a generator function
+
+        override_service.run_inference_stream.side_effect = (
+            lambda *a, **k: _raise()
+        )
+        response = await async_client.post(
+            "/tasks/chat/completions",
+            json={
+                "messages": [{"role": "user", "content": "Hello"}],
+                "stream": True,
+            },
+            headers={"Authorization": f"Bearer {test_user['token']}"},
+        )
+        assert response.status_code == 503
+
+    async def test_streaming_empty_stream_maps_to_502(
+        self,
+        async_client: AsyncClient,
+        test_user: Dict,
+        override_service: MagicMock,
+    ) -> None:
+        override_service.run_inference_stream.return_value = iter([])
+        response = await async_client.post(
+            "/tasks/chat/completions",
+            json={
+                "messages": [{"role": "user", "content": "Hello"}],
+                "stream": True,
+            },
+            headers={"Authorization": f"Bearer {test_user['token']}"},
+        )
+        assert response.status_code == 502
+
+    async def test_streaming_midstream_error_emits_error_event(
+        self,
+        async_client: AsyncClient,
+        test_user: Dict,
+        override_service: MagicMock,
+    ) -> None:
+        def _explodes():
+            yield {"type": "delta", "content": "partial"}
+            raise RuntimeError("connection lost")
+
+        override_service.run_inference_stream.return_value = _explodes()
+        async with async_client.stream(
+            "POST",
+            "/tasks/chat/completions",
+            json={
+                "messages": [{"role": "user", "content": "Hello"}],
+                "stream": True,
+            },
+            headers={"Authorization": f"Bearer {test_user['token']}"},
+        ) as response:
+            assert response.status_code == 200
+            events = await _read_sse_events(response)
+
+        assert events[-1] == "[DONE]"
+        error_events = [
+            jsonlib.loads(e) for e in events[:-1] if '"error"' in e
+        ]
+        assert len(error_events) == 1
+        assert error_events[0]["error"]["type"] == "server_error"
