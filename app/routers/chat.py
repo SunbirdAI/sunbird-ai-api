@@ -22,9 +22,8 @@ import time
 import uuid
 from typing import Any, Dict, Generator, List, Optional  # noqa: F401 — Generator/Optional used by Task 6
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Request
+from fastapi import APIRouter, BackgroundTasks, Request
 from fastapi.responses import StreamingResponse
-from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.concurrency import run_in_threadpool
 
 from app.core.exceptions import (
@@ -32,7 +31,7 @@ from app.core.exceptions import (
     ExternalServiceError,
     ServiceUnavailableError,
 )
-from app.deps import QuotaServiceDep, get_current_user, get_db
+from app.deps import CurrentUserDep, DbDep, InferenceServiceDep, QuotaServiceDep
 from app.schemas.chat import (
     SUPPORTED_MODELS,
     ChatCompletionChoice,
@@ -45,7 +44,6 @@ from app.services.inference_service import (
     InferenceService,
     InferenceTimeoutError,
     ModelLoadingError,
-    get_inference_service,
 )
 from app.utils.feedback import INFERENCE_TYPES, save_api_inference
 from app.utils.quota_guard import check_quota
@@ -58,11 +56,6 @@ router = APIRouter()
 # RunPod endpoint key that serves Sunbird/Sunflower-14B (see
 # InferenceService.endpoints).
 INTERNAL_MODEL_TYPE = "qwen"
-
-
-def get_service() -> InferenceService:
-    """Dependency for getting the Inference service instance."""
-    return get_inference_service()
 
 
 def _completion_id() -> str:
@@ -106,9 +99,9 @@ async def chat_completions(
     chat_request: ChatCompletionRequest,
     quota: QuotaServiceDep,
     background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user),
-    service: InferenceService = Depends(get_service),
+    db: DbDep,
+    current_user: CurrentUserDep,
+    service: InferenceServiceDep,
 ):
     """OpenAI-compatible chat completion powered by Sunbird's Sunflower model.
 

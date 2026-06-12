@@ -116,13 +116,13 @@ def mock_service() -> MagicMock:
 
 @pytest.fixture
 def override_service(mock_service: MagicMock):
-    """Route get_service to the mock for the duration of a test."""
+    """Route the inference service dependency to the mock for one test."""
     from app.api import app
-    from app.routers.chat import get_service
+    from app.services.inference_service import get_inference_service
 
-    app.dependency_overrides[get_service] = lambda: mock_service
+    app.dependency_overrides[get_inference_service] = lambda: mock_service
     yield mock_service
-    app.dependency_overrides.pop(get_service, None)
+    app.dependency_overrides.pop(get_inference_service, None)
 
 
 SAMPLE_RESULT: Dict[str, Any] = {
