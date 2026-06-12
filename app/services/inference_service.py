@@ -653,6 +653,9 @@ class InferenceService(BaseService):
         custom_system_message: Optional[str] = None,
         messages: Optional[List[Dict[str, str]]] = None,
         temperature: float = 0.3,
+        max_tokens: Optional[int] = None,
+        top_p: Optional[float] = None,
+        stop: Optional[Any] = None,
     ) -> Dict[str, Any]:
         """Run inference using the language model.
 
@@ -663,6 +666,9 @@ class InferenceService(BaseService):
             custom_system_message: Custom system message to override the default.
             messages: Full conversation messages in OpenAI format (preferred).
             temperature: Sampling temperature (0.0 to 2.0).
+            max_tokens: Maximum number of tokens to generate (optional).
+            top_p: Nucleus sampling probability cutoff (optional).
+            stop: Stop sequence(s) to halt generation (optional).
 
         Returns:
             Dictionary containing:
@@ -712,6 +718,13 @@ class InferenceService(BaseService):
             "temperature": temperature,
             "stream": stream,
         }
+
+        if max_tokens is not None:
+            payload["max_tokens"] = max_tokens
+        if top_p is not None:
+            payload["top_p"] = top_p
+        if stop is not None:
+            payload["stop"] = stop
 
         start_time = time.time()
         response_text: Optional[str] = None
