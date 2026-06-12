@@ -5,6 +5,7 @@ Covers schema validation, the non-streaming and streaming (SSE) paths,
 error mapping, and deprecation of the legacy Sunflower endpoints.
 """
 
+import json as jsonlib
 from typing import Any, Dict
 from unittest.mock import MagicMock
 
@@ -356,9 +357,6 @@ class TestChatCompletionsEndpoint:
         assert kwargs["max_tokens"] == 256
         assert kwargs["top_p"] == 0.8
         assert kwargs["stop"] == ["###"]
-
-
-import json as jsonlib  # noqa: E402
 
 
 async def _read_sse_events(response) -> list:
