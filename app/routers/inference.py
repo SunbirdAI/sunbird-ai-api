@@ -26,7 +26,7 @@ import time
 from typing import Any, Dict
 
 from dotenv import load_dotenv
-from fastapi import APIRouter, BackgroundTasks, Depends, Form, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import (
@@ -66,13 +66,21 @@ def get_service() -> InferenceService:
     return get_inference_service()
 
 
+def _add_deprecation_headers(response: Response) -> None:
+    """RFC 8594 deprecation headers pointing at the successor endpoint."""
+    response.headers["Deprecation"] = "true"
+    response.headers["Link"] = '</tasks/chat/completions>; rel="successor-version"'
+
+
 @router.post(
     "/sunflower_inference",
     response_model=SunflowerChatResponse,
+    deprecated=True,
 )
 @limiter.limit(get_account_type_limit)
 async def sunflower_inference(  # noqa: C901
     request: Request,
+    response: Response,
     chat_request: SunflowerChatRequest,
     quota: QuotaServiceDep,
     background_tasks: BackgroundTasks,
@@ -81,6 +89,8 @@ async def sunflower_inference(  # noqa: C901
     service: InferenceService = Depends(get_service),
 ) -> SunflowerChatResponse:
     """Professional Sunflower inference endpoint for multilingual chat completions.
+
+    **Deprecated**: use POST /tasks/chat/completions instead.
 
     This endpoint provides access to Sunbird AI's Sunflower model, specialized in:
     - Multilingual conversations in Ugandan languages (Luganda, Acholi, Ateso, etc.)
@@ -140,6 +150,7 @@ async def sunflower_inference(  # noqa: C901
             "message_count": 5
         }
     """
+    _add_deprecation_headers(response)
     await check_quota(quota, db, current_user)
     start_time = time.time()
     user = current_user
@@ -309,10 +320,12 @@ async def sunflower_inference(  # noqa: C901
 @router.post(
     "/sunflower_simple",
     response_model=Dict[str, Any],
+    deprecated=True,
 )
 @limiter.limit(get_account_type_limit)
 async def sunflower_simple_inference(  # noqa: C901
     request: Request,
+    response: Response,
     quota: QuotaServiceDep,
     background_tasks: BackgroundTasks,
     instruction: str = Form(..., description="The instruction or question for the AI"),
@@ -323,6 +336,8 @@ async def sunflower_simple_inference(  # noqa: C901
     current_user=Depends(get_current_user),
 ) -> Dict[str, Any]:
     """Simple Sunflower inference endpoint for single instruction/response.
+
+    **Deprecated**: use POST /tasks/chat/completions instead.
 
     This is a simplified interface for users who want to send a single instruction
     rather than managing conversation history. Uses form-based input for easier
@@ -366,6 +381,7 @@ async def sunflower_simple_inference(  # noqa: C901
             "success": true
         }
     """
+    _add_deprecation_headers(response)
     await check_quota(quota, db, current_user)
     start_time = time.time()
     user = current_user

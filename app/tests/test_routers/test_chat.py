@@ -506,3 +506,65 @@ class TestChatCompletionsStreaming:
         error_events = [jsonlib.loads(e) for e in events[:-1] if '"error"' in e]
         assert len(error_events) == 1
         assert error_events[0]["error"]["type"] == "server_error"
+
+
+class TestLegacyEndpointDeprecation:
+    """The legacy Sunflower endpoints must still work but be deprecated."""
+
+    SUCCESSOR_LINK = '</tasks/chat/completions>; rel="successor-version"'
+
+    async def test_sunflower_inference_has_deprecation_headers(
+        self,
+        async_client: AsyncClient,
+        test_user: Dict,
+    ) -> None:
+        from unittest.mock import patch
+
+        with patch(
+            "app.routers.inference.run_inference",
+            return_value=SAMPLE_RESULT,
+        ):
+            response = await async_client.post(
+                "/tasks/sunflower_inference",
+                json={"messages": [{"role": "user", "content": "Hello"}]},
+                headers={"Authorization": f"Bearer {test_user['token']}"},
+            )
+        assert response.status_code == 200
+        assert response.headers["deprecation"] == "true"
+        assert response.headers["link"] == self.SUCCESSOR_LINK
+
+    async def test_sunflower_simple_has_deprecation_headers(
+        self,
+        async_client: AsyncClient,
+        test_user: Dict,
+    ) -> None:
+        from unittest.mock import patch
+
+        with patch(
+            "app.routers.inference.run_inference",
+            return_value=SAMPLE_RESULT,
+        ):
+            response = await async_client.post(
+                "/tasks/sunflower_simple",
+                data={"instruction": "Translate 'hello' to Luganda"},
+                headers={"Authorization": f"Bearer {test_user['token']}"},
+            )
+        assert response.status_code == 200
+        assert response.headers["deprecation"] == "true"
+        assert response.headers["link"] == self.SUCCESSOR_LINK
+
+    async def test_openapi_marks_legacy_endpoints_deprecated(self) -> None:
+        from app.api import app
+
+        schema = app.openapi()
+        assert (
+            schema["paths"]["/tasks/sunflower_inference"]["post"].get("deprecated")
+            is True
+        )
+        assert (
+            schema["paths"]["/tasks/sunflower_simple"]["post"].get("deprecated") is True
+        )
+        assert (
+            schema["paths"]["/tasks/chat/completions"]["post"].get("deprecated")
+            is not True
+        )
