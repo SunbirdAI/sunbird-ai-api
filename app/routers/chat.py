@@ -70,8 +70,7 @@ def _prepare_messages(chat_request: ChatCompletionRequest) -> List[Dict[str, str
     """Convert request messages to dicts, injecting the default system message
     when the client did not provide one (mirrors the legacy endpoints)."""
     messages = [
-        {"role": m.role, "content": m.content.strip()}
-        for m in chat_request.messages
+        {"role": m.role, "content": m.content.strip()} for m in chat_request.messages
     ]
     if not any(m["role"] == "system" for m in messages):
         messages.insert(
@@ -402,7 +401,14 @@ async def _stream_chat_completion(
     )
 
     return StreamingResponse(
-        _event_stream(completion_id, created, chat_request.model, first_item, stream_gen, accumulated),
+        _event_stream(
+            completion_id,
+            created,
+            chat_request.model,
+            first_item,
+            stream_gen,
+            accumulated,
+        ),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

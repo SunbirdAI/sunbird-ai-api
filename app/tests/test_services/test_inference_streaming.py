@@ -33,14 +33,11 @@ class TestThinkTagFilter:
 
     def test_strips_tag_split_across_chunks(self) -> None:
         assert (
-            self._run(["<thi", "nk>secret", " stuff</th", "ink>Visible"])
-            == "Visible"
+            self._run(["<thi", "nk>secret", " stuff</th", "ink>Visible"]) == "Visible"
         )
 
     def test_strips_multiple_tags(self) -> None:
-        assert (
-            self._run(["a<think>x</think>b<think>y</think>c"]) == "abc"
-        )
+        assert self._run(["a<think>x</think>b<think>y</think>c"]) == "abc"
 
     def test_unterminated_think_is_discarded(self) -> None:
         assert self._run(["before<think>never closed"]) == "before"
@@ -59,9 +56,7 @@ class TestThinkTagFilter:
         assert self._run(["text</think>more"]) == "text</think>more"
 
     def test_close_tag_split_across_chunks(self) -> None:
-        assert (
-            self._run(["<think>secret</thi", "nk>visible"]) == "visible"
-        )
+        assert self._run(["<think>secret</thi", "nk>visible"]) == "visible"
 
     def test_empty_chunk_is_safe(self) -> None:
         assert self._run(["", "Hello", "", " world", ""]) == "Hello world"
@@ -89,12 +84,8 @@ def _make_chunk(
 def _make_completion(content: str) -> SimpleNamespace:
     """Build a fake non-streaming OpenAI completion response."""
     return SimpleNamespace(
-        choices=[
-            SimpleNamespace(message=SimpleNamespace(content=content))
-        ],
-        usage=SimpleNamespace(
-            completion_tokens=3, prompt_tokens=5, total_tokens=8
-        ),
+        choices=[SimpleNamespace(message=SimpleNamespace(content=content))],
+        usage=SimpleNamespace(completion_tokens=3, prompt_tokens=5, total_tokens=8),
     )
 
 
@@ -106,9 +97,7 @@ class TestRunInferencePassthroughParams:
             runpod_api_key="test-key", qwen_endpoint_id="test-endpoint"
         )
         mock_client = MagicMock()
-        mock_client.chat.completions.create.return_value = _make_completion(
-            "Oli otya?"
-        )
+        mock_client.chat.completions.create.return_value = _make_completion("Oli otya?")
         return service, mock_client
 
     def test_passthrough_params_in_payload(self) -> None:
@@ -130,9 +119,7 @@ class TestRunInferencePassthroughParams:
     def test_omitted_params_not_in_payload(self) -> None:
         service, mock_client = self._service_with_mock_client()
         with patch.object(service, "_get_client", return_value=mock_client):
-            service.run_inference(
-                messages=[{"role": "user", "content": "Hello"}]
-            )
+            service.run_inference(messages=[{"role": "user", "content": "Hello"}])
         kwargs = mock_client.chat.completions.create.call_args.kwargs
         assert "max_tokens" not in kwargs
         assert "top_p" not in kwargs
@@ -205,13 +192,9 @@ class TestRunInferenceStream:
             ]
         )
         items = self._collect(
-            service.run_inference_stream(
-                messages=[{"role": "user", "content": "Hi"}]
-            )
+            service.run_inference_stream(messages=[{"role": "user", "content": "Hi"}])
         )
-        assert "".join(
-            i["content"] for i in items if i["type"] == "delta"
-        ) == "Visible"
+        assert "".join(i["content"] for i in items if i["type"] == "delta") == "Visible"
 
     def test_requests_stream_with_usage(self) -> None:
         service = self._service_with_chunks([_make_chunk(content="x")])

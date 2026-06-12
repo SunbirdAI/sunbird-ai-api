@@ -66,7 +66,9 @@ Use the `Authorize` button below to login and access the protected endpoints.
     - `GET /tasks/modal/tts/refresh-url` → `GET /tasks/audio/speech/url`
 
 ### Inference (Sunflower Chat)
-- **`POST /tasks/chat/completions`** - OpenAI-compatible chat completions (Sunflower model). Supports single instructions, multi-turn conversations, and SSE streaming (`stream: true`). Use model `Sunbird/Sunflower-14B`.
+- **`POST /tasks/chat/completions`** - OpenAI-compatible chat completions (Sunflower model).
+  Supports single instructions, multi-turn conversations, and SSE streaming (`stream: true`).
+  Use model `Sunbird/Sunflower-14B`.
   - **Deprecated** → superseded by the unified endpoint above:
     - `POST /tasks/sunflower_inference` → `POST /tasks/chat/completions`
     - `POST /tasks/sunflower_simple` → `POST /tasks/chat/completions` (send the instruction as a single user message)

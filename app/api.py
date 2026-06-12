@@ -24,9 +24,9 @@ from app.middleware import MonitoringMiddleware
 from app.routers.admin_analytics import router as admin_analytics_router
 from app.routers.audio import router as audio_router
 from app.routers.auth import router as auth_router
+from app.routers.chat import router as chat_router
 from app.routers.dashboard import router as dashboard_router
 from app.routers.google_analytics import router as google_analytics_router
-from app.routers.chat import router as chat_router
 from app.routers.inference import router as inference_router
 from app.routers.language import router as language_router
 from app.routers.orpheus_tts import router as orpheus_tts_router

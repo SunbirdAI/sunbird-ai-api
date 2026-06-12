@@ -46,21 +46,15 @@ class ChatCompletionRequest(BaseModel):
     messages: List[ChatMessage] = Field(
         ..., min_length=1, description="Conversation messages"
     )
-    temperature: float = Field(
-        0.3, ge=0.0, le=2.0, description="Sampling temperature"
-    )
+    temperature: float = Field(0.3, ge=0.0, le=2.0, description="Sampling temperature")
     max_tokens: Optional[int] = Field(
         None, ge=1, description="Maximum tokens to generate"
     )
     top_p: Optional[float] = Field(
         None, gt=0.0, le=1.0, description="Nucleus sampling probability"
     )
-    stop: Optional[Union[str, List[str]]] = Field(
-        None, description="Stop sequence(s)"
-    )
-    stream: bool = Field(
-        False, description="Stream the response as Server-Sent Events"
-    )
+    stop: Optional[Union[str, List[str]]] = Field(None, description="Stop sequence(s)")
+    stream: bool = Field(False, description="Stream the response as Server-Sent Events")
 
 
 class ChatCompletionResponseMessage(BaseModel):
