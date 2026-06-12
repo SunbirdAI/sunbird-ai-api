@@ -329,9 +329,10 @@ class ThinkTagFilter:
                     # Drop think content, but keep a possible partial close
                     # tag so it can complete on the next chunk.
                     keep = self._partial_suffix_len(self._buffer, self.CLOSE_TAG)
-                    self._buffer = self._buffer[len(self._buffer) - keep :] if keep else ""
+                    self._buffer = self._buffer[-keep:] if keep else ""
                     return "".join(emitted)
-                self._buffer = self._buffer[idx + len(self.CLOSE_TAG) :]
+                resume_at = idx + len(self.CLOSE_TAG)
+                self._buffer = self._buffer[resume_at:]
                 self._in_think = False
             else:
                 idx = self._buffer.find(self.OPEN_TAG)
@@ -342,7 +343,8 @@ class ThinkTagFilter:
                     self._buffer = self._buffer[emit_until:]
                     return "".join(emitted)
                 emitted.append(self._buffer[:idx])
-                self._buffer = self._buffer[idx + len(self.OPEN_TAG) :]
+                think_at = idx + len(self.OPEN_TAG)
+                self._buffer = self._buffer[think_at:]
                 self._in_think = True
 
     def flush(self) -> str:
