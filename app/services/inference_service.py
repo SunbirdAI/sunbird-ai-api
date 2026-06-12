@@ -282,6 +282,81 @@ def classify_error(  # noqa: C901
 
 
 # =============================================================================
+# Streaming Think-Tag Filter
+# =============================================================================
+
+
+class ThinkTagFilter:
+    """Strips ``<think>...</think>`` spans from streamed text.
+
+    The streaming equivalent of ``InferenceService._clean_response``: because
+    streamed deltas can split a tag across chunk boundaries (e.g. ``"<thi"``
+    then ``"nk>"``), this filter holds back any trailing text that could still
+    turn into a tag and only emits text once it is provably outside a think
+    span. Content inside an unterminated ``<think>`` block is discarded.
+
+    Usage:
+        f = ThinkTagFilter()
+        visible = f.feed(chunk_text)   # call per streamed delta
+        visible += f.flush()           # call once after the stream ends
+    """
+
+    OPEN_TAG = "<think>"
+    CLOSE_TAG = "</think>"
+
+    def __init__(self) -> None:
+        self._buffer = ""
+        self._in_think = False
+
+    @staticmethod
+    def _partial_suffix_len(text: str, tag: str) -> int:
+        """Length of the longest strict tag prefix that ``text`` ends with."""
+        max_len = min(len(text), len(tag) - 1)
+        for length in range(max_len, 0, -1):
+            if text.endswith(tag[:length]):
+                return length
+        return 0
+
+    def feed(self, text: str) -> str:
+        """Consume a streamed delta and return the text safe to emit."""
+        self._buffer += text
+        emitted: List[str] = []
+
+        while True:
+            if self._in_think:
+                idx = self._buffer.find(self.CLOSE_TAG)
+                if idx == -1:
+                    # Drop think content, but keep a possible partial close
+                    # tag so it can complete on the next chunk.
+                    keep = self._partial_suffix_len(self._buffer, self.CLOSE_TAG)
+                    self._buffer = self._buffer[len(self._buffer) - keep :] if keep else ""
+                    return "".join(emitted)
+                self._buffer = self._buffer[idx + len(self.CLOSE_TAG) :]
+                self._in_think = False
+            else:
+                idx = self._buffer.find(self.OPEN_TAG)
+                if idx == -1:
+                    keep = self._partial_suffix_len(self._buffer, self.OPEN_TAG)
+                    emit_until = len(self._buffer) - keep
+                    emitted.append(self._buffer[:emit_until])
+                    self._buffer = self._buffer[emit_until:]
+                    return "".join(emitted)
+                emitted.append(self._buffer[:idx])
+                self._buffer = self._buffer[idx + len(self.OPEN_TAG) :]
+                self._in_think = True
+
+    def flush(self) -> str:
+        """Release held-back text after the stream ends.
+
+        Text held as a potential tag prefix is emitted (it never became a
+        tag); anything inside an unterminated think block stays dropped.
+        """
+        leftover = "" if self._in_think else self._buffer
+        self._buffer = ""
+        return leftover
+
+
+# =============================================================================
 # Retry Decorator
 # =============================================================================
 
