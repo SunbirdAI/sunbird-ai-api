@@ -353,6 +353,7 @@ class ThinkTagFilter:
         """
         leftover = "" if self._in_think else self._buffer
         self._buffer = ""
+        self._in_think = False
         return leftover
 
 

@@ -48,3 +48,16 @@ class TestThinkTagFilter:
 
     def test_lone_angle_bracket_passes_through(self) -> None:
         assert self._run(["a < b and a <t", "ag> done"]) == "a < b and a <tag> done"
+
+    def test_stray_close_tag_passes_through(self) -> None:
+        # A </think> with no open tag is passed through verbatim, matching
+        # the non-streaming _clean_response regex behavior.
+        assert self._run(["text</think>more"]) == "text</think>more"
+
+    def test_close_tag_split_across_chunks(self) -> None:
+        assert (
+            self._run(["<think>secret</thi", "nk>visible"]) == "visible"
+        )
+
+    def test_empty_chunk_is_safe(self) -> None:
+        assert self._run(["", "Hello", "", " world", ""]) == "Hello world"
