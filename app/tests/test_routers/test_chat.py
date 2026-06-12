@@ -31,9 +31,7 @@ class TestChatSchemas:
     """Unit tests for OpenAI-compatible request/response models."""
 
     def test_request_defaults(self) -> None:
-        req = ChatCompletionRequest(
-            messages=[{"role": "user", "content": "Hello"}]
-        )
+        req = ChatCompletionRequest(messages=[{"role": "user", "content": "Hello"}])
         assert req.model == "Sunbird/Sunflower-14B"
         assert req.temperature == 0.3
         assert req.stream is False
@@ -368,7 +366,7 @@ async def _read_sse_events(response) -> list:
     for line in buffer.split("\n"):
         line = line.strip()
         if line.startswith("data: "):
-            events.append(line[len("data: "):])
+            events.append(line.removeprefix("data: "))
     return events
 
 
@@ -408,9 +406,7 @@ class TestChatCompletionsStreaming:
             headers={"Authorization": f"Bearer {test_user['token']}"},
         ) as response:
             assert response.status_code == 200
-            assert response.headers["content-type"].startswith(
-                "text/event-stream"
-            )
+            assert response.headers["content-type"].startswith("text/event-stream")
             events = await _read_sse_events(response)
 
         assert events[-1] == "[DONE]"
@@ -436,8 +432,7 @@ class TestChatCompletionsStreaming:
 
         # A finish chunk with finish_reason == "stop" exists
         assert any(
-            c["choices"] and c["choices"][0]["finish_reason"] == "stop"
-            for c in chunks
+            c["choices"] and c["choices"][0]["finish_reason"] == "stop" for c in chunks
         )
 
         # The usage chunk carries usage and no choices
@@ -456,9 +451,7 @@ class TestChatCompletionsStreaming:
             raise ModelLoadingError("cold start")
             yield  # pragma: no cover - makes this a generator function
 
-        override_service.run_inference_stream.side_effect = (
-            lambda *a, **k: _raise()
-        )
+        override_service.run_inference_stream.side_effect = lambda *a, **k: _raise()
         response = await async_client.post(
             "/tasks/chat/completions",
             json={
@@ -510,8 +503,6 @@ class TestChatCompletionsStreaming:
             events = await _read_sse_events(response)
 
         assert events[-1] == "[DONE]"
-        error_events = [
-            jsonlib.loads(e) for e in events[:-1] if '"error"' in e
-        ]
+        error_events = [jsonlib.loads(e) for e in events[:-1] if '"error"' in e]
         assert len(error_events) == 1
         assert error_events[0]["error"]["type"] == "server_error"
