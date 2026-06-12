@@ -112,8 +112,8 @@ tags_metadata = [
         "description": "Language identification and detection. Automatically detect the language of text input from supported languages.",  # noqa: E501
     },
     {
-        "name": "Sunflower",
-        "description": "Conversational AI powered by the Sunflower model. Supports chat-based interactions with context and simple text generation.",  # noqa: E501
+        "name": "Chat",
+        "description": "OpenAI-compatible chat completions powered by the Sunflower model. Supports single instructions, multi-turn conversations, and SSE streaming.",  # noqa: E501
     },
     {
         "name": "Upload",

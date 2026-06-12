@@ -171,7 +171,9 @@ app.include_router(stt_router, prefix="/tasks", tags=["legacy/deprecated"])
 app.include_router(audio_router, prefix="/tasks")
 app.include_router(translation_router, prefix="/tasks", tags=["Translation"])
 app.include_router(language_router, prefix="/tasks", tags=["Language"])
-app.include_router(inference_router, prefix="/tasks", tags=["Sunflower"])
+# NOTE: inference_router endpoints are all deprecated, so tags are set
+# per-endpoint in the router ("legacy/deprecated"); successor is chat_router.
+app.include_router(inference_router, prefix="/tasks")
 app.include_router(chat_router, prefix="/tasks", tags=["Chat"])
 app.include_router(upload_router, prefix="/tasks", tags=["Upload"])
 app.include_router(webhooks_router, prefix="/tasks", tags=["Webhooks"])

@@ -76,6 +76,7 @@ def _add_deprecation_headers(response: Response) -> None:
     "/sunflower_inference",
     response_model=SunflowerChatResponse,
     deprecated=True,
+    tags=["legacy/deprecated"],
 )
 @limiter.limit(get_account_type_limit)
 async def sunflower_inference(  # noqa: C901
@@ -321,6 +322,7 @@ async def sunflower_inference(  # noqa: C901
     "/sunflower_simple",
     response_model=Dict[str, Any],
     deprecated=True,
+    tags=["legacy/deprecated"],
 )
 @limiter.limit(get_account_type_limit)
 async def sunflower_simple_inference(  # noqa: C901
