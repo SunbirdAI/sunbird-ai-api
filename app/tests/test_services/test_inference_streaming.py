@@ -133,3 +133,105 @@ class TestRunInferencePassthroughParams:
         assert "max_tokens" not in kwargs
         assert "top_p" not in kwargs
         assert "stop" not in kwargs
+
+
+class TestRunInferenceStream:
+    """Tests for the run_inference_stream generator."""
+
+    def _service_with_chunks(self, chunks: List[Any]) -> InferenceService:
+        service = InferenceService(
+            runpod_api_key="test-key", qwen_endpoint_id="test-endpoint"
+        )
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = iter(chunks)
+        self._mock_client = mock_client
+        patcher = patch.object(service, "_get_client", return_value=mock_client)
+        patcher.start()
+        self._patcher = patcher
+        return service
+
+    def teardown_method(self) -> None:
+        if getattr(self, "_patcher", None):
+            self._patcher.stop()
+            self._patcher = None
+
+    def _collect(self, gen: Iterator[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        return list(gen)
+
+    def test_yields_deltas_and_usage(self) -> None:
+        service = self._service_with_chunks(
+            [
+                _make_chunk(role="assistant", content=""),
+                _make_chunk(content="Oli "),
+                _make_chunk(content="otya?"),
+                _make_chunk(
+                    usage={
+                        "completion_tokens": 3,
+                        "prompt_tokens": 5,
+                        "total_tokens": 8,
+                    }
+                ),
+            ]
+        )
+        items = self._collect(
+            service.run_inference_stream(
+                messages=[{"role": "user", "content": "Greet me"}]
+            )
+        )
+        deltas = [i for i in items if i["type"] == "delta"]
+        usage = [i for i in items if i["type"] == "usage"]
+        assert "".join(d["content"] for d in deltas) == "Oli otya?"
+        assert usage == [
+            {
+                "type": "usage",
+                "usage": {
+                    "completion_tokens": 3,
+                    "prompt_tokens": 5,
+                    "total_tokens": 8,
+                },
+            }
+        ]
+
+    def test_filters_think_tags_across_chunks(self) -> None:
+        service = self._service_with_chunks(
+            [
+                _make_chunk(content="<thi"),
+                _make_chunk(content="nk>internal</th"),
+                _make_chunk(content="ink>Visible"),
+            ]
+        )
+        items = self._collect(
+            service.run_inference_stream(
+                messages=[{"role": "user", "content": "Hi"}]
+            )
+        )
+        assert "".join(
+            i["content"] for i in items if i["type"] == "delta"
+        ) == "Visible"
+
+    def test_requests_stream_with_usage(self) -> None:
+        service = self._service_with_chunks([_make_chunk(content="x")])
+        self._collect(
+            service.run_inference_stream(
+                messages=[{"role": "user", "content": "Hi"}],
+                temperature=0.5,
+                max_tokens=64,
+            )
+        )
+        kwargs = self._mock_client.chat.completions.create.call_args.kwargs
+        assert kwargs["stream"] is True
+        assert kwargs["stream_options"] == {"include_usage": True}
+        assert kwargs["temperature"] == 0.5
+        assert kwargs["max_tokens"] == 64
+
+    def test_unsupported_model_type_raises_value_error(self) -> None:
+        service = InferenceService(
+            runpod_api_key="test-key", qwen_endpoint_id="test-endpoint"
+        )
+        with pytest.raises(ValueError):
+            list(
+                service.run_inference_stream(
+                    messages=[{"role": "user", "content": "Hi"}],
+                    model_type="nonexistent",
+                )
+            )

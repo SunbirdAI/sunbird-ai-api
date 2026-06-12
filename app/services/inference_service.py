@@ -45,7 +45,7 @@ import random
 import re
 import time
 from functools import wraps
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, TypeVar
+from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Type, TypeVar
 
 from dotenv import load_dotenv
 from openai import APIError, OpenAI, RateLimitError
@@ -827,6 +827,110 @@ class InferenceService(BaseService):
             self.log_error(f"Unexpected error during API request: {e}")
             classified_error = classify_error(e, response_text)
             raise classified_error
+
+    def run_inference_stream(  # noqa: C901
+        self,
+        instruction: Optional[str] = None,
+        model_type: str = "qwen",
+        custom_system_message: Optional[str] = None,
+        messages: Optional[List[Dict[str, str]]] = None,
+        temperature: float = 0.3,
+        max_tokens: Optional[int] = None,
+        top_p: Optional[float] = None,
+        stop: Optional[Any] = None,
+    ) -> Iterator[Dict[str, Any]]:
+        """Stream inference results as they are generated.
+
+        Yields dictionaries of two shapes:
+            {"type": "delta", "content": str}   — cleaned content increments
+            {"type": "usage", "usage": dict}    — final token usage, if the
+                                                  upstream API reports it
+
+        ``<think>`` spans are stripped via ThinkTagFilter before content is
+        yielded. Retry with exponential backoff applies only to creating the
+        stream (i.e., before the first token); once streaming has begun,
+        failures propagate to the caller and are never retried.
+
+        Raises:
+            ValueError: If the model type is not supported.
+            ModelLoadingError: If the model is still loading after retries.
+            InferenceTimeoutError: If stream creation times out after retries.
+        """
+        config = self.endpoints.get(model_type.lower())
+        if not config:
+            self.log_error(f"Unsupported model type: {model_type}")
+            raise ValueError(f"Unsupported model type: {model_type}")
+
+        client = self._get_client(model_type)
+        final_messages = self._build_messages(
+            instruction=instruction,
+            messages=messages,
+            custom_system_message=custom_system_message,
+        )
+
+        payload: Dict[str, Any] = {
+            "model": config["model_name"],
+            "messages": final_messages,
+            "temperature": temperature,
+            "stream": True,
+            "stream_options": {"include_usage": True},
+        }
+        if max_tokens is not None:
+            payload["max_tokens"] = max_tokens
+        if top_p is not None:
+            payload["top_p"] = top_p
+        if stop is not None:
+            payload["stop"] = stop
+
+        @exponential_backoff_retry(
+            max_retries=4,
+            base_delay=3.0,
+            max_delay=180.0,
+            exponential_base=2.0,
+            jitter=True,
+            retryable_exceptions=(ModelLoadingError, InferenceTimeoutError),
+        )
+        def _create_stream() -> Any:
+            try:
+                return client.chat.completions.create(**payload)
+            except (ModelLoadingError, InferenceTimeoutError):
+                raise
+            except Exception as e:
+                raise classify_error(e, str(e))
+
+        self.log_info("Opening streaming request to RunPod API...")
+        stream = _create_stream()
+
+        think_filter = ThinkTagFilter()
+        usage_dict: Optional[Dict[str, Any]] = None
+
+        for chunk in stream:
+            usage = getattr(chunk, "usage", None)
+            if usage is not None:
+                usage_dict = {
+                    "completion_tokens": getattr(usage, "completion_tokens", None),
+                    "prompt_tokens": getattr(usage, "prompt_tokens", None),
+                    "total_tokens": getattr(usage, "total_tokens", None),
+                }
+
+            choices = getattr(chunk, "choices", None) or []
+            if not choices:
+                continue
+            delta = getattr(choices[0], "delta", None)
+            content = getattr(delta, "content", None) if delta else None
+            if content:
+                cleaned = think_filter.feed(content)
+                if cleaned:
+                    yield {"type": "delta", "content": cleaned}
+
+        tail = think_filter.flush()
+        if tail:
+            yield {"type": "delta", "content": tail}
+
+        if usage_dict is not None:
+            yield {"type": "usage", "usage": usage_dict}
+
+        self.log_info("Streaming request completed")
 
 
 # =============================================================================
