@@ -66,8 +66,12 @@ Use the `Authorize` button below to login and access the protected endpoints.
     - `GET /tasks/modal/tts/refresh-url` → `GET /tasks/audio/speech/url`
 
 ### Inference (Sunflower Chat)
-- **`POST /tasks/sunflower_inference`** - Conversational AI powered by Sunflower model with chat history
-- **`POST /tasks/sunflower_simple`** - Simple text generation without chat history
+- **`POST /tasks/chat/completions`** - OpenAI-compatible chat completions (Sunflower model).
+  Supports single instructions, multi-turn conversations, and SSE streaming (`stream: true`).
+  Use model `Sunbird/Sunflower-14B`.
+  - **Deprecated** → superseded by the unified endpoint above:
+    - `POST /tasks/sunflower_inference` → `POST /tasks/chat/completions`
+    - `POST /tasks/sunflower_simple` → `POST /tasks/chat/completions` (send the instruction as a single user message)
 
 ### File Upload
 - **`POST /tasks/generate-upload-url`** - Generate signed URLs for direct client uploads to GCP Storage
@@ -108,8 +112,8 @@ tags_metadata = [
         "description": "Language identification and detection. Automatically detect the language of text input from supported languages.",  # noqa: E501
     },
     {
-        "name": "Sunflower",
-        "description": "Conversational AI powered by the Sunflower model. Supports chat-based interactions with context and simple text generation.",  # noqa: E501
+        "name": "Chat",
+        "description": "OpenAI-compatible chat completions powered by the Sunflower model. Supports single instructions, multi-turn conversations, and SSE streaming.",  # noqa: E501
     },
     {
         "name": "Upload",
