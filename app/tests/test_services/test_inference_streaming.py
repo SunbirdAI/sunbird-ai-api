@@ -10,7 +10,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.services.inference_service import InferenceService, ThinkTagFilter
+from app.services.inference_service import (
+    InferenceService,
+    ModelLoadingError,
+    ThinkTagFilter,
+)
 
 
 class TestThinkTagFilter:
@@ -235,3 +239,34 @@ class TestRunInferenceStream:
                     model_type="nonexistent",
                 )
             )
+
+    def test_value_error_fires_on_iteration_not_call(self) -> None:
+        service = InferenceService(
+            runpod_api_key="test-key", qwen_endpoint_id="test-endpoint"
+        )
+        # Generator functions raise lazily: calling returns a generator
+        # object; the ValueError only fires on the first next().
+        gen = service.run_inference_stream(
+            messages=[{"role": "user", "content": "Hi"}],
+            model_type="nonexistent",
+        )
+        with pytest.raises(ValueError):
+            next(gen)
+
+    def test_model_loading_error_propagates_from_stream_creation(self) -> None:
+        service = InferenceService(
+            runpod_api_key="test-key", qwen_endpoint_id="test-endpoint"
+        )
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.side_effect = ModelLoadingError(
+            "cold start"
+        )
+        with patch.object(service, "_get_client", return_value=mock_client), patch(
+            "app.services.inference_service.time.sleep"
+        ):
+            with pytest.raises(ModelLoadingError):
+                list(
+                    service.run_inference_stream(
+                        messages=[{"role": "user", "content": "Hi"}]
+                    )
+                )
