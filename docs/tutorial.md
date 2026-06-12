@@ -377,13 +377,15 @@ print(requests.get(
 
 ## Part 6: Conversational AI (Sunflower)
 
-The Sunflower model provides conversational AI capabilities with support for chat history and context. Supports 20+ Ugandan languages.
+The Sunflower model provides conversational AI for 20+ Ugandan languages through an OpenAI-compatible endpoint: `POST /tasks/chat/completions`. The request and response formats mirror the OpenAI Chat Completions API, so you can move between the OpenAI API and the Sunbird API by changing only the base URL and API key.
 
-### Chat with History
+> **Deprecated:** `POST /tasks/sunflower_inference` and `POST /tasks/sunflower_simple` are deprecated and will be removed in a future release. Use `POST /tasks/chat/completions` instead — a single instruction is just a request with one user message.
+
+### Chat Completion
 ```python
 import requests
 
-url = "https://api.sunbird.ai/tasks/sunflower_inference"
+url = "https://api.sunbird.ai/tasks/chat/completions"
 
 headers = {
     "accept": "application/json",
@@ -392,16 +394,14 @@ headers = {
 }
 
 payload = {
+    "model": "Sunbird/Sunflower-14B",
     "messages": [
         {
             "role": "user",
-            "content": "Good morning, what is weather today?",
+            "content": "Good morning, what is the weather today?",
         }
     ],
-    "model_type": "qwen",
     "temperature": 0.3,
-    "stream": False,
-    "system_message": "string",
 }
 
 response = requests.post(url, headers=headers, json=payload)
@@ -413,57 +413,88 @@ print(response.json())
 **Example Response:**
 ```json
 {
-  "content": "I'm glad you're up! While I can't provide real-time weather updates, I can help you understand how to interpret weather forecasts or explain common weather patterns in Uganda. Could you share the current weather conditions you're experiencing?",
-  "model_type": "qwen",
+  "id": "chatcmpl-8f14e45fceea167a5a36dedd4bea2543",
+  "object": "chat.completion",
+  "created": 1718000000,
+  "model": "Sunbird/Sunflower-14B",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "I'm glad you're up! While I can't provide real-time weather updates, I can help you understand weather forecasts or explain common weather patterns in Uganda."
+      },
+      "finish_reason": "stop"
+    }
+  ],
   "usage": {
-    "completion_tokens": 47,
     "prompt_tokens": 22,
+    "completion_tokens": 47,
     "total_tokens": 69
-  },
-  "processing_time": 4.802350997924805,
-  "inference_time": 4.792236804962158,
-  "message_count": 2
+  }
 }
 ```
 
-### Simple Text Generation
+### Using the OpenAI SDK
+
+Because the endpoint is OpenAI-compatible, the official OpenAI Python SDK works out of the box:
+
 ```python
-import requests
+from openai import OpenAI
 
-url = "https://api.sunbird.ai/tasks/sunflower_simple"
+client = OpenAI(
+    api_key="<your-access-token>",
+    base_url="https://api.sunbird.ai/tasks",
+)
 
-headers = {
-    "accept": "application/json",
-    "Authorization": "Bearer <your-access-token>",
-}
+completion = client.chat.completions.create(
+    model="Sunbird/Sunflower-14B",
+    messages=[
+        {
+            "role": "user",
+            "content": "translate from english to luganda: i am very hungry they should serve food in time",
+        }
+    ],
+    temperature=0.1,
+)
 
-data = {
-    "instruction": "translate from english to luganda: i am very hungry they should serve food in time",
-    "model_type": "qwen",
-    "temperature": "0.1",
-    "system_message": "",
-}
-
-response = requests.post(url, headers=headers, data=data)
-
-print(response.status_code)
-print(response.json())
+print(completion.choices[0].message.content)
+# Ndi muyala nnyo, emmere erina okugabibwa mu budde.
 ```
 
-**Example Response:**
-```json
-{
-  "response": "Ndi muyala nnyo, emmere erina okugabibwa mu budde.",
-  "model_type": "qwen",
-  "processing_time": 3.2431752681732178,
-  "usage": {
-    "completion_tokens": 19,
-    "prompt_tokens": 54,
-    "total_tokens": 73
-  },
-  "success": true
+### Multi-turn Conversations
+
+Maintain context by sending the running message history. You can also set a custom `system` message (when omitted, a default Sunflower system message is applied):
+
+```python
+payload = {
+    "model": "Sunbird/Sunflower-14B",
+    "messages": [
+        {"role": "system", "content": "You are a helpful multilingual assistant."},
+        {"role": "user", "content": "Translate 'hello' to Luganda."},
+        {"role": "assistant", "content": "'Hello' is 'Gyebaleko'."},
+        {"role": "user", "content": "And to Acholi?"},
+    ],
 }
 ```
+
+### Streaming
+
+Set `"stream": true` to receive Server-Sent Events in OpenAI `chat.completion.chunk` format, terminated by `data: [DONE]`. With the OpenAI SDK:
+
+```python
+stream = client.chat.completions.create(
+    model="Sunbird/Sunflower-14B",
+    messages=[{"role": "user", "content": "Tell me about Uganda."}],
+    stream=True,
+)
+
+for chunk in stream:
+    if chunk.choices and chunk.choices[0].delta.content:
+        print(chunk.choices[0].delta.content, end="", flush=True)
+```
+
+Supported request parameters: `model` (only `Sunbird/Sunflower-14B`), `messages`, `temperature` (0.0-2.0, default 0.3), `max_tokens`, `top_p`, `stop`, and `stream`.
 
 ---
 
