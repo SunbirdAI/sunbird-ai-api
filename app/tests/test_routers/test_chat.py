@@ -462,6 +462,29 @@ class TestChatCompletionsStreaming:
         )
         assert response.status_code == 503
 
+    async def test_streaming_timeout_maps_to_503(
+        self,
+        async_client: AsyncClient,
+        test_user: Dict,
+        override_service: MagicMock,
+    ) -> None:
+        def _raise_timeout(*args, **kwargs):
+            raise InferenceTimeoutError("timed out")
+            yield  # pragma: no cover - makes this a generator function
+
+        override_service.run_inference_stream.side_effect = (
+            lambda *a, **k: _raise_timeout()
+        )
+        response = await async_client.post(
+            "/tasks/chat/completions",
+            json={
+                "messages": [{"role": "user", "content": "Hello"}],
+                "stream": True,
+            },
+            headers={"Authorization": f"Bearer {test_user['token']}"},
+        )
+        assert response.status_code == 503
+
     async def test_streaming_empty_stream_maps_to_502(
         self,
         async_client: AsyncClient,
