@@ -71,6 +71,7 @@ INFERENCE_TYPES = {
     "tts": "tts",
     "sunflower_chat": "sunflower_chat",
     "sunflower_simple": "sunflower_simple",
+    "chat_completions": "chat_completions",
     "stt": "stt",
     "translation": "translation",
     "language_id": "language_id",
