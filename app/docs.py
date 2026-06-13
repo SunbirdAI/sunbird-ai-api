@@ -26,8 +26,10 @@ Use the `Authorize` button below to login and access the protected endpoints.
 ## API Endpoints
 
 ### Translation
-- **`POST /tasks/translate`** - Translate text between English and local languages
-  (Acholi, Ateso, Luganda, Lugbara, Runyankole)
+- **`POST /tasks/translate`** - Translate text between 32 Ugandan and East African
+  languages using the Sunflower model. Languages are accepted as ISO codes (`lug`)
+  or full names (`Luganda`); `source_language` is optional (auto-detected when
+  omitted). Translation works between any pair of supported languages.
 
 ### Language Detection
 - **`POST /tasks/language_id`** - Auto-detect the language of text input
@@ -105,7 +107,7 @@ tags_metadata = [
     },
     {
         "name": "Translation",
-        "description": "Translate text between English and local languages using the NLLB model. Supports bidirectional translation for Acholi, Ateso, Luganda, Lugbara, and Runyankole.",  # noqa: E501
+        "description": "Translate text using the Sunflower model. Supports 32 languages (e.g. Luganda, Acholi, Ateso, Lugbara, Runyankole, Swahili, Kinyarwanda) accepted as ISO codes or full names; source language is optional and translation works between any supported pair.",  # noqa: E501
     },
     {
         "name": "Language",

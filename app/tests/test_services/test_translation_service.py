@@ -7,11 +7,12 @@ response validation, and error handling.
 """
 
 import os
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from app.services.base import BaseService
+from app.services.inference_service import InferenceService, ModelLoadingError
 from app.services.translation_service import (
     TranslationConnectionError,
     TranslationError,
@@ -22,6 +23,7 @@ from app.services.translation_service import (
     get_translation_service,
     reset_translation_service,
 )
+from app.utils.languages import ResolvedLanguage
 
 
 class TestTranslationServiceInitialization:
@@ -467,3 +469,126 @@ class TestExceptionClasses:
         error = TranslationValidationError("Invalid response")
         assert str(error) == "Invalid response"
         assert isinstance(error, TranslationError)
+
+
+class TestTranslateViaSunflower:
+    """Tests for TranslationService.translate_via_sunflower."""
+
+    @pytest.fixture
+    def mock_inference_service(self, monkeypatch):
+        mock = MagicMock()
+        mock.run_inference.return_value = {
+            "content": "Oli otya?",
+            "usage": {
+                "prompt_tokens": 10,
+                "completion_tokens": 5,
+                "total_tokens": 15,
+            },
+            "model_type": "qwen",
+            "processing_time": 1.2,
+        }
+        # translate_via_sunflower imports get_inference_service lazily inside
+        # the method body, so patching it on the source module is honored at
+        # call time. If that import is ever hoisted to module level, switch
+        # this target to app.services.translation_service.get_inference_service.
+        monkeypatch.setattr(
+            "app.services.inference_service.get_inference_service", lambda: mock
+        )
+        return mock
+
+    async def test_instruction_with_source_and_target(self, mock_inference_service):
+        service = TranslationService()
+        result = await service.translate_via_sunflower(
+            text="How are you?",
+            target_language=ResolvedLanguage(code="lug", name="Luganda"),
+            source_language=ResolvedLanguage(code="eng", name="English"),
+        )
+        messages = mock_inference_service.run_inference.call_args.kwargs["messages"]
+        assert messages[1] == {
+            "role": "user",
+            "content": "Translate from English to Luganda: How are you?",
+        }
+        assert result.translated_text == "Oli otya?"
+
+    async def test_instruction_without_source(self, mock_inference_service):
+        service = TranslationService()
+        result = await service.translate_via_sunflower(
+            text="How are you?",
+            target_language=ResolvedLanguage(code="lug", name="Luganda"),
+        )
+        messages = mock_inference_service.run_inference.call_args.kwargs["messages"]
+        assert messages[1] == {
+            "role": "user",
+            "content": "Translate to Luganda: How are you?",
+        }
+        assert result.source_language is None
+
+    async def test_system_message_injected(self, mock_inference_service):
+        service = TranslationService()
+        await service.translate_via_sunflower(
+            text="Hi",
+            target_language=ResolvedLanguage(code="lug", name="Luganda"),
+        )
+        messages = mock_inference_service.run_inference.call_args.kwargs["messages"]
+        assert messages[0] == {
+            "role": "system",
+            "content": InferenceService.SYSTEM_MESSAGE,
+        }
+
+    async def test_inference_parameters(self, mock_inference_service):
+        service = TranslationService()
+        await service.translate_via_sunflower(
+            text="Hi",
+            target_language=ResolvedLanguage(code="lug", name="Luganda"),
+            source_language=ResolvedLanguage(code="eng", name="English"),
+        )
+        kwargs = mock_inference_service.run_inference.call_args.kwargs
+        assert kwargs["model_type"] == "qwen"
+        assert kwargs["temperature"] == 0.3
+        assert kwargs["max_tokens"] == 1024
+        assert kwargs["top_p"] == 0.95
+
+    async def test_result_metadata(self, mock_inference_service):
+        service = TranslationService()
+        result = await service.translate_via_sunflower(
+            text="Hi",
+            target_language=ResolvedLanguage(code="lug", name="Luganda"),
+            source_language=ResolvedLanguage(code="eng", name="English"),
+        )
+        assert result.status == "COMPLETED"
+        assert result.source_language == "eng"
+        assert result.target_language == "lug"
+        assert result.job_id.startswith("trans-")
+        assert result.raw_response is None
+
+    async def test_text_is_stripped_in_instruction(self, mock_inference_service):
+        service = TranslationService()
+        await service.translate_via_sunflower(
+            text="  Hi  ",
+            target_language=ResolvedLanguage(code="lug", name="Luganda"),
+        )
+        messages = mock_inference_service.run_inference.call_args.kwargs["messages"]
+        assert messages[1]["content"] == "Translate to Luganda: Hi"
+
+    async def test_empty_content_yields_none_translated_text(
+        self, mock_inference_service
+    ):
+        mock_inference_service.run_inference.return_value = {
+            "content": "",
+            "usage": {},
+        }
+        service = TranslationService()
+        result = await service.translate_via_sunflower(
+            text="Hi",
+            target_language=ResolvedLanguage(code="lug", name="Luganda"),
+        )
+        assert result.translated_text is None
+
+    async def test_inference_errors_propagate(self, mock_inference_service):
+        mock_inference_service.run_inference.side_effect = ModelLoadingError("loading")
+        service = TranslationService()
+        with pytest.raises(ModelLoadingError):
+            await service.translate_via_sunflower(
+                text="Hi",
+                target_language=ResolvedLanguage(code="lug", name="Luganda"),
+            )
