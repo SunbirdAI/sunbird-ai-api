@@ -1,44 +1,40 @@
 """
 Translation Router Module.
 
-This module defines the API endpoints for text translation operations.
-It provides endpoints for translating text between supported languages
-using the NLLB model.
-
-Endpoints:
-    - POST /translate: Translate text between languages
+POST /tasks/translate translates text between 32 Ugandan and East African
+languages using the Sunflower model — the same inference engine that powers
+/tasks/chat/completions. The legacy NLLB code path
+(TranslationService.translate) remains in the codebase but is no longer used
+by this endpoint.
 
 Architecture:
-    Routes → TranslationService → RunPod API
+    Routes -> TranslationService.translate_via_sunflower -> InferenceService
+    -> RunPod OpenAI-compatible API (Sunflower-14B)
 
-Usage:
-    This router is included in the main application with the /tasks prefix
-    to maintain backward compatibility with existing API consumers.
-
-Note:
-    This module was extracted from app/routers/tasks.py as part of the
-    services layer refactoring to improve modularity.
+Spec:
+    docs/superpowers/specs/2026-06-12-translate-via-sunflower-design.md
 """
 
 import logging
 import time
 
 from dotenv import load_dotenv
-from fastapi import APIRouter, BackgroundTasks, Depends, Request
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, BackgroundTasks, Request
 
-from app.core.exceptions import ExternalServiceError, ServiceUnavailableError
-from app.deps import QuotaServiceDep, get_current_user, get_db
-from app.schemas.translation import NllbTranslationRequest, WorkerTranslationResponse
-from app.services.translation_service import (
-    TranslationConnectionError,
-    TranslationError,
-    TranslationService,
-    TranslationTimeoutError,
-    TranslationValidationError,
-    get_translation_service,
+from app.core.exceptions import (
+    BadRequestError,
+    ExternalServiceError,
+    ServiceUnavailableError,
 )
+from app.deps import CurrentUserDep, DbDep, QuotaServiceDep, TranslationServiceDep
+from app.schemas.chat import DEFAULT_MODEL
+from app.schemas.translation import (
+    SunflowerTranslationRequest,
+    WorkerTranslationResponse,
+)
+from app.services.inference_service import InferenceTimeoutError, ModelLoadingError
 from app.utils.feedback import INFERENCE_TYPES, save_api_inference
+from app.utils.languages import UnsupportedLanguageError, resolve_language
 from app.utils.quota_guard import check_quota
 from app.utils.rate_limit import get_account_type_limit, limiter
 
@@ -48,15 +44,6 @@ logging.basicConfig(level=logging.INFO)
 router = APIRouter()
 
 
-def get_service() -> TranslationService:
-    """Dependency for getting the Translation service instance.
-
-    Returns:
-        The TranslationService singleton instance.
-    """
-    return get_translation_service()
-
-
 @router.post(
     "/translate",
     response_model=WorkerTranslationResponse,
@@ -64,44 +51,28 @@ def get_service() -> TranslationService:
 @limiter.limit(get_account_type_limit)
 async def translate(  # noqa: C901
     request: Request,
-    translation_request: NllbTranslationRequest,
+    translation_request: SunflowerTranslationRequest,
     quota: QuotaServiceDep,
     background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user),
-    service: TranslationService = Depends(get_service),
+    db: DbDep,
+    current_user: CurrentUserDep,
+    service: TranslationServiceDep,
 ) -> dict:
-    """Translate text between languages using NLLB model.
+    """Translate text between supported languages using the Sunflower model.
 
-    Source and Target Language can be one of:
-    - ach (Acholi)
-    - teo (Ateso)
-    - eng (English)
-    - lug (Luganda)
-    - lgg (Lugbara)
-    - nyn (Runyankole)
+    Languages are accepted as ISO 639-3 codes (e.g. ``lug``) or full names
+    (e.g. ``Luganda``), case-insensitively. ``source_language`` is optional —
+    when omitted, Sunflower infers the source language from the text.
+    Translation works between any pair of supported languages.
 
-    We currently only support English to Local languages and Local to English
-    translations. When the source language is one of the listed languages,
-    the target can be any of the other languages.
-
-    Args:
-
-        request: The FastAPI request object.
-        translation_request: The translation request containing source/target
-            languages and text to translate.
-        db: Database session.
-        current_user: The authenticated user.
-        service: The translation service instance.
-
-    Returns:
-
-        WorkerTranslationResponse containing the translation result.
-
-    Raises:
-
-        ServiceUnavailableError: If service times out.
-        ExternalServiceError: If translation service fails or returns invalid response.
+    Supported languages: Acholi (ach), Alur (alz), Aringa (luc), Ateso (teo),
+    Bari (bfa), English (eng), Jopadhola (adh), Kakwa (keo),
+    Karamojong (kdj), Kinyarwanda (kin), Kumam (kdi), Kupsabiny (kpz),
+    Kwamba (rwm), Lango (laj), Lubwisi (tlj), Luganda (lug), Lugbara (lgg),
+    Lugungu (rub), Lugwere (gwr), Lumasaba (myx), Lunyole (nuj),
+    Lusoga (xog), Ma'di (mhi), Pokot (pok), Rukiga (cgg), Rukonjo (koo),
+    Runyankole (nyn), Runyoro (nyo), Ruruuli (ruc), Rutooro (ttj),
+    Samia (lsm), Swahili (swa).
 
     Example:
 
@@ -114,7 +85,7 @@ async def translate(  # noqa: C901
 
         Response:
         {
-            "id": "job-123",
+            "id": "trans-1a2b3c...",
             "status": "COMPLETED",
             "output": {
                 "translated_text": "Oli otya?",
@@ -122,91 +93,101 @@ async def translate(  # noqa: C901
                 "target_language": "lug"
             }
         }
+
+    Raises:
+
+        BadRequestError: Unsupported language, or source == target.
+        ServiceUnavailableError: Model loading or inference timeout.
+        ExternalServiceError: Empty model output or unexpected failure.
     """
     await check_quota(quota, db, current_user)
+
+    try:
+        target = resolve_language(translation_request.target_language)
+        source = (
+            resolve_language(translation_request.source_language)
+            if translation_request.source_language is not None
+            else None
+        )
+    except UnsupportedLanguageError as e:
+        raise BadRequestError(message=str(e))
+
+    if source is not None and source.code == target.code:
+        raise BadRequestError(message="Source and target languages must be different")
+
     start_time = time.time()
 
     try:
-        # Perform translation
-        result = await service.translate(
+        result = await service.translate_via_sunflower(
             text=translation_request.text,
-            source_language=translation_request.source_language.value,
-            target_language=translation_request.target_language.value,
+            target_language=target,
+            source_language=source,
         )
-
-        end_time = time.time()
-        elapsed_time = end_time - start_time
-        logging.info(f"Translation completed in {elapsed_time:.2f} seconds")
-
-        # Endpoint usage logging is handled automatically by MonitoringMiddleware
-
-        # Validate and return response
-        if result.raw_response:
-            worker_resp = service.validate_and_parse_response(result.raw_response)
-            response_payload = worker_resp.model_dump()
-        else:
-            # Fallback response if raw_response is missing
-            response_payload = WorkerTranslationResponse(
-                status=result.status,
-                id=result.job_id,
-                output={
-                    "translated_text": result.translated_text,
-                    "source_language": result.source_language,
-                    "target_language": result.target_language,
-                },
-            ).model_dump()
-
-        try:
-            job_details = {
-                "source_language": translation_request.source_language.value,
-                "target_language": translation_request.target_language.value,
-                "job_id": getattr(result, "job_id", None),
-            }
-            background_tasks.add_task(
-                save_api_inference,
-                translation_request.text,
-                response_payload,
-                current_user,
-                model_type="nllb",
-                processing_time=elapsed_time,
-                inference_type=INFERENCE_TYPES["translation"],
-                job_details={k: v for k, v in job_details.items() if v is not None},
+    except ModelLoadingError as e:
+        logging.error(f"Model loading error during translation: {e}")
+        raise ServiceUnavailableError(
+            message=(
+                "The AI model is currently loading. This usually takes "
+                "2-3 minutes. Please try again shortly."
             )
-        except Exception as e:
-            logging.warning(f"Failed to schedule translation feedback save task: {e}")
-
-        return response_payload
-
-    except TranslationTimeoutError as e:
-        logging.error(f"Translation timeout: {str(e)}")
-        raise ServiceUnavailableError(message="Service unavailable due to timeout")
-    except TranslationConnectionError as e:
-        logging.error(f"Translation connection error: {str(e)}")
-        raise ExternalServiceError(
-            service_name="Translation Service",
-            message="Service unavailable due to connection error",
-            original_error=str(e),
         )
-    except TranslationValidationError as e:
-        logging.error(f"Translation validation error: {str(e)}")
-        raise ExternalServiceError(
-            service_name="Translation Worker",
-            message="Invalid response from worker",
-            original_error=str(e),
+    except InferenceTimeoutError as e:
+        logging.error(f"Translation timed out: {e}")
+        raise ServiceUnavailableError(
+            message="The request timed out. Please try again with a shorter text."
         )
-    except TranslationError as e:
-        logging.error(f"Translation error: {str(e)}")
-        raise ExternalServiceError(
-            service_name="Translation Service",
-            message="Translation service error",
-            original_error=str(e),
-        )
-    except (ServiceUnavailableError, ExternalServiceError):
-        raise
+    except ValueError as e:
+        logging.error(f"Invalid translation request: {e}")
+        raise BadRequestError(message=f"Invalid request: {str(e)}")
     except Exception as e:
-        logging.error(f"Unexpected error in nllb_translate: {str(e)}")
+        logging.error(f"Unexpected error during translation: {e}")
         raise ExternalServiceError(
-            service_name="Translation Service",
-            message="Internal server error",
+            service_name="Sunflower Translation Service",
+            message=(
+                "An unexpected error occurred during translation. " "Please try again."
+            ),
             original_error=str(e),
         )
+
+    if not result.translated_text:
+        raise ExternalServiceError(
+            service_name="Sunflower Model",
+            message=(
+                "The model returned an empty response. "
+                "Please try rephrasing your request."
+            ),
+        )
+
+    elapsed_time = time.time() - start_time
+    logging.info(f"Translation completed in {elapsed_time:.2f} seconds")
+
+    response_payload = WorkerTranslationResponse(
+        id=result.job_id,
+        status="COMPLETED",
+        output={
+            "translated_text": result.translated_text,
+            "source_language": result.source_language,
+            "target_language": result.target_language,
+        },
+    ).model_dump()
+
+    try:
+        job_details = {
+            "source_language": result.source_language,
+            "target_language": result.target_language,
+            "job_id": result.job_id,
+        }
+        background_tasks.add_task(
+            save_api_inference,
+            translation_request.text,
+            response_payload,
+            current_user,
+            model_type=DEFAULT_MODEL,
+            processing_time=elapsed_time,
+            inference_type=INFERENCE_TYPES["translation"],
+            job_details={k: v for k, v in job_details.items() if v is not None},
+        )
+    except Exception as e:
+        logging.warning(f"Failed to schedule translation feedback save task: {e}")
+
+    return response_payload

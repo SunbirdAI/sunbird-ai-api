@@ -54,9 +54,13 @@ print(f"Your token: {access_token}")
 
 ---
 
-## Part 2: Translation (NLLB Model)
+## Part 2: Translation (Sunflower Model)
 
-Translate text between English and local languages using the NLLB model. Supports bidirectional translation.
+Translate text between 32 Ugandan and East African languages using the
+Sunflower model. Languages are accepted as ISO 639-3 codes (`lug`) or full
+names (`Luganda`), case-insensitively, and translation works between **any
+pair** of supported languages. `source_language` is optional — when omitted,
+Sunflower infers it from the text.
 
 ```python
 import os
@@ -85,24 +89,68 @@ response = requests.post(url, headers=headers, json=data)
 print(response.json())
 ```
 
-**Supported Language Pairs:**
-- English ↔ Acholi
-- English ↔ Ateso
-- English ↔ Luganda
-- English ↔ Lugbara
-- English ↔ Runyankole
-
-
-The dictionary below represents the language codes available now for the translate endpoint
+`source_language` is optional, and full language names work too:
 
 ```python
-language_codes: {
-    "English": "eng",
-    "Luganda": "lug",
-    "Runyankole": "nyn",
-    "Acholi": "ach",
-    "Ateso": "teo",
-    "Lugbara": "lgg"
+data = {
+    "target_language": "Luganda",
+    "text": "How are you?",
+}
+
+response = requests.post(url, headers=headers, json=data)
+print(response.json())
+```
+
+**Supported languages** (ISO code → name):
+
+```python
+language_codes = {
+    "ach": "Acholi",
+    "adh": "Jopadhola",
+    "alz": "Alur",
+    "bfa": "Bari",
+    "cgg": "Rukiga",
+    "eng": "English",
+    "gwr": "Lugwere",
+    "kdi": "Kumam",
+    "kdj": "Karamojong",
+    "keo": "Kakwa",
+    "kin": "Kinyarwanda",
+    "koo": "Rukonjo",
+    "kpz": "Kupsabiny",
+    "laj": "Lango",
+    "lgg": "Lugbara",
+    "lsm": "Samia",
+    "luc": "Aringa",
+    "lug": "Luganda",
+    "mhi": "Ma'di",
+    "myx": "Lumasaba",
+    "nuj": "Lunyole",
+    "nyn": "Runyankole",
+    "nyo": "Runyoro",
+    "pok": "Pokot",
+    "rub": "Lugungu",
+    "ruc": "Ruruuli",
+    "rwm": "Kwamba",
+    "swa": "Swahili",
+    "teo": "Ateso",
+    "tlj": "Lubwisi",
+    "ttj": "Rutooro",
+    "xog": "Lusoga",
+}
+```
+
+The response shape is unchanged from the previous NLLB-backed endpoint:
+
+```json
+{
+    "id": "trans-1a2b3c...",
+    "status": "COMPLETED",
+    "output": {
+        "translated_text": "Oli otya?",
+        "source_language": "lug",
+        "target_language": "eng"
+    }
 }
 ```
 

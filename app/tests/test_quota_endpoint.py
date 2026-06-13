@@ -42,10 +42,13 @@ def stub_translation_service(monkeypatch):
             source_language="eng",
             target_language="lug",
             status="COMPLETED",
+            job_id="trans-test",
             raw_response=None,
         )
 
-    monkeypatch.setattr(TranslationService, "translate", fake_translate, raising=False)
+    monkeypatch.setattr(
+        TranslationService, "translate_via_sunflower", fake_translate, raising=False
+    )
 
     # FEEDBACK_URL kicks off a background HTTP call; stub it.
     async def noop_save(*args, **kwargs):
