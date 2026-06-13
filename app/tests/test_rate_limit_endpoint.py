@@ -43,23 +43,19 @@ def stub_translation_service(monkeypatch):
     """
     from app.services.translation_service import TranslationResult, TranslationService
 
-    async def fake_translate(
-        self,
-        text: str,
-        source_language: str,
-        target_language: str,
-    ) -> TranslationResult:
+    async def fake_translate(self, *args, **kwargs) -> TranslationResult:
         return TranslationResult(
             translated_text="Hello",
-            source_language=source_language,
-            target_language=target_language,
+            source_language="eng",
+            target_language="lug",
             status="COMPLETED",
+            job_id="trans-test",
         )
 
     async def fake_save_api_inference(*args, **kwargs):
         pass
 
-    monkeypatch.setattr(TranslationService, "translate", fake_translate)
+    monkeypatch.setattr(TranslationService, "translate_via_sunflower", fake_translate)
     monkeypatch.setattr(
         "app.utils.feedback.save_api_inference", fake_save_api_inference
     )
