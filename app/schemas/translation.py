@@ -147,3 +147,30 @@ class WorkerTranslationResponse(BaseModel):
 
         populate_by_name = True
         extra = "allow"
+
+
+class SunflowerTranslationRequest(BaseModel):
+    """Request model for Sunflower-backed text translation.
+
+    Languages are accepted as ISO 639-3 codes (e.g. ``lug``) or full names
+    (e.g. ``Luganda``), case-insensitively. Membership in the supported
+    language set is validated in the router (returning a 400 with the
+    supported list), not here.
+
+    Attributes:
+        source_language: Optional source language; auto-detected when omitted.
+        target_language: The target language (code or full name).
+        text: The text to translate (min 1 character, whitespace stripped).
+    """
+
+    source_language: Optional[str] = Field(
+        None,
+        description="Source language ISO code or full name (optional; "
+        "auto-detected when omitted)",
+    )
+    target_language: str = Field(
+        ..., description="Target language ISO code or full name"
+    )
+    text: constr(min_length=1, strip_whitespace=True) = Field(  # type: ignore
+        ..., description="The text to translate"
+    )
