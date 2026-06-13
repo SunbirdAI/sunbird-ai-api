@@ -487,6 +487,10 @@ class TestTranslateViaSunflower:
             "model_type": "qwen",
             "processing_time": 1.2,
         }
+        # translate_via_sunflower imports get_inference_service lazily inside
+        # the method body, so patching it on the source module is honored at
+        # call time. If that import is ever hoisted to module level, switch
+        # this target to app.services.translation_service.get_inference_service.
         monkeypatch.setattr(
             "app.services.inference_service.get_inference_service", lambda: mock
         )
