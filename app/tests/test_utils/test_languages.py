@@ -3,6 +3,7 @@
 import pytest
 
 from app.utils.languages import (
+    _CODE_TO_NAME,
     SALT_LANGUAGE_NAMES,
     SUNFLOWER_LANGUAGES,
     ResolvedLanguage,
@@ -25,6 +26,12 @@ class TestResolveByCode:
 
     def test_resolves_swahili(self):
         assert resolve_language("swa") == ResolvedLanguage(code="swa", name="Swahili")
+
+    @pytest.mark.parametrize("code", list(_CODE_TO_NAME.keys()))
+    def test_every_supported_code_resolves(self, code):
+        resolved = resolve_language(code)
+        assert resolved.code == code
+        assert resolved.name == _CODE_TO_NAME[code]
 
 
 class TestResolveByName:

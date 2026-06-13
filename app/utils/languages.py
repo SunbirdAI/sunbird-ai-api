@@ -156,6 +156,10 @@ _NAME_TO_CODE: Dict[str, str] = {
     name.lower(): code for code, name in _CODE_TO_NAME.items()
 }
 
+assert all(
+    name.lower() in _NAME_TO_CODE for name in LANGUAGE_ALIASES.values()
+), "LANGUAGE_ALIASES values must all be supported Sunflower language names"
+
 
 def resolve_language(value: str) -> ResolvedLanguage:
     """Resolve an ISO code or full language name to a ResolvedLanguage.
