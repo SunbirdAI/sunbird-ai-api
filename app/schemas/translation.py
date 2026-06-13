@@ -152,10 +152,11 @@ class WorkerTranslationResponse(BaseModel):
 class SunflowerTranslationRequest(BaseModel):
     """Request model for Sunflower-backed text translation.
 
-    Languages are accepted as ISO 639-3 codes (e.g. ``lug``) or full names
-    (e.g. ``Luganda``), case-insensitively. Membership in the supported
-    language set is validated in the router (returning a 400 with the
-    supported list), not here.
+    Languages may be given as ISO 639-3 codes (e.g. ``lug``) or full names
+    (e.g. ``Luganda``). This schema stores the raw value as-is; the router
+    normalizes case and validates membership in the supported language set
+    via ``resolve_language`` (returning a 400 with the supported list for
+    anything unsupported).
 
     Attributes:
         source_language: Optional source language; auto-detected when omitted.
