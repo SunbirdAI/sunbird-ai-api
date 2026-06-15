@@ -56,6 +56,14 @@ Use the `Authorize` button below to login and access the protected endpoints.
     `max_tokens`, `seed`. Returns a signed GCP Storage URL.
 - **`POST /tasks/audio/speech/batch`** - Batch synthesis (orpheus-3b-tts only), 1-128 items.
 - **`GET /tasks/voice/speakers`** - List voices for a `model` (optional orpheus `language`).
+  - **orpheus-3b-tts** covers 20 African languages: Acholi (`ach`), Afrikaans (`afr`),
+    English (`eng`), Ewe (`ewe`), Fulah (`ful`), Hausa (`hau`), Igbo (`ibo`), Kikuyu (`kik`),
+    Kinyarwanda (`kin`), Lugbara (`lgg`), Lingala (`lin`), Luganda (`lug`), Luo (`luo`),
+    Runyankole (`nyn`), Sesotho (`sot`), Swahili (`swa`), Ateso (`teo`), Setswana (`tsn`),
+    Xhosa (`xho`), Yoruba (`yor`). A few (`lgg`, `sot`, `tsn`) are in the training mix but
+    expose no individual voice IDs yet. Full per-speaker catalog: see the
+    [tutorial](https://github.com/SunbirdAI/sunbird-ai-api/blob/main/docs/tutorial.md)
+    or call `GET /tasks/voice/speakers`.
 - **`GET /tasks/audio/speech/url`** - Refresh an expired signed URL for a stored audio object.
   - **Deprecated** → superseded by the unified endpoints above:
     - `POST /tasks/modal/tts`, `POST /tasks/runpod/tts`,
