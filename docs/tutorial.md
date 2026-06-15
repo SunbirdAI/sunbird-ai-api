@@ -13,6 +13,71 @@ This comprehensive tutorial describes how to use the Sunbird AI API and includes
 
 ---
 
+## Language Support by Endpoint
+
+The matrix below summarises which languages each task endpoint currently
+serves. **Code** is the canonical ISO/SALT code the API accepts (full language
+names also work where an endpoint takes a `language` or `voice`).
+
+- **`/tasks/audio/speech`** — text-to-speech (orpheus-3b-tts voice catalog).
+- **`/tasks/audio/transcriptions`** — speech-to-text (Whisper language IDs).
+- **`/tasks/chat/completions`** — Sunflower chat. `/tasks/translate` shares this
+  same 32-language set.
+
+| Language name | Code | `/tasks/audio/speech` | `/tasks/audio/transcriptions` | `/tasks/chat/completions` |
+| :---- | :---- | :----: | :----: | :----: |
+| Acholi | `ach` | ✅ | ✅ | ✅ |
+| Afrikaans | `afr` | ✅ | ❌ | ❌ |
+| Alur | `alz` | ❌ | ❌ | ✅ |
+| Aringa | `luc` | ❌ | ❌ | ✅ |
+| Ateso | `teo` | ✅ | ✅ | ✅ |
+| Bari | `bfa` | ❌ | ❌ | ✅ |
+| English | `eng` | ✅ | ✅ | ✅ |
+| Ewe | `ewe` | ✅ | ❌ | ❌ |
+| Fulah | `ful` | ✅ | ❌ | ❌ |
+| Hausa | `hau` | ✅ | ❌ | ❌ |
+| Igbo | `ibo` | ✅ | ❌ | ❌ |
+| Jopadhola | `adh` | ❌ | ❌ | ✅ |
+| Kakwa | `keo` | ❌ | ❌ | ✅ |
+| Karamojong | `kdj` | ❌ | ❌ | ✅ |
+| Kikuyu | `kik` | ✅ | ❌ | ❌ |
+| Kinyarwanda | `kin` | ✅ | ✅ | ✅ |
+| Kumam | `kdi` | ❌ | ❌ | ✅ |
+| Kupsabiny | `kpz` | ❌ | ❌ | ✅ |
+| Kwamba | `rwm` | ❌ | ❌ | ✅ |
+| Lango | `laj` | ❌ | ❌ | ✅ |
+| Lingala | `lin` | ✅ | ❌ | ❌ |
+| Lubwisi | `tlj` | ❌ | ❌ | ✅ |
+| Lugbara | `lgg` | ✅ † | ✅ | ✅ |
+| Lugungu | `rub` | ❌ | ❌ | ✅ |
+| Lugwere | `gwr` | ❌ | ❌ | ✅ |
+| Luganda | `lug` | ✅ | ✅ | ✅ |
+| Lumasaba | `myx` | ❌ | ✅ | ✅ |
+| Lunyole | `nuj` | ❌ | ❌ | ✅ |
+| Luo (Dholuo) | `luo` | ✅ | ❌ | ❌ |
+| Lusoga | `xog` | ❌ | ✅ | ✅ |
+| Ma'di | `mhi` | ❌ | ❌ | ✅ |
+| Pokot | `pok` | ❌ | ❌ | ✅ |
+| Rukiga | `cgg` | ❌ | ❌ | ✅ |
+| Rukonjo | `koo` | ❌ | ❌ | ✅ |
+| Runyankole | `nyn` | ✅ | ✅ | ✅ |
+| Runyoro | `nyo` | ❌ | ❌ | ✅ |
+| Ruruuli | `ruc` | ❌ | ❌ | ✅ |
+| Rutooro | `ttj` | ❌ | ✅ | ✅ |
+| Samia | `lsm` | ❌ | ❌ | ✅ |
+| Sesotho | `sot` | ✅ † | ❌ | ❌ |
+| Setswana | `tsn` | ✅ † | ❌ | ❌ |
+| Swahili | `swa` | ✅ | ✅ | ✅ |
+| Xhosa | `xho` | ✅ | ❌ | ❌ |
+| Yoruba | `yor` | ✅ | ❌ | ❌ |
+
+**†** Lugbara, Sesotho, and Setswana are in the orpheus-3b-tts training mix but
+currently expose **no individual voice IDs** in this checkpoint, so practical
+synthesis depends on a future voice release. Languages outside these sets (for
+example Zulu) are not currently served by any endpoint.
+
+---
+
 ## Part 1: Authentication
 
 ### Creating an Account
@@ -328,6 +393,42 @@ response = requests.post(url, headers=headers, json=payload)
 print(response.status_code)
 print(response.json())
 ```
+
+#### orpheus-3b-tts: languages covered
+
+Speaker IDs encode both the source corpus (`salt_*`, `waxal_*`, `slr32_*`,
+`slr129_*`, `bateesa_*`) and the language. Languages marked with an em dash
+in the Speaker IDs column are present in the model's training mix but do
+not currently expose individual voice IDs in this checkpoint.
+
+| Config | Language | ISO 639-1 | Region | Speaker IDs |
+|---|---|---|---|---|
+| `ach` | Acholi | — | Uganda, South Sudan | `salt_ach_0001`<br>`waxal_ach_0001`<br>`waxal_ach_0005`<br>`waxal_ach_0006`<br>`waxal_ach_0008` |
+| `afr` | Afrikaans | af | South Africa, Namibia | `slr32_afr_0009` |
+| `eng` | English | en | (control language) | `salt_eng_0001`<br>`salt_eng_0002`<br>`salt_eng_0003` |
+| `ewe` | Ewe | ee | Ghana, Togo | `slr129_ewe_0001` |
+| `ful` | Fulah | ff | West Africa (Sahel) | `waxal_ful_0003`<br>`waxal_ful_0004`<br>`waxal_ful_0006` |
+| `hau` | Hausa | ha | Nigeria, Niger, Chad | `waxal_hau_0004`<br>`waxal_hau_0006`<br>`waxal_hau_0007`<br>`waxal_hau_0008` |
+| `ibo` | Igbo | ig | Nigeria | `waxal_ibo_0003`<br>`waxal_ibo_0005`<br>`waxal_ibo_0008` |
+| `kik` | Kikuyu | ki | Kenya | `waxal_kik_0003`<br>`waxal_kik_0004` |
+| `kin` | Kinyarwanda | rw | Rwanda | `bateesa_kin_0001` |
+| `lgg` | Lugbara | — | Uganda, DRC | — |
+| `lin` | Lingala | ln | DRC, Republic of Congo | `slr129_lin_0001` |
+| `lug` | Luganda | lg | Uganda | `salt_lug_0001`<br>`waxal_lug_0002`<br>`waxal_lug_0003`<br>`waxal_lug_0004`<br>`waxal_lug_0005`<br>`waxal_lug_0006`<br>`waxal_lug_0007`<br>`waxal_lug_0008` |
+| `luo` | Luo (Dholuo) | — | Kenya, Tanzania | `waxal_luo_0001`<br>`waxal_luo_0002`<br>`waxal_luo_0003`<br>`waxal_luo_0004` |
+| `nyn` | Runyankole | — | Uganda | `salt_nyn_0001`<br>`waxal_nyn_0003`<br>`waxal_nyn_0004`<br>`waxal_nyn_0007`<br>`waxal_nyn_0008` |
+| `sot` | Sesotho | st | Lesotho, South Africa | — |
+| `swa` | Swahili | sw | East Africa | `waxal_swa_0006`<br>`waxal_swa_0007` |
+| `teo` | Ateso | — | Uganda, Kenya | `salt_teo_0001` |
+| `tsn` | Setswana | tn | Botswana, South Africa | — |
+| `xho` | Xhosa | xh | South Africa | `slr32_xho_0012` |
+| `yor` | Yoruba | yo | Nigeria, Benin | `waxal_yor_0002`<br>`waxal_yor_0006`<br>`waxal_yor_0008` |
+
+Per-language quality scales with the amount of training data Sunbird
+collected for that language; some configs have many more speaker hours
+than others. **Audition the voices** for each language before relying on a
+particular speaker — use the discovery snippet under **Listing voices**
+below.
 
 ### Single synthesis (spark-tts, fixed voices)
 

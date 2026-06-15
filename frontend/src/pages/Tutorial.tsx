@@ -3,18 +3,21 @@ import { Link } from 'react-router-dom';
 import {
   ArrowRight,
   BookOpen,
+  Check,
   ExternalLink,
   FileText,
   Globe,
   Info,
   KeyRound,
   Languages,
+  ListChecks,
   Mic,
   MessageSquare,
   Radio,
   Sparkles,
   Upload,
   Volume2,
+  X,
 } from 'lucide-react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -28,6 +31,7 @@ interface Section {
 
 const sections: Section[] = [
   { id: 'overview', label: 'Overview' },
+  { id: 'language-support', label: 'Language Support' },
   { id: 'authentication', label: 'Authentication', part: 'Part 1' },
   { id: 'translation', label: 'Translation', part: 'Part 2' },
   { id: 'speech-to-text', label: 'Speech-to-Text', part: 'Part 3' },
@@ -48,12 +52,62 @@ const supportedLanguages = [
   { name: 'Swahili', code: 'swa' },
 ];
 
-const translationPairs = [
-  'English ↔ Acholi',
-  'English ↔ Ateso',
-  'English ↔ Luganda',
-  'English ↔ Lugbara',
-  'English ↔ Runyankole',
+interface LanguageSupportRow {
+  name: string;
+  code: string;
+  speech: boolean; // /tasks/audio/speech (orpheus-3b-tts)
+  transcription: boolean; // /tasks/audio/transcriptions (Whisper language IDs)
+  chat: boolean; // /tasks/chat/completions (Sunflower) — same set as /tasks/translate
+  ttsVoiceless?: boolean; // covered by the TTS training mix but no voice IDs yet
+}
+
+// Union of every language served by at least one of the three endpoints, sorted
+// by name. Languages outside these sets (e.g. Zulu) are intentionally omitted.
+const languageSupport: LanguageSupportRow[] = [
+  { name: 'Acholi', code: 'ach', speech: true, transcription: true, chat: true },
+  { name: 'Afrikaans', code: 'afr', speech: true, transcription: false, chat: false },
+  { name: 'Alur', code: 'alz', speech: false, transcription: false, chat: true },
+  { name: 'Aringa', code: 'luc', speech: false, transcription: false, chat: true },
+  { name: 'Ateso', code: 'teo', speech: true, transcription: true, chat: true },
+  { name: 'Bari', code: 'bfa', speech: false, transcription: false, chat: true },
+  { name: 'English', code: 'eng', speech: true, transcription: true, chat: true },
+  { name: 'Ewe', code: 'ewe', speech: true, transcription: false, chat: false },
+  { name: 'Fulah', code: 'ful', speech: true, transcription: false, chat: false },
+  { name: 'Hausa', code: 'hau', speech: true, transcription: false, chat: false },
+  { name: 'Igbo', code: 'ibo', speech: true, transcription: false, chat: false },
+  { name: 'Jopadhola', code: 'adh', speech: false, transcription: false, chat: true },
+  { name: 'Kakwa', code: 'keo', speech: false, transcription: false, chat: true },
+  { name: 'Karamojong', code: 'kdj', speech: false, transcription: false, chat: true },
+  { name: 'Kikuyu', code: 'kik', speech: true, transcription: false, chat: false },
+  { name: 'Kinyarwanda', code: 'kin', speech: true, transcription: true, chat: true },
+  { name: 'Kumam', code: 'kdi', speech: false, transcription: false, chat: true },
+  { name: 'Kupsabiny', code: 'kpz', speech: false, transcription: false, chat: true },
+  { name: 'Kwamba', code: 'rwm', speech: false, transcription: false, chat: true },
+  { name: 'Lango', code: 'laj', speech: false, transcription: false, chat: true },
+  { name: 'Lingala', code: 'lin', speech: true, transcription: false, chat: false },
+  { name: 'Lubwisi', code: 'tlj', speech: false, transcription: false, chat: true },
+  { name: 'Lugbara', code: 'lgg', speech: true, transcription: true, chat: true, ttsVoiceless: true },
+  { name: 'Lugungu', code: 'rub', speech: false, transcription: false, chat: true },
+  { name: 'Lugwere', code: 'gwr', speech: false, transcription: false, chat: true },
+  { name: 'Luganda', code: 'lug', speech: true, transcription: true, chat: true },
+  { name: 'Lumasaba', code: 'myx', speech: false, transcription: true, chat: true },
+  { name: 'Lunyole', code: 'nuj', speech: false, transcription: false, chat: true },
+  { name: 'Luo (Dholuo)', code: 'luo', speech: true, transcription: false, chat: false },
+  { name: 'Lusoga', code: 'xog', speech: false, transcription: true, chat: true },
+  { name: "Ma'di", code: 'mhi', speech: false, transcription: false, chat: true },
+  { name: 'Pokot', code: 'pok', speech: false, transcription: false, chat: true },
+  { name: 'Rukiga', code: 'cgg', speech: false, transcription: false, chat: true },
+  { name: 'Rukonjo', code: 'koo', speech: false, transcription: false, chat: true },
+  { name: 'Runyankole', code: 'nyn', speech: true, transcription: true, chat: true },
+  { name: 'Runyoro', code: 'nyo', speech: false, transcription: false, chat: true },
+  { name: 'Ruruuli', code: 'ruc', speech: false, transcription: false, chat: true },
+  { name: 'Rutooro', code: 'ttj', speech: false, transcription: true, chat: true },
+  { name: 'Samia', code: 'lsm', speech: false, transcription: false, chat: true },
+  { name: 'Sesotho', code: 'sot', speech: true, transcription: false, chat: false, ttsVoiceless: true },
+  { name: 'Setswana', code: 'tsn', speech: true, transcription: false, chat: false, ttsVoiceless: true },
+  { name: 'Swahili', code: 'swa', speech: true, transcription: true, chat: true },
+  { name: 'Xhosa', code: 'xho', speech: true, transcription: false, chat: false },
+  { name: 'Yoruba', code: 'yor', speech: true, transcription: false, chat: false },
 ];
 
 const sttLanguages = [
@@ -70,19 +124,109 @@ const sttLanguages = [
   { code: 'myx', name: 'Lumasaba' },
 ];
 
-const speakerVoices = [
-  { id: 241, voice: 'Acholi (female)' },
-  { id: 242, voice: 'Ateso (female)' },
-  { id: 243, voice: 'Runyankore (female)' },
-  { id: 245, voice: 'Lugbara (female)' },
-  { id: 246, voice: 'Swahili (male)' },
-  { id: 248, voice: 'Luganda (female)' },
+// orpheus-3b-tts languages covered. Speaker IDs encode both the source corpus
+// (salt_*, waxal_*, slr32_*, slr129_*, bateesa_*) and the language. An empty
+// speakers list means the language is in the training mix but exposes no
+// individual voice IDs in this checkpoint (rendered as an em dash).
+const orpheusLanguages = [
+  {
+    config: 'ach',
+    language: 'Acholi',
+    iso: '—',
+    region: 'Uganda, South Sudan',
+    speakers: ['salt_ach_0001', 'waxal_ach_0001', 'waxal_ach_0005', 'waxal_ach_0006', 'waxal_ach_0008'],
+  },
+  { config: 'afr', language: 'Afrikaans', iso: 'af', region: 'South Africa, Namibia', speakers: ['slr32_afr_0009'] },
+  {
+    config: 'eng',
+    language: 'English',
+    iso: 'en',
+    region: '(control language)',
+    speakers: ['salt_eng_0001', 'salt_eng_0002', 'salt_eng_0003'],
+  },
+  { config: 'ewe', language: 'Ewe', iso: 'ee', region: 'Ghana, Togo', speakers: ['slr129_ewe_0001'] },
+  {
+    config: 'ful',
+    language: 'Fulah',
+    iso: 'ff',
+    region: 'West Africa (Sahel)',
+    speakers: ['waxal_ful_0003', 'waxal_ful_0004', 'waxal_ful_0006'],
+  },
+  {
+    config: 'hau',
+    language: 'Hausa',
+    iso: 'ha',
+    region: 'Nigeria, Niger, Chad',
+    speakers: ['waxal_hau_0004', 'waxal_hau_0006', 'waxal_hau_0007', 'waxal_hau_0008'],
+  },
+  {
+    config: 'ibo',
+    language: 'Igbo',
+    iso: 'ig',
+    region: 'Nigeria',
+    speakers: ['waxal_ibo_0003', 'waxal_ibo_0005', 'waxal_ibo_0008'],
+  },
+  { config: 'kik', language: 'Kikuyu', iso: 'ki', region: 'Kenya', speakers: ['waxal_kik_0003', 'waxal_kik_0004'] },
+  { config: 'kin', language: 'Kinyarwanda', iso: 'rw', region: 'Rwanda', speakers: ['bateesa_kin_0001'] },
+  { config: 'lgg', language: 'Lugbara', iso: '—', region: 'Uganda, DRC', speakers: [] },
+  { config: 'lin', language: 'Lingala', iso: 'ln', region: 'DRC, Republic of Congo', speakers: ['slr129_lin_0001'] },
+  {
+    config: 'lug',
+    language: 'Luganda',
+    iso: 'lg',
+    region: 'Uganda',
+    speakers: [
+      'salt_lug_0001',
+      'waxal_lug_0002',
+      'waxal_lug_0003',
+      'waxal_lug_0004',
+      'waxal_lug_0005',
+      'waxal_lug_0006',
+      'waxal_lug_0007',
+      'waxal_lug_0008',
+    ],
+  },
+  {
+    config: 'luo',
+    language: 'Luo (Dholuo)',
+    iso: '—',
+    region: 'Kenya, Tanzania',
+    speakers: ['waxal_luo_0001', 'waxal_luo_0002', 'waxal_luo_0003', 'waxal_luo_0004'],
+  },
+  {
+    config: 'nyn',
+    language: 'Runyankole',
+    iso: '—',
+    region: 'Uganda',
+    speakers: ['salt_nyn_0001', 'waxal_nyn_0003', 'waxal_nyn_0004', 'waxal_nyn_0007', 'waxal_nyn_0008'],
+  },
+  { config: 'sot', language: 'Sesotho', iso: 'st', region: 'Lesotho, South Africa', speakers: [] },
+  { config: 'swa', language: 'Swahili', iso: 'sw', region: 'East Africa', speakers: ['waxal_swa_0006', 'waxal_swa_0007'] },
+  { config: 'teo', language: 'Ateso', iso: '—', region: 'Uganda, Kenya', speakers: ['salt_teo_0001'] },
+  { config: 'tsn', language: 'Setswana', iso: 'tn', region: 'Botswana, South Africa', speakers: [] },
+  { config: 'xho', language: 'Xhosa', iso: 'xh', region: 'South Africa', speakers: ['slr32_xho_0012'] },
+  {
+    config: 'yor',
+    language: 'Yoruba',
+    iso: 'yo',
+    region: 'Nigeria, Benin',
+    speakers: ['waxal_yor_0002', 'waxal_yor_0006', 'waxal_yor_0008'],
+  },
+];
+
+const sparkVoices = [
+  { name: 'acholi_female', id: 241, description: 'Acholi (female)' },
+  { name: 'ateso_female', id: 242, description: 'Ateso (female)' },
+  { name: 'runyankore_female', id: 243, description: 'Runyankore (female)' },
+  { name: 'lugbara_female', id: 245, description: 'Lugbara (female)' },
+  { name: 'swahili_male', id: 246, description: 'Swahili (male)' },
+  { name: 'luganda_female', id: 248, description: 'Luganda (female)' },
 ];
 
 const responseModes = [
-  { mode: 'url', description: 'Generate audio, upload to GCP, return signed URL (valid for 30 minutes)' },
+  { mode: 'url', description: 'Generate audio, upload to GCP, return a signed URL (valid ~30 minutes) — default' },
   { mode: 'stream', description: 'Stream raw audio chunks directly' },
-  { mode: 'both', description: 'Stream audio AND return final signed URL' },
+  { mode: 'both', description: 'Stream audio and return a final signed URL' },
 ];
 
 const uploadFeatures = [
@@ -142,22 +286,66 @@ data = {
 response = requests.post(url, headers=headers, json=data)
 print(response.json())`;
 
-const translationLanguageCodes = `language_codes: {
-    "English": "eng",
-    "Luganda": "lug",
-    "Runyankole": "nyn",
-    "Acholi": "ach",
-    "Ateso": "teo",
-    "Lugbara": "lgg"
+const translateFullNameCode = `data = {
+    "target_language": "Luganda",
+    "text": "How are you?",
+}
+
+response = requests.post(url, headers=headers, json=data)
+print(response.json())`;
+
+const translationLanguageCodes = `language_codes = {
+    "ach": "Acholi",
+    "adh": "Jopadhola",
+    "alz": "Alur",
+    "bfa": "Bari",
+    "cgg": "Rukiga",
+    "eng": "English",
+    "gwr": "Lugwere",
+    "kdi": "Kumam",
+    "kdj": "Karamojong",
+    "keo": "Kakwa",
+    "kin": "Kinyarwanda",
+    "koo": "Rukonjo",
+    "kpz": "Kupsabiny",
+    "laj": "Lango",
+    "lgg": "Lugbara",
+    "lsm": "Samia",
+    "luc": "Aringa",
+    "lug": "Luganda",
+    "mhi": "Ma'di",
+    "myx": "Lumasaba",
+    "nuj": "Lunyole",
+    "nyn": "Runyankole",
+    "nyo": "Runyoro",
+    "pok": "Pokot",
+    "rub": "Lugungu",
+    "ruc": "Ruruuli",
+    "rwm": "Kwamba",
+    "swa": "Swahili",
+    "teo": "Ateso",
+    "tlj": "Lubwisi",
+    "ttj": "Rutooro",
+    "xog": "Lusoga",
 }`;
 
-const modalSttCode = `import os
+const translateResponse = `{
+    "id": "trans-1a2b3c...",
+    "status": "COMPLETED",
+    "output": {
+        "translated_text": "Oli otya?",
+        "source_language": "lug",
+        "target_language": "eng"
+    }
+}`;
+
+const modalTranscribeCode = `import os
 import requests
 from dotenv import load_dotenv
 
 load_dotenv()
 
-url = "https://api.sunbird.ai/tasks/modal/stt"
+url = "https://api.sunbird.ai/tasks/audio/transcriptions"
 access_token = os.getenv("AUTH_TOKEN")
 
 headers = {
@@ -165,71 +353,44 @@ headers = {
     "Authorization": f"Bearer {access_token}",
 }
 
-# Replace with your audio file path
 audio_file_path = "/path/to/audio_file.wav"
 
 files = {
-    "audio": (
-        "recording.wav",
-        open(audio_file_path, "rb"),
-        "audio/wav",
-    ),
+    "audio": ("recording.wav", open(audio_file_path, "rb"), "audio/wav"),
+}
+data = {
+    "language": "lug",     # required: 3-letter code or full name (e.g. "Luganda")
+    "platform": "modal",   # "modal" (default, Whisper) or "runpod"
 }
 
-# Without language (auto-detect)
-response = requests.post(url, headers=headers, files=files)
+response = requests.post(url, headers=headers, files=files, data=data)
 result = response.json()
 print(f"Transcription: {result['audio_transcription']}")`;
 
-const modalSttWithLangCode = `files = {
-    "audio": (
-        "recording.wav",
-        open(audio_file_path, "rb"),
-        "audio/wav",
-    ),
+const runpodTranscribeCode = `files = {
+    "audio": ("recording.mp3", open("/path/to/audio_file.mp3", "rb"), "audio/mpeg"),
 }
-
-# Using a 3-letter code
-data = {"language": "lug"}
-response = requests.post(url, headers=headers, files=files, data=data)
-
-# Or using a full language name
-data = {"language": "Luganda"}
-response = requests.post(url, headers=headers, files=files, data=data)`;
-
-const runpodSttCode = `import os
-import requests
-from dotenv import load_dotenv
-
-load_dotenv()
-
-url = "https://api.sunbird.ai/tasks/stt"
-access_token = os.getenv("AUTH_TOKEN")
-
-headers = {
-    "accept": "application/json",
-    "Authorization": f"Bearer {access_token}",
-}
-
-# Replace with your audio file path
-audio_file_path = "/path/to/audio_file.mp3"
-
-files = {
-    "audio": (
-        "recording.mp3",
-        open(audio_file_path, "rb"),
-        "audio/mpeg",
-    ),
-}
-
 data = {
-    "language": "lug",  # Language code (eng, ach, teo, lug, lgg, nyn)
-    "adapter": "lug",   # Model adapter to use
-    "whisper": True,    # Use Whisper model
+    "language": "lug",
+    "platform": "runpod",
+    "adapter": "lug",             # optional; defaults to language
+    "whisper": True,             # RunPod only
+    "recognise_speakers": False,  # RunPod only — speaker diarization
 }
 
 response = requests.post(url, headers=headers, files=files, data=data)
 print(response.json())`;
+
+const transcribeResponse = `{
+  "audio_transcription": "Ekibiina ekiddukanya ...",
+  "language": "lug",
+  "audio_url": "https://storage.googleapis.com/.../audio.wav?...",
+  "audio_transcription_id": 123,
+  "diarization_output": null,
+  "formatted_diarization_output": null,
+  "was_audio_trimmed": false,
+  "original_duration_minutes": null
+}`;
 
 const saltWhisperCode = `SALT_LANGUAGE_IDS_WHISPER = {
     'eng': "English (Ugandan)",
@@ -268,13 +429,13 @@ response = requests.post(url, headers=headers, json=data)
 result = response.json()
 print(f"Detected language: {result}")`;
 
-const ttsCode = `import os
+const orpheusTtsCode = `import os
 import requests
 from dotenv import load_dotenv
 
 load_dotenv()
 
-url = "https://api.sunbird.ai/tasks/modal/tts"
+url = "https://api.sunbird.ai/tasks/audio/speech"
 access_token = os.getenv("AUTH_TOKEN")
 
 headers = {
@@ -284,30 +445,69 @@ headers = {
 }
 
 payload = {
-    "response_mode": "url",
-    "speaker_id": 248,
     "text": "I am a nurse who takes care of many people.",
+    "model": "orpheus-3b-tts",   # default
+    "voice": "salt_lug_0001",     # catalog tag; see GET /tasks/voice/speakers
 }
 
 response = requests.post(url, headers=headers, json=payload)
-
 print(response.status_code)
 print(response.json())`;
 
+const sparkTtsCode = `payload = {
+    "text": "I am a nurse who takes care of many people.",
+    "model": "spark-tts",
+    "voice": "luganda_female",   # voice name, or the numeric id as a string e.g. "248"
+    "response_mode": "url",       # "url" (default), "stream", or "both"
+}
+response = requests.post(url, headers=headers, json=payload)
+print(response.json())`;
+
+const listVoicesCode = `auth = {"Authorization": f"Bearer {access_token}"}
+
+# Orpheus voices grouped by language (default)
+print(requests.get("https://api.sunbird.ai/tasks/voice/speakers", headers=auth).json())
+
+# spark-tts fixed voices
+print(requests.get(
+    "https://api.sunbird.ai/tasks/voice/speakers",
+    headers=auth,
+    params={"model": "spark-tts"},
+).json())`;
+
+const batchTtsCode = `url = "https://api.sunbird.ai/tasks/audio/speech/batch"
+payload = {
+    "items": [
+        {"text": "Good morning.", "voice": "salt_lug_0001"},
+        {"text": "How are you?", "voice": "salt_eng_0001"},
+    ]
+}
+response = requests.post(url, headers=headers, json=payload)
+print(response.json())`;
+
+const refreshUrlCode = `print(requests.get(
+    "https://api.sunbird.ai/tasks/audio/speech/url",
+    headers={"Authorization": f"Bearer {access_token}"},
+    params={"gcs_object": "orpheus_tts/2026-06-03/abc.wav"},
+).json())`;
+
 const ttsResponse = `{
-  "success": true,
-  "audio_url": "https://storage.googleapis.com/sb-asr-audio-content-sb-gcp-project-01/tts_audio/20260212_222936_2a9f1f83_da308cdb.wav?...",
-  "expires_at": "2026-02-12T22:59:36.954061Z",
-  "file_name": "tts_audio/20260212_222936_2a9f1f83_da308cdb.wav",
-  "duration_estimate_seconds": 4,
-  "text_length": 43,
-  "speaker_id": 248,
-  "speaker_name": "Luganda (female)"
+  "audio_url": "https://storage.googleapis.com/.../tts_audio/....wav?...",
+  "model": "orpheus-3b-tts",
+  "platform": "modal",
+  "voice": "salt_lug_0001",
+  "audio_url_expires_at": "2026-06-03T22:59:36.954061Z",
+  "language": "lug",
+  "sample_rate": 24000,
+  "duration_seconds": 4.0,
+  "gcs_object": "orpheus_tts/2026-06-03/....wav",
+  "request_id": "0f1e2d3c4b5a...",
+  "timings_ms": {"inference_ms": 1820.5, "upload_ms": 234.1, "total_ms": 2095.6}
 }`;
 
-const sunflowerChatCode = `import requests
+const chatCompletionCode = `import requests
 
-url = "https://api.sunbird.ai/tasks/sunflower_inference"
+url = "https://api.sunbird.ai/tasks/chat/completions"
 
 headers = {
     "accept": "application/json",
@@ -316,16 +516,14 @@ headers = {
 }
 
 payload = {
+    "model": "Sunbird/Sunflower-14B",
     "messages": [
         {
             "role": "user",
-            "content": "Good morning, what is weather today?",
+            "content": "Good morning, what is the weather today?",
         }
     ],
-    "model_type": "qwen",
     "temperature": 0.3,
-    "stream": False,
-    "system_message": "string",
 }
 
 response = requests.post(url, headers=headers, json=payload)
@@ -333,51 +531,68 @@ response = requests.post(url, headers=headers, json=payload)
 print(response.status_code)
 print(response.json())`;
 
-const sunflowerChatResponse = `{
-  "content": "I'm glad you're up! While I can't provide real-time weather updates, I can help you understand how to interpret weather forecasts or explain common weather patterns in Uganda. Could you share the current weather conditions you're experiencing?",
-  "model_type": "qwen",
+const chatCompletionResponse = `{
+  "id": "chatcmpl-8f14e45fceea167a5a36dedd4bea2543",
+  "object": "chat.completion",
+  "created": 1718000000,
+  "model": "Sunbird/Sunflower-14B",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "I'm glad you're up! While I can't provide real-time weather updates, I can help you understand weather forecasts or explain common weather patterns in Uganda."
+      },
+      "finish_reason": "stop"
+    }
+  ],
   "usage": {
-    "completion_tokens": 47,
     "prompt_tokens": 22,
+    "completion_tokens": 47,
     "total_tokens": 69
-  },
-  "processing_time": 4.802350997924805,
-  "inference_time": 4.792236804962158,
-  "message_count": 2
+  }
 }`;
 
-const sunflowerSimpleCode = `import requests
+const openaiSdkCode = `from openai import OpenAI
 
-url = "https://api.sunbird.ai/tasks/sunflower_simple"
+client = OpenAI(
+    api_key="<your-access-token>",
+    base_url="https://api.sunbird.ai/tasks",
+)
 
-headers = {
-    "accept": "application/json",
-    "Authorization": "Bearer <your-access-token>",
-}
+completion = client.chat.completions.create(
+    model="Sunbird/Sunflower-14B",
+    messages=[
+        {
+            "role": "user",
+            "content": "translate from english to luganda: i am very hungry they should serve food in time",
+        }
+    ],
+    temperature=0.1,
+)
 
-data = {
-    "instruction": "translate from english to luganda: i am very hungry they should serve food in time",
-    "model_type": "qwen",
-    "temperature": "0.1",
-    "system_message": "",
-}
+print(completion.choices[0].message.content)
+# Ndi muyala nnyo, emmere erina okugabibwa mu budde.`;
 
-response = requests.post(url, headers=headers, data=data)
-
-print(response.status_code)
-print(response.json())`;
-
-const sunflowerSimpleResponse = `{
-  "response": "Ndi muyala nnyo, emmere erina okugabibwa mu budde.",
-  "model_type": "qwen",
-  "processing_time": 3.2431752681732178,
-  "usage": {
-    "completion_tokens": 19,
-    "prompt_tokens": 54,
-    "total_tokens": 73
-  },
-  "success": true
+const multiTurnCode = `payload = {
+    "model": "Sunbird/Sunflower-14B",
+    "messages": [
+        {"role": "system", "content": "You are a helpful multilingual assistant."},
+        {"role": "user", "content": "Translate 'hello' to Luganda."},
+        {"role": "assistant", "content": "'Hello' is 'Gyebaleko'."},
+        {"role": "user", "content": "And to Acholi?"},
+    ],
 }`;
+
+const streamingCode = `stream = client.chat.completions.create(
+    model="Sunbird/Sunflower-14B",
+    messages=[{"role": "user", "content": "Tell me about Uganda."}],
+    stream=True,
+)
+
+for chunk in stream:
+    if chunk.choices and chunk.choices[0].delta.content:
+        print(chunk.choices[0].delta.content, end="", flush=True)`;
 
 const uploadCode = `import os
 import requests
@@ -528,6 +743,18 @@ function InlineCode({ children }: { children: React.ReactNode }) {
   );
 }
 
+function Availability({ available, dagger = false }: { available: boolean; dagger?: boolean }) {
+  if (!available) {
+    return <X size={16} className="inline text-gray-300 dark:text-gray-600" aria-label="Not supported" />;
+  }
+  return (
+    <span className="inline-flex items-center gap-0.5 text-green-600 dark:text-green-400">
+      <Check size={16} aria-label="Available" />
+      {dagger && <sup className="text-amber-600 dark:text-amber-400">†</sup>}
+    </span>
+  );
+}
+
 export default function Tutorial() {
   const activeId = useActiveSection(sections.map((s) => s.id));
 
@@ -548,7 +775,7 @@ export default function Tutorial() {
             </h1>
             <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto leading-relaxed">
               A comprehensive guide for using the Sunbird AI API with Python code samples — translate, transcribe,
-              synthesize speech, and chat in 25+ African languages.
+              synthesize speech, and chat across 30+ African languages.
             </p>
           </div>
 
@@ -592,8 +819,9 @@ export default function Tutorial() {
               <section>
                 <SectionHeading id="overview" icon={Globe} title="Supported Languages" />
                 <Paragraph>
-                  Sunbird AI provides AI services across English and a growing catalog of African languages. The
-                  endpoints below accept a 3-letter ISO code to target a specific language.
+                  Sunbird AI provides AI services across English and a growing catalog of African languages.
+                  Languages are accepted as a 3-letter ISO code or a full language name; translation alone covers
+                  32 languages.
                 </Paragraph>
                 <div className="flex flex-wrap gap-2 mt-6">
                   {supportedLanguages.map((lang) => (
@@ -609,6 +837,87 @@ export default function Tutorial() {
                     + 20 more
                   </div>
                 </div>
+              </section>
+
+              {/* Language Support */}
+              <section>
+                <SectionHeading
+                  id="language-support"
+                  icon={ListChecks}
+                  title="Language Support by Endpoint"
+                />
+                <Paragraph>
+                  Which languages each task endpoint currently serves. <strong>Code</strong> is the canonical
+                  ISO/SALT code the API accepts (full language names also work where an endpoint takes a{' '}
+                  <InlineCode>language</InlineCode> or <InlineCode>voice</InlineCode>).{' '}
+                  <InlineCode>/tasks/translate</InlineCode> shares the same 32-language set as{' '}
+                  <InlineCode>/tasks/chat/completions</InlineCode>.
+                </Paragraph>
+                <div className="overflow-x-auto rounded-2xl border border-gray-200 dark:border-white/10 my-4">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 dark:bg-white/5">
+                      <tr>
+                        <th className="text-left px-4 py-3 font-semibold text-gray-700 dark:text-gray-200">
+                          Language
+                        </th>
+                        <th className="text-left px-4 py-3 font-semibold text-gray-700 dark:text-gray-200">
+                          Code
+                        </th>
+                        <th className="px-4 py-3 font-semibold text-gray-700 dark:text-gray-200">
+                          <div className="text-center">Text-to-Speech</div>
+                          <div className="text-center font-mono font-normal text-[11px] text-gray-400 dark:text-gray-500">
+                            /tasks/audio/speech
+                          </div>
+                        </th>
+                        <th className="px-4 py-3 font-semibold text-gray-700 dark:text-gray-200">
+                          <div className="text-center">Speech-to-Text</div>
+                          <div className="text-center font-mono font-normal text-[11px] text-gray-400 dark:text-gray-500">
+                            /tasks/audio/transcriptions
+                          </div>
+                        </th>
+                        <th className="px-4 py-3 font-semibold text-gray-700 dark:text-gray-200">
+                          <div className="text-center">Chat</div>
+                          <div className="text-center font-mono font-normal text-[11px] text-gray-400 dark:text-gray-500">
+                            /tasks/chat/completions
+                          </div>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {languageSupport.map((row, i) => (
+                        <tr
+                          key={row.code}
+                          className={
+                            i % 2 === 0
+                              ? 'bg-white dark:bg-transparent'
+                              : 'bg-gray-50/50 dark:bg-white/[0.02]'
+                          }
+                        >
+                          <td className="px-4 py-3 text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                            {row.name}
+                          </td>
+                          <td className="px-4 py-3 font-mono text-primary-700 dark:text-primary-400">
+                            {row.code}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <Availability available={row.speech} dagger={row.ttsVoiceless} />
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <Availability available={row.transcription} />
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <Availability available={row.chat} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <Paragraph>
+                  <strong>†</strong> Lugbara, Sesotho, and Setswana are in the orpheus-3b-tts training mix but
+                  currently expose no individual voice IDs, so synthesis depends on a future voice release.
+                  Languages outside these sets (for example Zulu) are not yet served by any endpoint.
+                </Paragraph>
               </section>
 
               {/* Part 1: Authentication */}
@@ -669,25 +978,33 @@ export default function Tutorial() {
                   id="translation"
                   icon={Languages}
                   part="Part 2"
-                  title="Translation (NLLB Model)"
+                  title="Translation (Sunflower Model)"
                 />
                 <Paragraph>
-                  Translate text between English and local languages using the NLLB model. Supports bidirectional
-                  translation.
+                  Translate text between 32 Ugandan and East African languages using the Sunflower model.
+                  Languages are accepted as ISO 639-3 codes (<InlineCode>lug</InlineCode>) or full names
+                  (<InlineCode>Luganda</InlineCode>), case-insensitively, and translation works between{' '}
+                  <strong>any pair</strong> of supported languages. <InlineCode>source_language</InlineCode> is
+                  optional — when omitted, Sunflower infers it from the text.
                 </Paragraph>
                 <CodeBlock code={translateCode} language="python" label="Python — translate" />
 
-                <MutedHeading>Supported Language Pairs</MutedHeading>
-                <BulletList items={translationPairs} />
-
+                <MutedHeading>Optional source, full names</MutedHeading>
                 <Paragraph>
-                  The dictionary below represents the language codes available now for the translate endpoint:
+                  <InlineCode>source_language</InlineCode> is optional, and full language names work too:
                 </Paragraph>
+                <CodeBlock code={translateFullNameCode} language="python" label="Python — target only" />
+
+                <MutedHeading>Supported languages (ISO code → name)</MutedHeading>
                 <CodeBlock
                   code={translationLanguageCodes}
                   language="python"
                   label="Python — language codes"
                 />
+
+                <MutedHeading>Response</MutedHeading>
+                <Paragraph>The response shape is unchanged from the previous NLLB-backed endpoint:</Paragraph>
+                <CodeBlock code={translateResponse} language="json" label="JSON — response" />
               </section>
 
               {/* Part 3: Speech-to-Text */}
@@ -699,29 +1016,47 @@ export default function Tutorial() {
                   title="Speech-to-Text (STT)"
                 />
                 <Paragraph>
-                  Convert speech audio to text for supported languages. The API supports various audio formats
-                  including MP3, WAV, and M4A.
+                  Convert speech audio to text. The unified{' '}
+                  <InlineCode>POST /tasks/audio/transcriptions</InlineCode> endpoint accepts an uploaded audio file
+                  (or a GCS object) and routes to the Modal (Whisper large-v3) or RunPod backend. Supports MP3,
+                  WAV, M4A, and more.
                 </Paragraph>
 
-                <SubHeading>Modal STT (Recommended)</SubHeading>
-                <Paragraph>
-                  The Modal-based STT endpoint uses the Whisper large-v3 model for high-quality transcription.
-                  Simply upload an audio file and get the transcription back. You can optionally specify a{' '}
-                  <InlineCode>language</InlineCode> to improve accuracy; if omitted the model auto-detects the
-                  language.
-                </Paragraph>
-                <CodeBlock code={modalSttCode} language="python" label="Python — Modal STT" />
+                <InfoNote>
+                  <strong>Migrating from the legacy STT routes?</strong> <InlineCode>/tasks/modal/stt</InlineCode>,{' '}
+                  <InlineCode>/tasks/stt</InlineCode>, <InlineCode>/tasks/stt_from_gcs</InlineCode>, and{' '}
+                  <InlineCode>/tasks/org/stt</InlineCode> are <strong>deprecated</strong> (they still work but
+                  return <InlineCode>Deprecation</InlineCode>/<InlineCode>Sunset</InlineCode> headers). Switch to{' '}
+                  <InlineCode>/tasks/audio/transcriptions</InlineCode>.
+                </InfoNote>
 
-                <MutedHeading>Specifying a language</MutedHeading>
+                <SubHeading>Transcribe a file (Modal / Whisper)</SubHeading>
                 <Paragraph>
-                  Pass a <InlineCode>language</InlineCode> field to guide the model. Accepts either a 3-letter ISO
-                  639-2 code or a full language name (case-insensitive).
+                  <InlineCode>language</InlineCode> is <strong>required</strong>.{' '}
+                  <InlineCode>platform</InlineCode> defaults to <InlineCode>modal</InlineCode> (Whisper large-v3).
                 </Paragraph>
-                <CodeBlock code={modalSttWithLangCode} language="python" label="Python — with language" />
+                <CodeBlock code={modalTranscribeCode} language="python" label="Python — Modal / Whisper" />
+
+                <SubHeading>Transcribe with RunPod (adapter, Whisper, diarization)</SubHeading>
+                <Paragraph>
+                  The RunPod backend adds a language <InlineCode>adapter</InlineCode>, the{' '}
+                  <InlineCode>whisper</InlineCode> flag, and optional speaker diarization
+                  (<InlineCode>recognise_speakers</InlineCode>).
+                </Paragraph>
+                <CodeBlock code={runpodTranscribeCode} language="python" label="Python — RunPod" />
+                <Paragraph>
+                  You can also transcribe audio already in GCS by passing{' '}
+                  <InlineCode>gcs_blob_name</InlineCode> (with <InlineCode>platform="runpod"</InlineCode>) instead
+                  of an <InlineCode>audio</InlineCode> file — see <strong>Part 7: File Upload</strong> for
+                  generating upload URLs.
+                </Paragraph>
+
+                <MutedHeading>Example response</MutedHeading>
+                <CodeBlock code={transcribeResponse} language="json" label="JSON — response" />
 
                 <MutedHeading>Supported languages</MutedHeading>
                 <div className="flex flex-wrap gap-2 my-4">
-                  {sttLanguages.slice(0, 10).map((l) => (
+                  {sttLanguages.map((l) => (
                     <div
                       key={l.code}
                       className="px-3 py-1 rounded-full bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 text-xs text-gray-800 dark:text-gray-100"
@@ -730,19 +1065,6 @@ export default function Tutorial() {
                     </div>
                   ))}
                 </div>
-
-                <SubHeading>RunPod STT (with language selection)</SubHeading>
-                <Paragraph>
-                  The RunPod-based STT endpoint allows you to specify a target language and adapter for
-                  transcription.
-                </Paragraph>
-                <CodeBlock code={runpodSttCode} language="python" label="Python — RunPod STT" />
-
-                <MutedHeading>Supported Languages</MutedHeading>
-                <Paragraph>
-                  English, Acholi, Ateso, Luganda, Lugbara, Runyankole, Lusoga, Rutooro, Lumasaba, Kinyarwanda,
-                  Swahili.
-                </Paragraph>
 
                 <InfoNote>
                   <strong>Note:</strong> For files larger than 100MB, only the first 10 minutes will be
@@ -782,26 +1104,132 @@ export default function Tutorial() {
                   title="Text-to-Speech (TTS)"
                 />
                 <Paragraph>
-                  Convert text to audio using Ugandan language voices. The API supports multiple response modes
-                  including streaming and signed URLs.
+                  Synthesize speech from text. The unified <InlineCode>POST /tasks/audio/speech</InlineCode>{' '}
+                  endpoint replaces <InlineCode>/tasks/modal/tts</InlineCode>,{' '}
+                  <InlineCode>/tasks/runpod/tts</InlineCode>, and{' '}
+                  <InlineCode>/tasks/modal/orpheus/tts</InlineCode>. Two models are available:
                 </Paragraph>
-                <CodeBlock code={ttsCode} language="python" label="Python — TTS" />
+                <BulletList
+                  items={[
+                    <>
+                      <InlineCode>orpheus-3b-tts</InlineCode> (default) — multilingual, multi-speaker; voices are
+                      catalog tags (e.g. <InlineCode>salt_lug_0001</InlineCode>). List them with{' '}
+                      <InlineCode>GET /tasks/voice/speakers</InlineCode>.
+                    </>,
+                    <>
+                      <InlineCode>spark-tts</InlineCode> — the six fixed Ugandan voices below; supports streaming
+                      on Modal.
+                    </>,
+                  ]}
+                />
 
-                <SubHeading>Speaker IDs</SubHeading>
+                <InfoNote>
+                  <strong>Migrating?</strong> The legacy TTS, streaming (<InlineCode>/stream</InlineCode>,{' '}
+                  <InlineCode>/stream-with-url</InlineCode>), Orpheus batch, speaker-listing, and{' '}
+                  <InlineCode>refresh-url</InlineCode> endpoints are <strong>deprecated</strong>. Use the unified
+                  endpoints below.
+                </InfoNote>
+
+                <SubHeading>Single synthesis (orpheus-3b-tts, default)</SubHeading>
+                <CodeBlock code={orpheusTtsCode} language="python" label="Python — orpheus-3b-tts" />
+
+                <MutedHeading>orpheus-3b-tts: languages covered</MutedHeading>
+                <Paragraph>
+                  Speaker IDs encode both the source corpus (<InlineCode>salt_*</InlineCode>,{' '}
+                  <InlineCode>waxal_*</InlineCode>, <InlineCode>slr32_*</InlineCode>,{' '}
+                  <InlineCode>slr129_*</InlineCode>, <InlineCode>bateesa_*</InlineCode>) and the language.
+                  Languages shown with an em dash in the Speaker IDs column are present in the model's training
+                  mix but do not currently expose individual voice IDs in this checkpoint.
+                </Paragraph>
+                <div className="overflow-x-auto rounded-2xl border border-gray-200 dark:border-white/10 my-4">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 dark:bg-white/5">
+                      <tr>
+                        <th className="text-left px-4 py-3 font-semibold text-gray-700 dark:text-gray-200">
+                          Config
+                        </th>
+                        <th className="text-left px-4 py-3 font-semibold text-gray-700 dark:text-gray-200">
+                          Language
+                        </th>
+                        <th className="text-left px-4 py-3 font-semibold text-gray-700 dark:text-gray-200">
+                          ISO 639-1
+                        </th>
+                        <th className="text-left px-4 py-3 font-semibold text-gray-700 dark:text-gray-200">
+                          Region
+                        </th>
+                        <th className="text-left px-4 py-3 font-semibold text-gray-700 dark:text-gray-200">
+                          Speaker IDs
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {orpheusLanguages.map((row, i) => (
+                        <tr
+                          key={row.config}
+                          className={
+                            i % 2 === 0
+                              ? 'bg-white dark:bg-transparent'
+                              : 'bg-gray-50/50 dark:bg-white/[0.02]'
+                          }
+                        >
+                          <td className="px-4 py-3 align-top font-mono text-primary-700 dark:text-primary-400">
+                            {row.config}
+                          </td>
+                          <td className="px-4 py-3 align-top text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                            {row.language}
+                          </td>
+                          <td className="px-4 py-3 align-top font-mono text-gray-500 dark:text-gray-400">
+                            {row.iso}
+                          </td>
+                          <td className="px-4 py-3 align-top text-gray-600 dark:text-gray-400">{row.region}</td>
+                          <td className="px-4 py-3 align-top text-gray-700 dark:text-gray-300">
+                            {row.speakers.length === 0 ? (
+                              <span className="text-gray-400 dark:text-gray-500">—</span>
+                            ) : (
+                              <div className="flex flex-wrap gap-1">
+                                {row.speakers.map((s) => (
+                                  <code
+                                    key={s}
+                                    className="px-1.5 py-0.5 rounded-md bg-gray-100 dark:bg-white/10 text-primary-700 dark:text-primary-300 text-xs font-mono"
+                                  >
+                                    {s}
+                                  </code>
+                                ))}
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <Paragraph>
+                  Per-language quality scales with the amount of training data Sunbird collected for that
+                  language. Audition the voices for each language before relying on a particular speaker — use the
+                  discovery snippet under <strong>Listing voices</strong> below.
+                </Paragraph>
+
+                <SubHeading>Single synthesis (spark-tts, fixed voices)</SubHeading>
+                <CodeBlock code={sparkTtsCode} language="python" label="Python — spark-tts" />
+
+                <MutedHeading>spark-tts voices</MutedHeading>
                 <div className="overflow-hidden rounded-2xl border border-gray-200 dark:border-white/10 my-4">
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50 dark:bg-white/5">
                       <tr>
                         <th className="text-left px-4 py-3 font-semibold text-gray-700 dark:text-gray-200">
-                          Speaker ID
+                          Voice name
                         </th>
                         <th className="text-left px-4 py-3 font-semibold text-gray-700 dark:text-gray-200">
-                          Voice
+                          ID
+                        </th>
+                        <th className="text-left px-4 py-3 font-semibold text-gray-700 dark:text-gray-200">
+                          Description
                         </th>
                       </tr>
                     </thead>
                     <tbody>
-                      {speakerVoices.map((s, i) => (
+                      {sparkVoices.map((s, i) => (
                         <tr
                           key={s.id}
                           className={
@@ -811,9 +1239,10 @@ export default function Tutorial() {
                           }
                         >
                           <td className="px-4 py-3 font-mono text-primary-700 dark:text-primary-400">
-                            {s.id}
+                            {s.name}
                           </td>
-                          <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{s.voice}</td>
+                          <td className="px-4 py-3 font-mono text-gray-700 dark:text-gray-300">{s.id}</td>
+                          <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{s.description}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -821,6 +1250,9 @@ export default function Tutorial() {
                 </div>
 
                 <SubHeading>Response Modes</SubHeading>
+                <Paragraph>
+                  <InlineCode>response_mode</InlineCode> applies to <strong>spark-tts on Modal</strong>:
+                </Paragraph>
                 <BulletList
                   items={responseModes.map((r) => (
                     <>
@@ -829,7 +1261,21 @@ export default function Tutorial() {
                   ))}
                 />
 
-                <MutedHeading>Example Response</MutedHeading>
+                <SubHeading>Listing voices</SubHeading>
+                <CodeBlock code={listVoicesCode} language="python" label="Python — list voices" />
+
+                <SubHeading>Batch synthesis (orpheus-3b-tts)</SubHeading>
+                <Paragraph>Synthesize up to 128 items in a single request:</Paragraph>
+                <CodeBlock code={batchTtsCode} language="python" label="Python — batch" />
+
+                <SubHeading>Refreshing an expired URL</SubHeading>
+                <Paragraph>
+                  Signed URLs expire after ~30 minutes. Re-sign a stored object with{' '}
+                  <InlineCode>GET /tasks/audio/speech/url</InlineCode>:
+                </Paragraph>
+                <CodeBlock code={refreshUrlCode} language="python" label="Python — refresh URL" />
+
+                <MutedHeading>Example response (POST /tasks/audio/speech)</MutedHeading>
                 <CodeBlock code={ttsResponse} language="json" label="JSON — response" />
               </section>
 
@@ -842,25 +1288,54 @@ export default function Tutorial() {
                   title="Conversational AI (Sunflower)"
                 />
                 <Paragraph>
-                  The Sunflower model provides conversational AI capabilities with support for chat history and
-                  context. Supports 20+ Ugandan languages.
+                  The Sunflower model provides conversational AI for 20+ Ugandan languages through an
+                  OpenAI-compatible endpoint: <InlineCode>POST /tasks/chat/completions</InlineCode>. The request
+                  and response formats mirror the OpenAI Chat Completions API, so you can move between the OpenAI
+                  API and the Sunbird API by changing only the base URL and API key.
                 </Paragraph>
 
-                <SubHeading>Chat with History</SubHeading>
-                <CodeBlock code={sunflowerChatCode} language="python" label="Python — sunflower chat" />
+                <InfoNote>
+                  <strong>Deprecated:</strong> <InlineCode>POST /tasks/sunflower_inference</InlineCode> and{' '}
+                  <InlineCode>POST /tasks/sunflower_simple</InlineCode> are deprecated and will be removed in a
+                  future release. Use <InlineCode>POST /tasks/chat/completions</InlineCode> instead — a single
+                  instruction is just a request with one user message.
+                </InfoNote>
+
+                <SubHeading>Chat Completion</SubHeading>
+                <CodeBlock code={chatCompletionCode} language="python" label="Python — chat completions" />
 
                 <MutedHeading>Example Response</MutedHeading>
-                <CodeBlock code={sunflowerChatResponse} language="json" label="JSON — response" />
+                <CodeBlock code={chatCompletionResponse} language="json" label="JSON — response" />
 
-                <SubHeading>Simple Text Generation</SubHeading>
-                <CodeBlock
-                  code={sunflowerSimpleCode}
-                  language="python"
-                  label="Python — sunflower simple"
-                />
+                <SubHeading>Using the OpenAI SDK</SubHeading>
+                <Paragraph>
+                  Because the endpoint is OpenAI-compatible, the official OpenAI Python SDK works out of the box:
+                </Paragraph>
+                <CodeBlock code={openaiSdkCode} language="python" label="Python — OpenAI SDK" />
 
-                <MutedHeading>Example Response</MutedHeading>
-                <CodeBlock code={sunflowerSimpleResponse} language="json" label="JSON — response" />
+                <SubHeading>Multi-turn Conversations</SubHeading>
+                <Paragraph>
+                  Maintain context by sending the running message history. You can also set a custom{' '}
+                  <InlineCode>system</InlineCode> message (when omitted, a default Sunflower system message is
+                  applied):
+                </Paragraph>
+                <CodeBlock code={multiTurnCode} language="python" label="Python — multi-turn" />
+
+                <SubHeading>Streaming</SubHeading>
+                <Paragraph>
+                  Set <InlineCode>"stream": true</InlineCode> to receive Server-Sent Events in OpenAI{' '}
+                  <InlineCode>chat.completion.chunk</InlineCode> format, terminated by{' '}
+                  <InlineCode>data: [DONE]</InlineCode>. With the OpenAI SDK:
+                </Paragraph>
+                <CodeBlock code={streamingCode} language="python" label="Python — streaming" />
+
+                <InfoNote>
+                  Supported request parameters: <InlineCode>model</InlineCode> (only{' '}
+                  <InlineCode>Sunbird/Sunflower-14B</InlineCode>), <InlineCode>messages</InlineCode>,{' '}
+                  <InlineCode>temperature</InlineCode> (0.0–2.0, default 0.3), <InlineCode>max_tokens</InlineCode>,{' '}
+                  <InlineCode>top_p</InlineCode>, <InlineCode>stop</InlineCode>, and{' '}
+                  <InlineCode>stream</InlineCode>.
+                </InfoNote>
               </section>
 
               {/* Part 7: File Upload */}
