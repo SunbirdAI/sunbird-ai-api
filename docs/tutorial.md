@@ -387,6 +387,7 @@ payload = {
     "text": "I am a nurse who takes care of many people.",
     "model": "orpheus-3b-tts",   # default
     "voice": "salt_lug_0001",     # catalog tag; see GET /tasks/voice/speakers
+    "language": "eng",            # required for orpheus-3b-tts (ISO code or full name)
 }
 
 response = requests.post(url, headers=headers, json=payload)
