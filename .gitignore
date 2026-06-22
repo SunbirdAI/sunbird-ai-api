@@ -47,3 +47,4 @@ wif_credentials.md
 
 .superpowers/
 dynamodb_exports/
+.DS_Store
