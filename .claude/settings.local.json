@@ -2,7 +2,14 @@
   "permissions": {
     "allow": [
       "mcp__plugin_context7_context7__resolve-library-id",
-      "mcp__plugin_context7_context7__query-docs"
+      "mcp__plugin_context7_context7__query-docs",
+      "Bash(venv/bin/pytest app/tests/test_integrations/test_whatsapp_api.py app/tests/test_routers/test_webhooks.py -q)",
+      "Bash(venv/bin/pytest \"app/tests/test_routers/test_webhooks.py::TestWebhookVerification::test_verification_does_not_log_token_values\")",
+      "Bash(venv/bin/pytest app/tests/test_services/test_message_processor.py app/tests/test_services/test_whatsapp_service.py app/tests/test_integrations/test_whatsapp_api.py app/tests/test_routers/test_webhooks.py -q)",
+      "Bash(venv/bin/black --check app/integrations/whatsapp_api.py app/routers/webhooks.py app/core/config.py app/tests/test_integrations/test_whatsapp_api.py app/tests/test_routers/test_webhooks.py)",
+      "Bash(venv/bin/isort --check-only app/integrations/whatsapp_api.py app/routers/webhooks.py app/core/config.py app/tests/test_integrations/test_whatsapp_api.py app/tests/test_routers/test_webhooks.py)",
+      "Bash(venv/bin/flake8 app/integrations/whatsapp_api.py app/routers/webhooks.py app/core/config.py app/tests/test_integrations/test_whatsapp_api.py app/tests/test_routers/test_webhooks.py)",
+      "Bash(venv/bin/python -c \"import app.routers.webhooks, app.integrations.whatsapp_api, app.core.config; print\\('imports ok'\\); from app.core.config import settings; print\\('req timeout=', settings.whatsapp_request_timeout_seconds, 'upload timeout=', settings.whatsapp_upload_timeout_seconds\\)\")"
     ]
   }
 }

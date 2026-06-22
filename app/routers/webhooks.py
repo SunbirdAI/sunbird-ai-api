@@ -20,6 +20,7 @@ Note:
     services layer refactoring to improve modularity.
 """
 
+import hmac
 import logging
 import os
 import time
@@ -37,9 +38,6 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 
 router = APIRouter()
-
-# Access token for your app
-verify_token = os.getenv("VERIFY_TOKEN")
 
 # Initialize WhatsApp service using singleton
 whatsapp_service = get_whatsapp_service()
@@ -356,15 +354,20 @@ async def verify_webhook(
     challenge = request.query_params.get("hub.challenge")
     token = request.query_params.get("hub.verify_token")
 
+    # Never log the token values themselves; only whether they were provided.
     logging.info(
-        f"Webhook verification request - Mode: {mode}, Challenge: {challenge}, Token: {token}"
+        "Webhook verification request - Mode: %s, challenge_present: %s, token_present: %s",
+        mode,
+        bool(challenge),
+        bool(token),
     )
 
     if mode and token and challenge:
-        if mode != "subscribe" or token != os.getenv("VERIFY_TOKEN"):
-            logging.error(
-                f"Webhook verification failed - Expected token: {os.getenv('VERIFY_TOKEN')}, Received: {token}"
-            )
+        expected_token = os.getenv("VERIFY_TOKEN") or ""
+        # Constant-time comparison to avoid leaking the token via timing.
+        token_matches = hmac.compare_digest(token, expected_token)
+        if mode != "subscribe" or not token_matches:
+            logging.error("Webhook verification failed")
             raise AuthorizationError(message="Webhook verification failed")
 
         logging.info("WEBHOOK_VERIFIED")

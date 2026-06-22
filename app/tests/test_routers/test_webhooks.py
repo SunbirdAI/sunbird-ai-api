@@ -372,6 +372,66 @@ class TestWebhookVerification:
 
         assert response.status_code == 400
 
+    @pytest.mark.asyncio
+    async def test_verification_does_not_log_token_values(
+        self,
+        async_client: AsyncClient,
+        caplog,
+    ) -> None:
+        """The verify token must never appear in logs (success or failure)."""
+        secret = "super_secret_verify_token"
+        with patch.dict(os.environ, {"VERIFY_TOKEN": secret}):
+            with caplog.at_level("INFO"):
+                # Successful verification
+                ok = await async_client.get(
+                    "/tasks/webhook",
+                    params={
+                        "hub.mode": "subscribe",
+                        "hub.challenge": "challenge_xyz",
+                        "hub.verify_token": secret,
+                    },
+                )
+                # Failed verification with a distinctive wrong token
+                wrong = "absolutely_wrong_token_value"
+                bad = await async_client.get(
+                    "/tasks/webhook",
+                    params={
+                        "hub.mode": "subscribe",
+                        "hub.challenge": "challenge_xyz",
+                        "hub.verify_token": wrong,
+                    },
+                )
+
+        assert ok.status_code == 200
+        assert bad.status_code == 403
+        # Inspect only our application's log records. The test HTTP client
+        # (httpx) logs the full request URL — which necessarily contains the
+        # token because Meta passes it as a query parameter — but that is the
+        # client's access log, not our application code.
+        app_log_text = "\n".join(
+            record.getMessage() for record in caplog.records if record.name != "httpx"
+        )
+        assert secret not in app_log_text
+        assert "absolutely_wrong_token_value" not in app_log_text
+
+    @pytest.mark.asyncio
+    async def test_verification_constant_time_compare_still_matches(
+        self,
+        async_client: AsyncClient,
+    ) -> None:
+        """Constant-time comparison must still accept the correct token."""
+        with patch.dict(os.environ, {"VERIFY_TOKEN": "exact_token"}):
+            response = await async_client.get(
+                "/tasks/webhook",
+                params={
+                    "hub.mode": "subscribe",
+                    "hub.challenge": "echo_me",
+                    "hub.verify_token": "exact_token",
+                },
+            )
+        assert response.status_code == 200
+        assert response.text == "echo_me"
+
 
 class TestWebhookIntegration:
     """Integration tests for webhook functionality."""

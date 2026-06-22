@@ -158,6 +158,25 @@ class Settings(BaseSettings):
         description="redis-py connection pool size (keep modest for Upstash quotas).",
     )
 
+    # WhatsApp / Meta Graph API Configuration
+    whatsapp_request_timeout_seconds: float = Field(
+        default=30.0,
+        gt=0,
+        description=(
+            "Read/connect timeout (seconds) for outbound WhatsApp/Meta Graph API "
+            "calls (sending messages, buttons, templates, status, media delete). "
+            "Prevents a slow Meta endpoint from hanging the worker/event loop."
+        ),
+    )
+    whatsapp_upload_timeout_seconds: float = Field(
+        default=60.0,
+        gt=0,
+        description=(
+            "Timeout (seconds) for WhatsApp media upload/download calls, which "
+            "move larger payloads than text messages."
+        ),
+    )
+
     # Orpheus TTS Configuration (Modal-deployed vLLM inference)
     orpheus_modal_url: Optional[str] = Field(
         default=None,
