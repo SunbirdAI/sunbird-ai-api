@@ -13,6 +13,71 @@ This comprehensive tutorial describes how to use the Sunbird AI API and includes
 
 ---
 
+## Language Support by Endpoint
+
+The matrix below summarises which languages each task endpoint currently
+serves. **Code** is the canonical ISO/SALT code the API accepts (full language
+names also work where an endpoint takes a `language` or `voice`).
+
+- **`/tasks/audio/speech`** — text-to-speech (orpheus-3b-tts voice catalog).
+- **`/tasks/audio/transcriptions`** — speech-to-text (Whisper language IDs).
+- **`/tasks/chat/completions`** — Sunflower chat. `/tasks/translate` shares this
+  same 32-language set.
+
+| Language name | Code | `/tasks/audio/speech` | `/tasks/audio/transcriptions` | `/tasks/chat/completions` |
+| :---- | :---- | :----: | :----: | :----: |
+| Acholi | `ach` | ✅ | ✅ | ✅ |
+| Afrikaans | `afr` | ✅ | ❌ | ❌ |
+| Alur | `alz` | ❌ | ❌ | ✅ |
+| Aringa | `luc` | ❌ | ❌ | ✅ |
+| Ateso | `teo` | ✅ | ✅ | ✅ |
+| Bari | `bfa` | ❌ | ❌ | ✅ |
+| English | `eng` | ✅ | ✅ | ✅ |
+| Ewe | `ewe` | ✅ | ❌ | ❌ |
+| Fulah | `ful` | ✅ | ❌ | ❌ |
+| Hausa | `hau` | ✅ | ❌ | ❌ |
+| Igbo | `ibo` | ✅ | ❌ | ❌ |
+| Jopadhola | `adh` | ❌ | ❌ | ✅ |
+| Kakwa | `keo` | ❌ | ❌ | ✅ |
+| Karamojong | `kdj` | ❌ | ❌ | ✅ |
+| Kikuyu | `kik` | ✅ | ❌ | ❌ |
+| Kinyarwanda | `kin` | ✅ | ✅ | ✅ |
+| Kumam | `kdi` | ❌ | ❌ | ✅ |
+| Kupsabiny | `kpz` | ❌ | ❌ | ✅ |
+| Kwamba | `rwm` | ❌ | ❌ | ✅ |
+| Lango | `laj` | ❌ | ❌ | ✅ |
+| Lingala | `lin` | ✅ | ❌ | ❌ |
+| Lubwisi | `tlj` | ❌ | ❌ | ✅ |
+| Lugbara | `lgg` | ✅ † | ✅ | ✅ |
+| Lugungu | `rub` | ❌ | ❌ | ✅ |
+| Lugwere | `gwr` | ❌ | ❌ | ✅ |
+| Luganda | `lug` | ✅ | ✅ | ✅ |
+| Lumasaba | `myx` | ❌ | ✅ | ✅ |
+| Lunyole | `nuj` | ❌ | ❌ | ✅ |
+| Luo (Dholuo) | `luo` | ✅ | ❌ | ❌ |
+| Lusoga | `xog` | ❌ | ✅ | ✅ |
+| Ma'di | `mhi` | ❌ | ❌ | ✅ |
+| Pokot | `pok` | ❌ | ❌ | ✅ |
+| Rukiga | `cgg` | ❌ | ❌ | ✅ |
+| Rukonjo | `koo` | ❌ | ❌ | ✅ |
+| Runyankole | `nyn` | ✅ | ✅ | ✅ |
+| Runyoro | `nyo` | ❌ | ❌ | ✅ |
+| Ruruuli | `ruc` | ❌ | ❌ | ✅ |
+| Rutooro | `ttj` | ❌ | ✅ | ✅ |
+| Samia | `lsm` | ❌ | ❌ | ✅ |
+| Sesotho | `sot` | ✅ † | ❌ | ❌ |
+| Setswana | `tsn` | ✅ † | ❌ | ❌ |
+| Swahili | `swa` | ✅ | ✅ | ✅ |
+| Xhosa | `xho` | ✅ | ❌ | ❌ |
+| Yoruba | `yor` | ✅ | ❌ | ❌ |
+
+**†** Lugbara, Sesotho, and Setswana are in the orpheus-3b-tts training mix but
+currently expose **no individual voice IDs** in this checkpoint, so practical
+synthesis depends on a future voice release. Languages outside these sets (for
+example Zulu) are not currently served by any endpoint.
+
+---
+
 ## Part 1: Authentication
 
 ### Creating an Account
@@ -54,9 +119,13 @@ print(f"Your token: {access_token}")
 
 ---
 
-## Part 2: Translation (NLLB Model)
+## Part 2: Translation (Sunflower Model)
 
-Translate text between English and local languages using the NLLB model. Supports bidirectional translation.
+Translate text between 32 Ugandan and East African languages using the
+Sunflower model. Languages are accepted as ISO 639-3 codes (`lug`) or full
+names (`Luganda`), case-insensitively, and translation works between **any
+pair** of supported languages. `source_language` is optional — when omitted,
+Sunflower infers it from the text.
 
 ```python
 import os
@@ -85,24 +154,68 @@ response = requests.post(url, headers=headers, json=data)
 print(response.json())
 ```
 
-**Supported Language Pairs:**
-- English ↔ Acholi
-- English ↔ Ateso
-- English ↔ Luganda
-- English ↔ Lugbara
-- English ↔ Runyankole
-
-
-The dictionary below represents the language codes available now for the translate endpoint
+`source_language` is optional, and full language names work too:
 
 ```python
-language_codes: {
-    "English": "eng",
-    "Luganda": "lug",
-    "Runyankole": "nyn",
-    "Acholi": "ach",
-    "Ateso": "teo",
-    "Lugbara": "lgg"
+data = {
+    "target_language": "Luganda",
+    "text": "How are you?",
+}
+
+response = requests.post(url, headers=headers, json=data)
+print(response.json())
+```
+
+**Supported languages** (ISO code → name):
+
+```python
+language_codes = {
+    "ach": "Acholi",
+    "adh": "Jopadhola",
+    "alz": "Alur",
+    "bfa": "Bari",
+    "cgg": "Rukiga",
+    "eng": "English",
+    "gwr": "Lugwere",
+    "kdi": "Kumam",
+    "kdj": "Karamojong",
+    "keo": "Kakwa",
+    "kin": "Kinyarwanda",
+    "koo": "Rukonjo",
+    "kpz": "Kupsabiny",
+    "laj": "Lango",
+    "lgg": "Lugbara",
+    "lsm": "Samia",
+    "luc": "Aringa",
+    "lug": "Luganda",
+    "mhi": "Ma'di",
+    "myx": "Lumasaba",
+    "nuj": "Lunyole",
+    "nyn": "Runyankole",
+    "nyo": "Runyoro",
+    "pok": "Pokot",
+    "rub": "Lugungu",
+    "ruc": "Ruruuli",
+    "rwm": "Kwamba",
+    "swa": "Swahili",
+    "teo": "Ateso",
+    "tlj": "Lubwisi",
+    "ttj": "Rutooro",
+    "xog": "Lusoga",
+}
+```
+
+The response shape is unchanged from the previous NLLB-backed endpoint:
+
+```json
+{
+    "id": "trans-1a2b3c...",
+    "status": "COMPLETED",
+    "output": {
+        "translated_text": "Oli otya?",
+        "source_language": "lug",
+        "target_language": "eng"
+    }
 }
 ```
 
@@ -110,11 +223,13 @@ language_codes: {
 
 ## Part 3: Speech-to-Text (STT)
 
-Convert speech audio to text for supported languages. The API supports various audio formats including MP3, WAV, and M4A.
+Convert speech audio to text. The unified **`POST /tasks/audio/transcriptions`** endpoint accepts an uploaded audio file (or a GCS object) and routes to the Modal (Whisper large-v3) or RunPod backend. Supports MP3, WAV, M4A, and more.
 
-### Modal STT (Recommended)
+> **Migrating from the legacy STT routes?** `/tasks/modal/stt`, `/tasks/stt`, `/tasks/stt_from_gcs`, and `/tasks/org/stt` are **deprecated** (they still work but return `Deprecation`/`Sunset` headers). Switch to `/tasks/audio/transcriptions`.
 
-The Modal-based STT endpoint uses the Whisper large-v3 model for high-quality transcription. Simply upload an audio file and get the transcription back. You can optionally specify a `language` to improve accuracy; if omitted the model auto-detects the language.
+### Transcribe a file (Modal / Whisper)
+
+`language` is **required**. `platform` defaults to `modal` (Whisper large-v3).
 
 ```python
 import os
@@ -123,7 +238,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-url = "https://api.sunbird.ai/tasks/modal/stt"
+url = "https://api.sunbird.ai/tasks/audio/transcriptions"
 access_token = os.getenv("AUTH_TOKEN")
 
 headers = {
@@ -131,88 +246,58 @@ headers = {
     "Authorization": f"Bearer {access_token}",
 }
 
-# Replace with your audio file path
 audio_file_path = "/path/to/audio_file.wav"
 
 files = {
-    "audio": (
-        "recording.wav",
-        open(audio_file_path, "rb"),
-        "audio/wav",
-    ),
+    "audio": ("recording.wav", open(audio_file_path, "rb"), "audio/wav"),
+}
+data = {
+    "language": "lug",     # required: 3-letter code or full name (e.g. "Luganda")
+    "platform": "modal",   # "modal" (default, Whisper) or "runpod"
 }
 
-# Without language (auto-detect)
-response = requests.post(url, headers=headers, files=files)
+response = requests.post(url, headers=headers, files=files, data=data)
 result = response.json()
 print(f"Transcription: {result['audio_transcription']}")
 ```
 
-#### Specifying a language
+### Transcribe with RunPod (adapter, Whisper, diarization)
 
-Pass a `language` field to guide the model. Accepts either a 3-letter ISO 639-2 code or a full language name (case-insensitive).
+The RunPod backend adds a language `adapter`, the `whisper` flag, and optional speaker diarization (`recognise_speakers`).
 
 ```python
 files = {
-    "audio": (
-        "recording.wav",
-        open(audio_file_path, "rb"),
-        "audio/wav",
-    ),
+    "audio": ("recording.mp3", open("/path/to/audio_file.mp3", "rb"), "audio/mpeg"),
 }
-
-# Using a 3-letter code
-data = {"language": "lug"}
-response = requests.post(url, headers=headers, files=files, data=data)
-
-# Or using a full language name
-data = {"language": "Luganda"}
-response = requests.post(url, headers=headers, files=files, data=data)
-```
-
-**Supported languages:** English (`eng`), Luganda (`lug`), Runyankole (`nyn`), Acholi (`ach`), Ateso (`teo`), Lugbara (`lgg`), Swahili (`swa`), Kinyarwanda (`kin`), Lusoga (`xog`), Lumasaba (`myx`).
-
-### RunPod STT (with language selection)
-
-The RunPod-based STT endpoint allows you to specify a target language and adapter for transcription.
-
-```python
-import os
-import requests
-from dotenv import load_dotenv
-
-load_dotenv()
-
-url = "https://api.sunbird.ai/tasks/stt"
-access_token = os.getenv("AUTH_TOKEN")
-
-headers = {
-    "accept": "application/json",
-    "Authorization": f"Bearer {access_token}",
-}
-
-# Replace with your audio file path
-audio_file_path = "/path/to/audio_file.mp3"
-
-files = {
-    "audio": (
-        "recording.mp3",
-        open(audio_file_path, "rb"),
-        "audio/mpeg",
-    ),
-}
-
 data = {
-    "language": "lug",  # Language code (eng, ach, teo, lug, lgg, nyn)
-    "adapter": "lug",   # Model adapter to use
-    "whisper": True,    # Use Whisper model
+    "language": "lug",
+    "platform": "runpod",
+    "adapter": "lug",             # optional; defaults to `language`
+    "whisper": True,             # RunPod only
+    "recognise_speakers": False,  # RunPod only — speaker diarization
 }
 
 response = requests.post(url, headers=headers, files=files, data=data)
 print(response.json())
 ```
 
-**Supported Languages:** English, Acholi, Ateso, Luganda, Lugbara, Runyankole, Lusoga, Rutooro, Lumasaba, Kinyarwanda, Swahili.
+You can also transcribe audio already in GCS by passing `gcs_blob_name` (with `platform="runpod"`) instead of an `audio` file — see **Part 7: File Upload** for generating upload URLs.
+
+**Example response:**
+```json
+{
+  "audio_transcription": "Ekibiina ekiddukanya ...",
+  "language": "lug",
+  "audio_url": "https://storage.googleapis.com/.../audio.wav?...",
+  "audio_transcription_id": 123,
+  "diarization_output": null,
+  "formatted_diarization_output": null,
+  "was_audio_trimmed": false,
+  "original_duration_minutes": null
+}
+```
+
+**Supported languages:** English (`eng`), Luganda (`lug`), Runyankole (`nyn`), Acholi (`ach`), Ateso (`teo`), Lugbara (`lgg`), Swahili (`swa`), Lusoga (`xog`), Rutooro (`ttj`), Kinyarwanda (`kin`), Lumasaba (`myx`).
 
 **Note:** For files larger than 100MB, only the first 10 minutes will be transcribed.
 
@@ -273,7 +358,14 @@ print(f"Detected language: {result}")
 
 ## Part 5: Text-to-Speech (TTS)
 
-Convert text to audio using Ugandan language voices. The API supports multiple response modes including streaming and signed URLs.
+Synthesize speech from text. The unified **`POST /tasks/audio/speech`** endpoint replaces `/tasks/modal/tts`, `/tasks/runpod/tts`, and `/tasks/modal/orpheus/tts`. Two models are available:
+
+- **`orpheus-3b-tts`** (default) — multilingual, multi-speaker; voices are catalog tags (e.g. `salt_lug_0001`). List them with `GET /tasks/voice/speakers`.
+- **`spark-tts`** — the six fixed Ugandan voices below; supports streaming on Modal.
+
+> **Migrating?** The legacy TTS, streaming (`/stream`, `/stream-with-url`), Orpheus batch, speaker-listing, and `refresh-url` endpoints are **deprecated**. Use the unified endpoints below.
+
+### Single synthesis (orpheus-3b-tts, default)
 
 ```python
 import os
@@ -282,7 +374,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-url = "https://api.sunbird.ai/tasks/modal/tts"
+url = "https://api.sunbird.ai/tasks/audio/speech"
 access_token = os.getenv("AUTH_TOKEN")
 
 headers = {
@@ -292,44 +384,142 @@ headers = {
 }
 
 payload = {
-    "response_mode": "url",
-    "speaker_id": 248,
     "text": "I am a nurse who takes care of many people.",
+    "model": "orpheus-3b-tts",   # default
+    "voice": "salt_lug_0001",     # catalog tag; see GET /tasks/voice/speakers
+    "language": "eng",            # required for orpheus-3b-tts (ISO code or full name)
 }
 
 response = requests.post(url, headers=headers, json=payload)
-
 print(response.status_code)
 print(response.json())
 ```
 
-### Speaker IDs
+#### orpheus-3b-tts: languages covered
 
-| Speaker ID | Voice |
-|---|---|
-| 241 | Acholi (female) |
-| 242 | Ateso (female) |
-| 243 | Runyankore (female) |
-| 245 | Lugbara (female) |
-| 246 | Swahili (male) |
-| 248 | Luganda (female) |
+Speaker IDs encode both the source corpus (`salt_*`, `waxal_*`, `slr32_*`,
+`slr129_*`, `bateesa_*`) and the language. Languages marked with an em dash
+in the Speaker IDs column are present in the model's training mix but do
+not currently expose individual voice IDs in this checkpoint.
 
-### Response Modes
-- `url` - Generate audio, upload to GCP, return signed URL (valid for 30 minutes)
-- `stream` - Stream raw audio chunks directly
-- `both` - Stream audio AND return final signed URL
+| Config | Language | ISO 639-1 | Region | Speaker IDs |
+|---|---|---|---|---|
+| `ach` | Acholi | — | Uganda, South Sudan | `salt_ach_0001`<br>`waxal_ach_0001`<br>`waxal_ach_0005`<br>`waxal_ach_0006`<br>`waxal_ach_0008` |
+| `afr` | Afrikaans | af | South Africa, Namibia | `slr32_afr_0009` |
+| `eng` | English | en | (control language) | `salt_eng_0001`<br>`salt_eng_0002`<br>`salt_eng_0003` |
+| `ewe` | Ewe | ee | Ghana, Togo | `slr129_ewe_0001` |
+| `ful` | Fulah | ff | West Africa (Sahel) | `waxal_ful_0003`<br>`waxal_ful_0004`<br>`waxal_ful_0006` |
+| `hau` | Hausa | ha | Nigeria, Niger, Chad | `waxal_hau_0004`<br>`waxal_hau_0006`<br>`waxal_hau_0007`<br>`waxal_hau_0008` |
+| `ibo` | Igbo | ig | Nigeria | `waxal_ibo_0003`<br>`waxal_ibo_0005`<br>`waxal_ibo_0008` |
+| `kik` | Kikuyu | ki | Kenya | `waxal_kik_0003`<br>`waxal_kik_0004` |
+| `kin` | Kinyarwanda | rw | Rwanda | `bateesa_kin_0001` |
+| `lgg` | Lugbara | — | Uganda, DRC | — |
+| `lin` | Lingala | ln | DRC, Republic of Congo | `slr129_lin_0001` |
+| `lug` | Luganda | lg | Uganda | `salt_lug_0001`<br>`waxal_lug_0002`<br>`waxal_lug_0003`<br>`waxal_lug_0004`<br>`waxal_lug_0005`<br>`waxal_lug_0006`<br>`waxal_lug_0007`<br>`waxal_lug_0008` |
+| `luo` | Luo (Dholuo) | — | Kenya, Tanzania | `waxal_luo_0001`<br>`waxal_luo_0002`<br>`waxal_luo_0003`<br>`waxal_luo_0004` |
+| `nyn` | Runyankole | — | Uganda | `salt_nyn_0001`<br>`waxal_nyn_0003`<br>`waxal_nyn_0004`<br>`waxal_nyn_0007`<br>`waxal_nyn_0008` |
+| `sot` | Sesotho | st | Lesotho, South Africa | — |
+| `swa` | Swahili | sw | East Africa | `waxal_swa_0006`<br>`waxal_swa_0007` |
+| `teo` | Ateso | — | Uganda, Kenya | `salt_teo_0001` |
+| `tsn` | Setswana | tn | Botswana, South Africa | — |
+| `xho` | Xhosa | xh | South Africa | `slr32_xho_0012` |
+| `yor` | Yoruba | yo | Nigeria, Benin | `waxal_yor_0002`<br>`waxal_yor_0006`<br>`waxal_yor_0008` |
 
-**Example Response:**
+Per-language quality scales with the amount of training data Sunbird
+collected for that language; some configs have many more speaker hours
+than others. **Audition the voices** for each language before relying on a
+particular speaker — use the discovery snippet under **Listing voices**
+below.
+
+### Single synthesis (spark-tts, fixed voices)
+
+```python
+payload = {
+    "text": "I am a nurse who takes care of many people.",
+    "model": "spark-tts",
+    "voice": "luganda_female",   # voice name, or the numeric id as a string e.g. "248"
+    "response_mode": "url",       # "url" (default), "stream", or "both"
+}
+response = requests.post(url, headers=headers, json=payload)
+print(response.json())
+```
+
+#### spark-tts voices
+
+| Voice name | ID | Description |
+|---|---|---|
+| `acholi_female` | 241 | Acholi (female) |
+| `ateso_female` | 242 | Ateso (female) |
+| `runyankore_female` | 243 | Runyankore (female) |
+| `lugbara_female` | 245 | Lugbara (female) |
+| `swahili_male` | 246 | Swahili (male) |
+| `luganda_female` | 248 | Luganda (female) |
+
+### Response modes
+
+`response_mode` applies to **spark-tts on Modal**:
+- `url` — generate audio, upload to GCP, return a signed URL (valid ~30 minutes) — default
+- `stream` — stream raw audio chunks directly
+- `both` — stream audio **and** return a final signed URL
+
+### Listing voices
+
+```python
+auth = {"Authorization": f"Bearer {access_token}"}
+
+# Orpheus voices grouped by language (default)
+print(requests.get("https://api.sunbird.ai/tasks/voice/speakers", headers=auth).json())
+
+# spark-tts fixed voices
+print(requests.get(
+    "https://api.sunbird.ai/tasks/voice/speakers",
+    headers=auth,
+    params={"model": "spark-tts"},
+).json())
+```
+
+### Batch synthesis (orpheus-3b-tts)
+
+Synthesize up to 128 items in a single request:
+
+```python
+url = "https://api.sunbird.ai/tasks/audio/speech/batch"
+payload = {
+    "items": [
+        {"text": "Good morning.", "voice": "salt_lug_0001"},
+        {"text": "How are you?", "voice": "salt_eng_0001"},
+    ]
+}
+response = requests.post(url, headers=headers, json=payload)
+print(response.json())
+```
+
+### Refreshing an expired URL
+
+Signed URLs expire after ~30 minutes. Re-sign a stored object with `GET /tasks/audio/speech/url`:
+
+```python
+print(requests.get(
+    "https://api.sunbird.ai/tasks/audio/speech/url",
+    headers={"Authorization": f"Bearer {access_token}"},
+    params={"gcs_object": "orpheus_tts/2026-06-03/abc.wav"},
+).json())
+```
+
+**Example response (`POST /tasks/audio/speech`):**
 ```json
 {
-  "success": true,
-  "audio_url": "https://storage.googleapis.com/sb-asr-audio-content-sb-gcp-project-01/tts_audio/20260212_222936_2a9f1f83_da308cdb.wav?...",
-  "expires_at": "2026-02-12T22:59:36.954061Z",
-  "file_name": "tts_audio/20260212_222936_2a9f1f83_da308cdb.wav",
-  "duration_estimate_seconds": 4,
-  "text_length": 43,
-  "speaker_id": 248,
-  "speaker_name": "Luganda (female)"
+  "audio_url": "https://storage.googleapis.com/.../tts_audio/....wav?...",
+  "model": "orpheus-3b-tts",
+  "platform": "modal",
+  "voice": "salt_lug_0001",
+  "audio_url_expires_at": "2026-06-03T22:59:36.954061Z",
+  "language": "lug",
+  "sample_rate": 24000,
+  "duration_seconds": 4.0,
+  "gcs_object": "orpheus_tts/2026-06-03/....wav",
+  "request_id": "0f1e2d3c4b5a...",
+  "timings_ms": {"inference_ms": 1820.5, "upload_ms": 234.1, "total_ms": 2095.6}
 }
 ```
 
@@ -337,13 +527,15 @@ print(response.json())
 
 ## Part 6: Conversational AI (Sunflower)
 
-The Sunflower model provides conversational AI capabilities with support for chat history and context. Supports 20+ Ugandan languages.
+The Sunflower model provides conversational AI for 20+ Ugandan languages through an OpenAI-compatible endpoint: `POST /tasks/chat/completions`. The request and response formats mirror the OpenAI Chat Completions API, so you can move between the OpenAI API and the Sunbird API by changing only the base URL and API key.
 
-### Chat with History
+> **Deprecated:** `POST /tasks/sunflower_inference` and `POST /tasks/sunflower_simple` are deprecated and will be removed in a future release. Use `POST /tasks/chat/completions` instead — a single instruction is just a request with one user message.
+
+### Chat Completion
 ```python
 import requests
 
-url = "https://api.sunbird.ai/tasks/sunflower_inference"
+url = "https://api.sunbird.ai/tasks/chat/completions"
 
 headers = {
     "accept": "application/json",
@@ -352,16 +544,14 @@ headers = {
 }
 
 payload = {
+    "model": "Sunbird/Sunflower-14B",
     "messages": [
         {
             "role": "user",
-            "content": "Good morning, what is weather today?",
+            "content": "Good morning, what is the weather today?",
         }
     ],
-    "model_type": "qwen",
     "temperature": 0.3,
-    "stream": False,
-    "system_message": "string",
 }
 
 response = requests.post(url, headers=headers, json=payload)
@@ -373,57 +563,88 @@ print(response.json())
 **Example Response:**
 ```json
 {
-  "content": "I'm glad you're up! While I can't provide real-time weather updates, I can help you understand how to interpret weather forecasts or explain common weather patterns in Uganda. Could you share the current weather conditions you're experiencing?",
-  "model_type": "qwen",
+  "id": "chatcmpl-8f14e45fceea167a5a36dedd4bea2543",
+  "object": "chat.completion",
+  "created": 1718000000,
+  "model": "Sunbird/Sunflower-14B",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "I'm glad you're up! While I can't provide real-time weather updates, I can help you understand weather forecasts or explain common weather patterns in Uganda."
+      },
+      "finish_reason": "stop"
+    }
+  ],
   "usage": {
-    "completion_tokens": 47,
     "prompt_tokens": 22,
+    "completion_tokens": 47,
     "total_tokens": 69
-  },
-  "processing_time": 4.802350997924805,
-  "inference_time": 4.792236804962158,
-  "message_count": 2
+  }
 }
 ```
 
-### Simple Text Generation
+### Using the OpenAI SDK
+
+Because the endpoint is OpenAI-compatible, the official OpenAI Python SDK works out of the box:
+
 ```python
-import requests
+from openai import OpenAI
 
-url = "https://api.sunbird.ai/tasks/sunflower_simple"
+client = OpenAI(
+    api_key="<your-access-token>",
+    base_url="https://api.sunbird.ai/tasks",
+)
 
-headers = {
-    "accept": "application/json",
-    "Authorization": "Bearer <your-access-token>",
-}
+completion = client.chat.completions.create(
+    model="Sunbird/Sunflower-14B",
+    messages=[
+        {
+            "role": "user",
+            "content": "translate from english to luganda: i am very hungry they should serve food in time",
+        }
+    ],
+    temperature=0.1,
+)
 
-data = {
-    "instruction": "translate from english to luganda: i am very hungry they should serve food in time",
-    "model_type": "qwen",
-    "temperature": "0.1",
-    "system_message": "",
-}
-
-response = requests.post(url, headers=headers, data=data)
-
-print(response.status_code)
-print(response.json())
+print(completion.choices[0].message.content)
+# Ndi muyala nnyo, emmere erina okugabibwa mu budde.
 ```
 
-**Example Response:**
-```json
-{
-  "response": "Ndi muyala nnyo, emmere erina okugabibwa mu budde.",
-  "model_type": "qwen",
-  "processing_time": 3.2431752681732178,
-  "usage": {
-    "completion_tokens": 19,
-    "prompt_tokens": 54,
-    "total_tokens": 73
-  },
-  "success": true
+### Multi-turn Conversations
+
+Maintain context by sending the running message history. You can also set a custom `system` message (when omitted, a default Sunflower system message is applied):
+
+```python
+payload = {
+    "model": "Sunbird/Sunflower-14B",
+    "messages": [
+        {"role": "system", "content": "You are a helpful multilingual assistant."},
+        {"role": "user", "content": "Translate 'hello' to Luganda."},
+        {"role": "assistant", "content": "'Hello' is 'Gyebaleko'."},
+        {"role": "user", "content": "And to Acholi?"},
+    ],
 }
 ```
+
+### Streaming
+
+Set `"stream": true` to receive Server-Sent Events in OpenAI `chat.completion.chunk` format, terminated by `data: [DONE]`. With the OpenAI SDK:
+
+```python
+stream = client.chat.completions.create(
+    model="Sunbird/Sunflower-14B",
+    messages=[{"role": "user", "content": "Tell me about Uganda."}],
+    stream=True,
+)
+
+for chunk in stream:
+    if chunk.choices and chunk.choices[0].delta.content:
+        print(chunk.choices[0].delta.content, end="", flush=True)
+```
+
+Supported request parameters: `model` (only `Sunbird/Sunflower-14B`), `messages`, `temperature` (0.0-2.0, default 0.3), `max_tokens`, `top_p`, `stop`, and `stream`.
 
 ---
 

@@ -112,7 +112,7 @@ class ModalSTTService(BaseService):
             extra={"api_url": self.api_url, "timeout": self.timeout},
         )
 
-    async def transcribe(
+    async def transcribe(  # noqa: C901
         self, audio_data: bytes, language: Optional[str] = None
     ) -> str:
         """Transcribe audio using the Modal Whisper ASR API.

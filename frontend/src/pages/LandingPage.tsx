@@ -161,13 +161,13 @@ export default function LandingPage() {
           </h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <a href="https://github.com/SunbirdAI/sunbird-ai-api/blob/main/tutorial.md" target="_blank" rel="noopener noreferrer" className="group p-6 rounded-2xl bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 border-b-4 hover:border-primary-500 dark:hover:border-primary-500 transition-all hover:shadow-2xl hover:-translate-y-1 backdrop-blur-sm">
+          <Link to="/tutorial" className="group p-6 rounded-2xl bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 border-b-4 hover:border-primary-500 dark:hover:border-primary-500 transition-all hover:shadow-2xl hover:-translate-y-1 backdrop-blur-sm">
               <div className="w-12 h-12 rounded-xl bg-primary-50 dark:bg-primary-900/20 flex items-center justify-center text-primary-600 dark:text-primary-400 mb-4 group-hover:scale-110 transition-transform">
                 <BookOpen size={24} />
               </div>
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Tutorial</h3>
             <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed">Learn how to use the API with step-by-step guides and best practices.</p>
-          </a>
+          </Link>
 
           <a href="https://github.com/SunbirdAI/translation-api-examples" target="_blank" rel="noopener noreferrer" className="group p-6 rounded-2xl bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 border-b-4 hover:border-primary-500 dark:hover:border-primary-500 transition-all hover:shadow-2xl hover:-translate-y-1 backdrop-blur-sm">
             <div className="w-12 h-12 rounded-xl bg-primary-50 dark:bg-primary-900/20 flex items-center justify-center text-primary-600 dark:text-primary-400 mb-4 group-hover:scale-110 transition-transform">

@@ -25,6 +25,7 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
+        populate_by_name=True,
     )
 
     # API Configuration
@@ -101,10 +102,130 @@ class Settings(BaseSettings):
         description="Enable SSL for database connections in production",
     )
 
+    # Google Analytics Data API
+    ga_impersonation_target: Optional[str] = Field(
+        default=None,
+        description=(
+            "Service account email to impersonate for the Google Analytics "
+            "Data API (e.g. ga-reader@sb-gcp-project-01.iam.gserviceaccount.com)."
+        ),
+    )
+    ga_properties_raw: str = Field(
+        default="",
+        alias="GA_PROPERTIES",
+        description=(
+            "Comma-separated `id:name` pairs, e.g. "
+            "'506611499:Sunflower,448469065:Sunbird Speech'."
+        ),
+    )
+    ga_cache_ttl_seconds: int = Field(
+        default=3600, description="TTL for cached GA report payloads."
+    )
+    ga_request_timeout_seconds: int = Field(
+        default=30, description="Timeout for a single GA Data API call."
+    )
+    cache_backend: str = Field(
+        default="memory",
+        description="Cache backend: 'memory' (default) or 'upstash'.",
+    )
+
+    # Redis / Upstash Configuration
+    redis_url: Optional[str] = Field(
+        default=None,
+        description=(
+            "Redis connection URL. Use 'rediss://...' for Upstash (TLS). "
+            "When unset, rate limiting falls back to in-memory storage."
+        ),
+    )
+    redis_socket_timeout: float = Field(
+        default=2.0,
+        gt=0,
+        description="redis-py socket read timeout in seconds (fail-fast for Upstash).",
+    )
+    redis_socket_connect_timeout: float = Field(
+        default=2.0,
+        gt=0,
+        description="redis-py TCP connect timeout in seconds.",
+    )
+    redis_health_check_interval: int = Field(
+        default=30,
+        ge=0,
+        description="redis-py background health-check interval in seconds.",
+    )
+    redis_max_connections: int = Field(
+        default=10,
+        ge=1,
+        description="redis-py connection pool size (keep modest for Upstash quotas).",
+    )
+
+    # Orpheus TTS Configuration (Modal-deployed vLLM inference)
+    orpheus_modal_url: Optional[str] = Field(
+        default=None,
+        description=(
+            "Base URL of the Orpheus-3B Modal app (no trailing slash). "
+            "Required to enable /tasks/modal/orpheus/* endpoints."
+        ),
+    )
+    orpheus_gcs_object_prefix: str = Field(
+        default="orpheus_tts",
+        description="Object key prefix for Orpheus-generated WAVs in AUDIO_CONTENT_BUCKET_NAME.",
+    )
+    orpheus_signed_url_expiry_minutes: int = Field(
+        default=30,
+        ge=1,
+        le=7 * 24 * 60,
+        description="Expiry window for Orpheus signed audio URLs.",
+    )
+    orpheus_max_batch_size: int = Field(
+        default=16,
+        ge=1,
+        le=128,
+        description="Maximum items per /tts/batch request.",
+    )
+    orpheus_speakers_cache_ttl_seconds: int = Field(
+        default=60,
+        ge=1,
+        description="TTL for the cached Modal /speakers catalog before refresh.",
+    )
+    orpheus_modal_request_timeout_seconds: float = Field(
+        default=180.0,
+        gt=0,
+        description="httpx read-timeout for Orpheus Modal requests.",
+    )
+    orpheus_modal_connect_timeout_seconds: float = Field(
+        default=10.0,
+        gt=0,
+        description="httpx connect-timeout for Orpheus Modal requests.",
+    )
+    orpheus_modal_retry_backoff_seconds: float = Field(
+        default=0.5,
+        ge=0,
+        description="Base sleep before a single retry on transient Modal errors.",
+    )
+
     @property
     def is_production(self) -> bool:
         """Check if running in production mode."""
         return self.environment.lower() == "production"
+
+    @property
+    def ga_properties(self) -> dict[str, str]:
+        """Parse GA_PROPERTIES env string into {property_id: display_name}."""
+        result: dict[str, str] = {}
+        for part in self.ga_properties_raw.split(","):
+            part = part.strip()
+            if ":" not in part:
+                continue
+            prop_id, name = part.split(":", 1)
+            prop_id, name = prop_id.strip(), name.strip()
+            if prop_id and name:
+                result[prop_id] = name
+        return result
+
+    @property
+    def ga_enabled(self) -> bool:
+        """True iff both GA impersonation target and properties are configured."""
+        return bool(self.ga_impersonation_target) and bool(self.ga_properties)
 
     @property
     def database_url_async(self) -> str:

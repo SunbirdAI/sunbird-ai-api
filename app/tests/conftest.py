@@ -37,7 +37,7 @@ if app_base_directory not in sys.path:
 from app.api import app
 from app.database.db import Base
 from app.deps import get_db
-from app.schemas.users import AccountType, User
+from app.schemas.users import AccountType
 from app.utils.auth import create_access_token, get_password_hash
 
 # ---------------------------------------------------------------------------
@@ -182,6 +182,19 @@ async def authenticated_client(
             assert response.status_code == 200
     """
     async_client.headers["Authorization"] = f"Bearer {test_user['token']}"
+    yield async_client
+
+
+@pytest_asyncio.fixture(scope="function")
+async def admin_client(
+    async_client: AsyncClient, admin_user: Dict
+) -> AsyncGenerator[AsyncClient, None]:
+    """Provide an authenticated HTTP client for an admin user.
+
+    Mirrors `authenticated_client` but uses the admin_user fixture so
+    admin-only endpoints can be exercised.
+    """
+    async_client.headers["Authorization"] = f"Bearer {admin_user['token']}"
     yield async_client
 
 
@@ -535,3 +548,63 @@ def pytest_configure(config):
 
 # Configure pytest-asyncio mode
 pytest_plugins = ["pytest_asyncio"]
+
+
+# ---------------------------------------------------------------------------
+# Redis / Rate-Limit Fixtures
+# ---------------------------------------------------------------------------
+
+import fakeredis.aioredis  # noqa: E402
+
+from app.services import redis_client as redis_client_module  # noqa: E402
+from app.services.redis_client import SafeRedis  # noqa: E402
+
+
+@pytest_asyncio.fixture
+async def fake_redis(monkeypatch) -> AsyncGenerator[SafeRedis, None]:
+    """Install a fakeredis-backed SafeRedis singleton for the test."""
+    backend = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    safe = SafeRedis(backend)
+    monkeypatch.setattr(redis_client_module, "_safe_redis", safe)
+    yield safe
+    monkeypatch.setattr(redis_client_module, "_safe_redis", None)
+
+
+@pytest_asyncio.fixture
+async def rate_limited_app(monkeypatch, fake_redis):
+    """Rebuild the shared SlowAPI limiter against fakeredis for one test.
+
+    SlowAPI's storage is bound at Limiter construction. The shared limiter is
+    in-memory by default in tests (no REDIS_URL); for this test we don't need
+    to point it at Redis — in-memory storage in a single process is enough to
+    verify that the 51st request is rejected. The fixture exists so callers
+    that DO need a Redis-backed limiter can opt in by importing it.
+    """
+    yield
+
+
+# ---------------------------------------------------------------------------
+# Quota Fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def stub_quota_service(request, monkeypatch):
+    """Make QuotaService always-allow in tests by default.
+
+    Existing tests don't know about quotas and don't want to seed the
+    user_usage table. Opt out for a single test or module by adding
+    ``@pytest.mark.real_quota`` (or ``pytestmark = pytest.mark.real_quota``)
+    — Task 14's end-to-end test uses this to exercise the real path.
+    """
+    if request.node.get_closest_marker("real_quota"):
+        yield
+        return
+
+    from app.services.quota_service import QuotaResult, QuotaService
+
+    async def always_allow(self, db, user):
+        return QuotaResult(allowed=True)
+
+    monkeypatch.setattr(QuotaService, "check_and_consume", always_allow)
+    yield

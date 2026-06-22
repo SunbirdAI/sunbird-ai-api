@@ -43,12 +43,7 @@ from pydub import AudioSegment
 from pydub.exceptions import CouldntDecodeError
 
 from app.integrations.runpod import run_job_and_get_output
-from app.schemas.stt import (
-    ALLOWED_AUDIO_TYPES,
-    CHUNK_SIZE,
-    MAX_AUDIO_DURATION_MINUTES,
-    SttbLanguage,
-)
+from app.schemas.stt import ALLOWED_AUDIO_TYPES, MAX_AUDIO_DURATION_MINUTES
 from app.services.base import BaseService
 from app.utils.audio import get_audio_extension
 from app.utils.upload_audio_file_gcp import upload_audio_file
@@ -290,7 +285,7 @@ class STTService(BaseService):
 
         try:
             raw_resp, job_details = await run_job_and_get_output(payload)
-            self.log_info(f"Transcription response received")
+            self.log_info("Transcription response received")
             return raw_resp
         except TimeoutError as e:
             self.log_error(f"Transcription timeout: {str(e)}")

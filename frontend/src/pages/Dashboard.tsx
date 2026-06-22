@@ -5,6 +5,7 @@ import MultiSelect from '../components/MultiSelect';
 import { useDashboardData } from '../hooks/useDashboardData';
 import { Activity, Clock, TrendingUp } from 'lucide-react';
 import { Skeleton } from '../components/ui/Skeleton';
+import ProfileBanner from '../components/ProfileBanner';
 
 import {
   Chart as ChartJS,
@@ -53,7 +54,8 @@ const COLOR_PALETTE = [
 ];
 
 export default function Dashboard() {
-  const { data, loading } = useDashboardData('7d');
+  const [timeRange, setTimeRange] = useState('7d');
+  const { data, loading } = useDashboardData(timeRange);
   
   // Generate consistent colors for endpoints based on the current data
   const endpointColors = useMemo(() => {
@@ -213,6 +215,8 @@ export default function Dashboard() {
   if (loading) {
     return (
       <div className="space-y-6 ">
+        <ProfileBanner />
+
         {/* Header Skeleton */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
@@ -292,6 +296,8 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
+      <ProfileBanner />
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
@@ -335,7 +341,9 @@ export default function Dashboard() {
           <ChartCard
             title="Request Volume by Endpoint"
             description="Track usage trends for each API endpoint"
-            showTimeSelector={false}
+            showTimeSelector={true}
+            timeRange={timeRange}
+            onTimeRangeChange={setTimeRange}
             className="h-[400px]"
           >
             {/* Legend/Toggle Controls */}
@@ -357,7 +365,9 @@ export default function Dashboard() {
         <ChartCard
           title="Latency Trends"
           description="Average response time over the selected period"
-          showTimeSelector={false}
+          showTimeSelector={true}
+          timeRange={timeRange}
+          onTimeRangeChange={setTimeRange}
         >
           <div className="flex-1 min-h-0">
             <Line options={chartOptions} data={latencyChartData} />
@@ -368,30 +378,33 @@ export default function Dashboard() {
         <div className="bg-white dark:bg-secondary rounded-xl shadow-md dark:shadow-lg dark:shadow-black/10 border border-gray-200 dark:border-white/5 p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Endpoint Breakdown</h3>
           <div className="space-y-3">
-            {data?.usage.map((item: any) => {
-              const percentage = totalRequests > 0 ? ((item.used / totalRequests) * 100).toFixed(1) : '0';
-              return (
-                <div key={item.endpoint} className="flex items-center justify-between">
-                  <div className="flex items-center gap-3 flex-1">
-                    <div
-                      className="w-3 h-3 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: endpointColors[item.endpoint] || '#6B7280' }}
-                    />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">
-                      {item.endpoint}
-                    </span>
+            {data?.usage
+              .filter((item: any) => item.endpoint !== 'unknown')
+              .sort((a: any, b: any) => b.used - a.used)
+              .map((item: any) => {
+                const percentage = totalRequests > 0 ? ((item.used / totalRequests) * 100).toFixed(1) : '0';
+                return (
+                  <div key={item.endpoint} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 flex-1">
+                      <div
+                        className="w-3 h-3 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: endpointColors[item.endpoint] || '#6B7280' }}
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">
+                        {item.endpoint.replace('/tasks/', '').replace('/tasks', 'tasks')}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">
+                        {item.used.toLocaleString()}
+                      </span>
+                      <span className="text-sm text-gray-500 dark:text-gray-400 w-12 text-right">
+                        {percentage}%
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">
-                      {item.used.toLocaleString()}
-                    </span>
-                    <span className="text-sm text-gray-500 dark:text-gray-400 w-12 text-right">
-                      {percentage}%
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
           </div>
         </div>
       </div>

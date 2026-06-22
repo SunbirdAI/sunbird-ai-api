@@ -131,7 +131,9 @@ async def save_user_tts_enabled(user_id: str, tts_enabled: bool) -> None:
 
 async def update_feedback(message_id: str, feedback: str) -> bool:
     try:
-        return await save_detailed_feedback(message_id, feedback, feedback_type="reaction")
+        return await save_detailed_feedback(
+            message_id, feedback, feedback_type="reaction"
+        )
     except Exception as e:
         logger.error("Error updating feedback for message %s: %s", message_id, e)
         return False
@@ -163,7 +165,9 @@ async def save_feedback_with_context(
         return False
 
 
-async def get_user_feedback_history(user_id: str, limit: int = 10) -> List[Dict[str, Any]]:
+async def get_user_feedback_history(
+    user_id: str, limit: int = 10
+) -> List[Dict[str, Any]]:
     try:
         async with async_session_maker() as db:
             records = await whatsapp_crud.get_user_feedback_history(db, user_id, limit)
@@ -234,7 +238,9 @@ async def get_user_last_five_messages(user_id: str) -> List[Dict[str, Any]]:
 async def get_user_last_five_conversation_pairs(user_id: str) -> list:
     try:
         async with async_session_maker() as db:
-            return await whatsapp_crud.get_user_last_five_conversation_pairs(db, user_id)
+            return await whatsapp_crud.get_user_last_five_conversation_pairs(
+                db, user_id
+            )
     except Exception as e:
         logger.error("Error retrieving conversation pairs for %s: %s", user_id, e)
         return []

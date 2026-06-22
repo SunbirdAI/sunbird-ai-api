@@ -42,7 +42,6 @@ from fastapi import Request, Response
 from jose import JWTError, jwt
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from app.core.exceptions import AuthenticationError
 from app.crud.monitoring import log_endpoint
 from app.crud.users import get_user_by_username
 from app.database.db import async_session_maker
@@ -122,10 +121,12 @@ class MonitoringMiddleware(BaseHTTPMiddleware):
         if user_info:
             await self._log_request_data(
                 username=user_info["username"],
-                organization=user_info["organization"],
+                organization=user_info.get("organization"),
                 endpoint=request.url.path,
                 start_time=start_time,
                 end_time=end_time,
+                organization_type=user_info.get("organization_type"),
+                sector=user_info.get("sector"),
             )
 
         return response
@@ -186,6 +187,8 @@ class MonitoringMiddleware(BaseHTTPMiddleware):
                 return {
                     "username": user.username,
                     "organization": user.organization,
+                    "organization_type": user.organization_type,
+                    "sector": user.sector,
                 }
 
         except Exception as e:
@@ -199,6 +202,8 @@ class MonitoringMiddleware(BaseHTTPMiddleware):
         endpoint: str,
         start_time: float,
         end_time: float,
+        organization_type: Optional[str] = None,
+        sector: Optional[list] = None,
     ) -> None:
         """
         Log request monitoring data to the database.
@@ -224,14 +229,20 @@ class MonitoringMiddleware(BaseHTTPMiddleware):
                 from app.models.users import User
 
                 # Create a minimal user object for logging
-                user = User(username=username, organization=organization)
+                user = User(
+                    username=username,
+                    organization=organization,
+                    organization_type=organization_type,
+                    sector=sector,
+                )
 
                 await log_endpoint(
                     db=db,
                     user=user,
-                    request=None,  # Not used by log_endpoint
+                    request=None,
                     start_time=start_time,
                     end_time=end_time,
+                    endpoint_path=endpoint,
                 )
 
                 logger.info(
@@ -243,7 +254,7 @@ class MonitoringMiddleware(BaseHTTPMiddleware):
             logger.error(f"Failed to log endpoint usage: {e}", exc_info=True)
 
 
-async def log_request(request: Request, call_next: Callable) -> Response:
+async def log_request(request: Request, call_next: Callable) -> Response:  # noqa: C901
     """
     Function-based monitoring middleware for logging API endpoint usage.
 
@@ -280,6 +291,8 @@ async def log_request(request: Request, call_next: Callable) -> Response:
 
     username: Optional[str] = None
     organization: Optional[str] = None
+    organization_type: Optional[str] = None
+    sector: Optional[list] = None
 
     try:
         # Extract user information from Authorization header
@@ -300,6 +313,8 @@ async def log_request(request: Request, call_next: Callable) -> Response:
                             user = await get_user_by_username(db, username)
                             if user:
                                 organization = user.organization
+                                organization_type = user.organization_type
+                                sector = user.sector
                             else:
                                 logger.debug(f"User not found: {username}")
                                 username = None
@@ -324,7 +339,12 @@ async def log_request(request: Request, call_next: Callable) -> Response:
                 from app.models.users import User
 
                 # Create minimal user object for logging
-                user = User(username=username, organization=organization)
+                user = User(
+                    username=username,
+                    organization=organization,
+                    organization_type=organization_type,
+                    sector=sector,
+                )
 
                 await log_endpoint(
                     db=db,

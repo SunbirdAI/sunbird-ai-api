@@ -21,7 +21,7 @@ Note:
     (Phase 3 Step 12: Create Inference Router).
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from pydantic import BaseModel, Field
 

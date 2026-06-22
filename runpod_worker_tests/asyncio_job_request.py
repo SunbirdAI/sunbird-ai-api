@@ -81,7 +81,7 @@ async def main():
             for i in range(poll_attempts):
                 await asyncio.sleep(poll_interval)
                 status = await job.status()
-                print(f"Poll {i+1}/{poll_attempts} status:", status)
+                print(f"Poll {i + 1}/{poll_attempts} status:", status)
                 if isinstance(status, dict) and status.get("status") in (
                     "COMPLETED",
                     "FAILED",

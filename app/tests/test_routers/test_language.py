@@ -7,7 +7,7 @@ error responses, and integration with the LanguageService.
 """
 
 from typing import Dict
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from httpx import AsyncClient

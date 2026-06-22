@@ -7,8 +7,6 @@ defined in app/integrations/whatsapp_api.py.
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from app.integrations.whatsapp_api import (
     DEFAULT_API_VERSION,
     LEGACY_API_VERSION,
@@ -155,7 +153,7 @@ class TestWhatsAppAPIClientSendMedia:
         mock_response.json.return_value = {"messages": [{"id": "wamid.audio456"}]}
 
         with patch("requests.post", return_value=mock_response) as mock_post:
-            result = client.send_audio("1234567890", "media-id-123", link=False)
+            client.send_audio("1234567890", "media-id-123", link=False)
 
             call_data = mock_post.call_args.kwargs["json"]
             assert "id" in call_data["audio"]
@@ -169,7 +167,7 @@ class TestWhatsAppAPIClientSendMedia:
         mock_response.json.return_value = {"messages": [{"id": "wamid.image123"}]}
 
         with patch("requests.post", return_value=mock_response) as mock_post:
-            result = client.send_image(
+            client.send_image(
                 "1234567890",
                 "https://example.com/image.jpg",
                 caption="Check this out!",

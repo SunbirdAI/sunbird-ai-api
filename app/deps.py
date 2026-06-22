@@ -31,23 +31,44 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import AuthorizationError
 from app.crud.users import get_user_by_username
 from app.database.db import async_session_maker
+
 # Integration imports
 from app.integrations.openai_client import OpenAIClient, get_openai_client
+from app.integrations.orpheus_modal import OrpheusModalClient, get_orpheus_modal_client
 from app.integrations.runpod import RunPodClient, get_runpod_client
 from app.integrations.whatsapp_api import WhatsAppAPIClient, get_whatsapp_api_client
 from app.schemas.users import TokenData, User
+
 # Service imports
+from app.services.cache import CacheBackend, get_cache_backend
+from app.services.google_analytics_service import (
+    GoogleAnalyticsService,
+    get_google_analytics_service,
+)
 from app.services.inference_service import InferenceService, get_inference_service
 from app.services.language_service import LanguageService, get_language_service
 from app.services.modal_stt_service import ModalSTTService, get_modal_stt_service
+from app.services.orpheus_tts_service import OrpheusTTSService, get_orpheus_tts_service
+from app.services.quota_service import QuotaService, get_quota_service
+from app.services.runpod_tts_service import (
+    RunpodSparkTTSService,
+    get_runpod_spark_tts_service,
+)
+from app.services.speech_service import SpeechService, get_speech_service
 from app.services.storage_service import StorageService
 from app.services.storage_service import get_storage_service as get_new_storage_service
 from app.services.stt_service import STTService, get_stt_service
+from app.services.transcription_service import (
+    TranscriptionService,
+    get_transcription_service,
+)
 from app.services.translation_service import TranslationService, get_translation_service
 from app.services.tts_service import TTSService, get_tts_service
 from app.services.whatsapp_service import WhatsAppBusinessService, get_whatsapp_service
+
 # Legacy imports (maintained for backward compatibility)
 from app.utils.auth import get_username_from_token
 from app.utils.storage import GCPStorageService
@@ -60,17 +81,31 @@ from app.utils.storage import get_storage_service as get_legacy_storage_service
 # Service dependencies
 STTServiceDep = Annotated[STTService, Depends(get_stt_service)]
 ModalSTTServiceDep = Annotated[ModalSTTService, Depends(get_modal_stt_service)]
+TranscriptionServiceDep = Annotated[
+    TranscriptionService, Depends(get_transcription_service)
+]
 TTSServiceDep = Annotated[TTSService, Depends(get_tts_service)]
+OrpheusTTSServiceDep = Annotated[OrpheusTTSService, Depends(get_orpheus_tts_service)]
 TranslationServiceDep = Annotated[TranslationService, Depends(get_translation_service)]
 LanguageServiceDep = Annotated[LanguageService, Depends(get_language_service)]
 InferenceServiceDep = Annotated[InferenceService, Depends(get_inference_service)]
 WhatsAppServiceDep = Annotated[WhatsAppBusinessService, Depends(get_whatsapp_service)]
 StorageServiceDep = Annotated[StorageService, Depends(get_new_storage_service)]
+GoogleAnalyticsServiceDep = Annotated[
+    GoogleAnalyticsService, Depends(get_google_analytics_service)
+]
+SpeechServiceDep = Annotated[SpeechService, Depends(get_speech_service)]
+RunpodSparkTTSServiceDep = Annotated[
+    RunpodSparkTTSService, Depends(get_runpod_spark_tts_service)
+]
 
 # Integration dependencies
 RunPodClientDep = Annotated[RunPodClient, Depends(get_runpod_client)]
 OpenAIClientDep = Annotated[OpenAIClient, Depends(get_openai_client)]
+OrpheusModalClientDep = Annotated[OrpheusModalClient, Depends(get_orpheus_modal_client)]
 WhatsAppAPIClientDep = Annotated[WhatsAppAPIClient, Depends(get_whatsapp_api_client)]
+CacheBackendDep = Annotated[CacheBackend, Depends(get_cache_backend)]
+QuotaServiceDep = Annotated[QuotaService, Depends(get_quota_service)]
 
 # Legacy dependencies (maintained for backward compatibility)
 LegacyStorageServiceDep = Annotated[
@@ -151,6 +186,31 @@ async def get_current_user(
     return User.model_validate(user)
 
 
+async def get_current_admin(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """Verify that the authenticated user has Admin privileges.
+
+    Args:
+        current_user: The authenticated user (resolved via get_current_user).
+
+    Returns:
+        User: The admin user.
+
+    Raises:
+        AuthorizationError: If the user is not an Admin.
+    """
+    if current_user.account_type.value != "Admin":
+        raise AuthorizationError(message="Admin access required")
+    return current_user
+
+
+# Core dependency type aliases
+CurrentUserDep = Annotated[User, Depends(get_current_user)]
+CurrentAdminDep = Annotated[User, Depends(get_current_admin)]
+DbDep = Annotated[AsyncSession, Depends(get_db)]
+
+
 # ============================================================================
 # Exports
 # ============================================================================
@@ -159,34 +219,54 @@ __all__ = [
     # Core dependencies
     "get_db",
     "get_current_user",
+    "get_current_admin",
     "oauth2_scheme",
+    "CurrentUserDep",
+    "CurrentAdminDep",
+    "DbDep",
     # Service dependencies
     "STTServiceDep",
     "ModalSTTServiceDep",
+    "TranscriptionServiceDep",
     "TTSServiceDep",
+    "OrpheusTTSServiceDep",
     "TranslationServiceDep",
     "LanguageServiceDep",
     "InferenceServiceDep",
     "WhatsAppServiceDep",
     "StorageServiceDep",
+    "GoogleAnalyticsServiceDep",
+    "QuotaServiceDep",
+    "SpeechServiceDep",
+    "RunpodSparkTTSServiceDep",
     # Integration dependencies
     "RunPodClientDep",
     "OpenAIClientDep",
+    "OrpheusModalClientDep",
     "WhatsAppAPIClientDep",
+    "CacheBackendDep",
+    "CacheBackend",
     # Legacy dependencies
     "LegacyStorageServiceDep",
     # Service classes (for type hints)
     "STTService",
     "ModalSTTService",
+    "TranscriptionService",
     "TTSService",
+    "OrpheusTTSService",
     "TranslationService",
     "LanguageService",
     "InferenceService",
     "WhatsAppBusinessService",
     "StorageService",
+    "GoogleAnalyticsService",
+    "QuotaService",
+    "SpeechService",
+    "RunpodSparkTTSService",
     # Integration classes (for type hints)
     "RunPodClient",
     "OpenAIClient",
+    "OrpheusModalClient",
     "WhatsAppAPIClient",
     "GCPStorageService",
     # Other types

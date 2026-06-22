@@ -31,7 +31,9 @@ import hashlib
 import json
 import logging
 import os
+import time
 from typing import Any, Dict, Optional
+from urllib.parse import urlparse
 
 import aiohttp
 from dotenv import load_dotenv
@@ -45,8 +47,23 @@ from tenacity import (
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
 
+# Module-level logger so log lines are namespaced (`app.utils.feedback`) and
+# easy to grep / filter independently of root.
+logger = logging.getLogger(__name__)
+
 # Get feedback URL from environment
 FEEDBACK_URL = os.getenv("FEEDBACK_URL")
+
+
+def _feedback_host() -> str:
+    """Return the FEEDBACK_URL host for log lines (never the full URL)."""
+    if not FEEDBACK_URL:
+        return "<unset>"
+    try:
+        return urlparse(FEEDBACK_URL).netloc or FEEDBACK_URL
+    except Exception:
+        return FEEDBACK_URL
+
 
 # Inference type constants for classifying feedback events
 INFERENCE_TYPES = {
@@ -54,10 +71,16 @@ INFERENCE_TYPES = {
     "tts": "tts",
     "sunflower_chat": "sunflower_chat",
     "sunflower_simple": "sunflower_simple",
+    "chat_completions": "chat_completions",
+    "stt": "stt",
+    "translation": "translation",
+    "language_id": "language_id",
+    "tts_modal": "tts",
+    "tts_orpheus": "tts",
 }
 
 
-async def save_api_inference(
+async def save_api_inference(  # noqa: C901
     source_text: Any,
     model_results: Any,
     username: Any,
@@ -98,7 +121,10 @@ async def save_api_inference(
         True
     """
     if not FEEDBACK_URL:
-        logging.debug("FEEDBACK_URL not configured; skipping inference feedback save")
+        logger.info(
+            "[FEEDBACK] skipped — FEEDBACK_URL not configured (type=%s)",
+            inference_type,
+        )
         return False
 
     # Timestamp in milliseconds
@@ -160,7 +186,11 @@ async def save_api_inference(
                 jd[k] = job_details.get(k)
 
         # For TTS keep a short hash of the source text instead of raw text
-        if inference_type == INFERENCE_TYPES["tts"]:
+        if inference_type in (
+            INFERENCE_TYPES["tts"],
+            INFERENCE_TYPES["tts_modal"],
+            INFERENCE_TYPES["tts_orpheus"],
+        ):
             try:
                 text_val = (
                     source_serialized
@@ -176,10 +206,19 @@ async def save_api_inference(
         if jd:
             payload["JobDetails"] = jd
 
-    logging.info(
-        f"Saving inference feedback for user: {username_str}, type: {inference_type}"
+    payload_bytes = len(json.dumps(payload, ensure_ascii=False).encode("utf-8"))
+    host = _feedback_host()
+    logger.info(
+        "[FEEDBACK] → POST %s type=%s user=%s size=%dB",
+        host,
+        inference_type,
+        username_str,
+        payload_bytes,
     )
-    logging.debug(f"Feedback payload (truncated): {json.dumps(payload)[:1000]}")
+    logger.debug(
+        "[FEEDBACK]   payload (truncated): %s",
+        json.dumps(payload, ensure_ascii=False)[:1000],
+    )
 
     @retry(
         stop=stop_after_attempt(3),
@@ -189,21 +228,39 @@ async def save_api_inference(
     )
     async def _post_feedback(p: Dict[str, Any]) -> bool:
         timeout = aiohttp.ClientTimeout(total=10)
+        t0 = time.monotonic()
         async with aiohttp.ClientSession(timeout=timeout) as session:
             async with session.post(
                 FEEDBACK_URL, json=p, headers={"Content-Type": "application/json"}
             ) as resp:
                 text = await resp.text()
+                elapsed_ms = (time.monotonic() - t0) * 1000.0
                 if 200 <= resp.status < 300:
-                    logging.info("Inference feedback saved successfully")
+                    logger.info(
+                        "[FEEDBACK] ✓ saved in %.0fms type=%s user=%s status=%d",
+                        elapsed_ms,
+                        inference_type,
+                        username_str,
+                        resp.status,
+                    )
                     return True
-                logging.warning(
-                    f"Feedback save failed status={resp.status} body={text}"
+                logger.warning(
+                    "[FEEDBACK] ✗ rejected status=%d in %.0fms type=%s user=%s body=%s",
+                    resp.status,
+                    elapsed_ms,
+                    inference_type,
+                    username_str,
+                    text[:300],
                 )
                 return False
 
     try:
         return await _post_feedback(payload)
     except Exception as e:
-        logging.error(f"Failed to save inference feedback after retries: {e}")
+        logger.error(
+            "[FEEDBACK] ✗ post failed after retries type=%s user=%s: %s",
+            inference_type,
+            username_str,
+            e,
+        )
         return False

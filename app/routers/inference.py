@@ -22,14 +22,12 @@ Note:
 """
 
 import logging
-import os
 import time
 from typing import Any, Dict
 
 from dotenv import load_dotenv
-from fastapi import APIRouter, BackgroundTasks, Depends, Form, Request
-from jose import jwt
-from slowapi import Limiter
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, Request, Response
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import (
     BadRequestError,
@@ -37,11 +35,10 @@ from app.core.exceptions import (
     ServiceUnavailableError,
     ValidationError,
 )
-from app.deps import get_current_user
+from app.deps import QuotaServiceDep, get_current_user, get_db
 from app.schemas.inference import (
     SunflowerChatRequest,
     SunflowerChatResponse,
-    SunflowerSimpleResponse,
     SunflowerUsageStats,
 )
 from app.services.inference_service import (
@@ -50,56 +47,14 @@ from app.services.inference_service import (
     get_inference_service,
     run_inference,
 )
-from app.utils.auth import ALGORITHM, SECRET_KEY
 from app.utils.feedback import INFERENCE_TYPES, save_api_inference
+from app.utils.quota_guard import check_quota
+from app.utils.rate_limit import get_account_type_limit, limiter
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
 
 router = APIRouter()
-
-
-def custom_key_func(request: Request) -> str:
-    """Extract account type from JWT token for rate limiting.
-
-    Args:
-        request: The FastAPI request object.
-
-    Returns:
-        The account type string or 'anonymous' if not found.
-    """
-    header = request.headers.get("Authorization")
-    if not header:
-        return "anonymous"
-    _, _, token = header.partition(" ")
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        account_type: str = payload.get("account_type", "")
-        return account_type or ""
-    except Exception:
-        return ""
-
-
-def get_account_type_limit(key: str) -> str:
-    """Get rate limit based on account type.
-
-    Args:
-        key: The account type key.
-
-    Returns:
-        Rate limit string (e.g., '50/minute').
-    """
-    if not key:
-        return "50/minute"
-    if key.lower() == "admin":
-        return "1000/minute"
-    if key.lower() == "premium":
-        return "100/minute"
-    return "50/minute"
-
-
-# Initialize the Limiter
-limiter = Limiter(key_func=custom_key_func)
 
 
 def get_service() -> InferenceService:
@@ -111,19 +66,32 @@ def get_service() -> InferenceService:
     return get_inference_service()
 
 
+def _add_deprecation_headers(response: Response) -> None:
+    """RFC 8594 deprecation headers pointing at the successor endpoint."""
+    response.headers["Deprecation"] = "true"
+    response.headers["Link"] = '</tasks/chat/completions>; rel="successor-version"'
+
+
 @router.post(
     "/sunflower_inference",
     response_model=SunflowerChatResponse,
+    deprecated=True,
+    tags=["legacy/deprecated"],
 )
 @limiter.limit(get_account_type_limit)
-async def sunflower_inference(
+async def sunflower_inference(  # noqa: C901
     request: Request,
+    response: Response,
     chat_request: SunflowerChatRequest,
+    quota: QuotaServiceDep,
     background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
     service: InferenceService = Depends(get_service),
 ) -> SunflowerChatResponse:
     """Professional Sunflower inference endpoint for multilingual chat completions.
+
+    **Deprecated**: use POST /tasks/chat/completions instead.
 
     This endpoint provides access to Sunbird AI's Sunflower model, specialized in:
     - Multilingual conversations in Ugandan languages (Luganda, Acholi, Ateso, etc.)
@@ -183,6 +151,8 @@ async def sunflower_inference(
             "message_count": 5
         }
     """
+    _add_deprecation_headers(response)
+    await check_quota(quota, db, current_user)
     start_time = time.time()
     user = current_user
 
@@ -267,7 +237,7 @@ async def sunflower_inference(
         except TimeoutError as e:
             logging.error(f"Inference timeout: {e}")
             raise ServiceUnavailableError(
-                message="The request timed out. Please try again with a shorter prompt or check your network connection."
+                message="The request timed out. Please try again with a shorter prompt or check your network connection."  # noqa: E501
             )
         except ValueError as e:
             logging.error(f"Invalid request: {e}")
@@ -351,18 +321,25 @@ async def sunflower_inference(
 @router.post(
     "/sunflower_simple",
     response_model=Dict[str, Any],
+    deprecated=True,
+    tags=["legacy/deprecated"],
 )
 @limiter.limit(get_account_type_limit)
-async def sunflower_simple_inference(
+async def sunflower_simple_inference(  # noqa: C901
     request: Request,
+    response: Response,
+    quota: QuotaServiceDep,
     background_tasks: BackgroundTasks,
     instruction: str = Form(..., description="The instruction or question for the AI"),
     model_type: str = Form("qwen", description="Model type (qwen or gemma)"),
     temperature: float = Form(0.3, ge=0.0, le=2.0, description="Sampling temperature"),
     system_message: str = Form(None, description="Custom system message"),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ) -> Dict[str, Any]:
     """Simple Sunflower inference endpoint for single instruction/response.
+
+    **Deprecated**: use POST /tasks/chat/completions instead.
 
     This is a simplified interface for users who want to send a single instruction
     rather than managing conversation history. Uses form-based input for easier
@@ -406,6 +383,8 @@ async def sunflower_simple_inference(
             "success": true
         }
     """
+    _add_deprecation_headers(response)
+    await check_quota(quota, db, current_user)
     start_time = time.time()
     user = current_user
 

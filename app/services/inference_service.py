@@ -45,7 +45,7 @@ import random
 import re
 import time
 from functools import wraps
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, TypeVar
+from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Type, TypeVar
 
 from dotenv import load_dotenv
 from openai import APIError, OpenAI, RateLimitError
@@ -177,7 +177,9 @@ class SunflowerChatResponse(BaseModel):
 # =============================================================================
 
 
-def classify_error(error: Exception, response_text: Optional[str] = None) -> Exception:
+def classify_error(  # noqa: C901
+    error: Exception, response_text: Optional[str] = None
+) -> Exception:
     """Classify errors to determine if they should trigger a retry.
 
     Args:
@@ -277,6 +279,84 @@ def classify_error(error: Exception, response_text: Optional[str] = None) -> Exc
 
     # Return original error if not retryable
     return error
+
+
+# =============================================================================
+# Streaming Think-Tag Filter
+# =============================================================================
+
+
+class ThinkTagFilter:
+    """Strips ``<think>...</think>`` spans from streamed text.
+
+    The streaming equivalent of ``InferenceService._clean_response``: because
+    streamed deltas can split a tag across chunk boundaries (e.g. ``"<thi"``
+    then ``"nk>"``), this filter holds back any trailing text that could still
+    turn into a tag and only emits text once it is provably outside a think
+    span. Content inside an unterminated ``<think>`` block is discarded.
+
+    Usage:
+        f = ThinkTagFilter()
+        visible = f.feed(chunk_text)   # call per streamed delta
+        visible += f.flush()           # call once after the stream ends
+    """
+
+    OPEN_TAG = "<think>"
+    CLOSE_TAG = "</think>"
+
+    def __init__(self) -> None:
+        self._buffer = ""
+        self._in_think = False
+
+    @staticmethod
+    def _partial_suffix_len(text: str, tag: str) -> int:
+        """Length of the longest strict tag prefix that ``text`` ends with."""
+        max_len = min(len(text), len(tag) - 1)
+        for length in range(max_len, 0, -1):
+            if text.endswith(tag[:length]):
+                return length
+        return 0
+
+    def feed(self, text: str) -> str:
+        """Consume a streamed delta and return the text safe to emit."""
+        self._buffer += text
+        emitted: List[str] = []
+
+        while True:
+            if self._in_think:
+                idx = self._buffer.find(self.CLOSE_TAG)
+                if idx == -1:
+                    # Drop think content, but keep a possible partial close
+                    # tag so it can complete on the next chunk.
+                    keep = self._partial_suffix_len(self._buffer, self.CLOSE_TAG)
+                    self._buffer = self._buffer[-keep:] if keep else ""
+                    return "".join(emitted)
+                resume_at = idx + len(self.CLOSE_TAG)
+                self._buffer = self._buffer[resume_at:]
+                self._in_think = False
+            else:
+                idx = self._buffer.find(self.OPEN_TAG)
+                if idx == -1:
+                    keep = self._partial_suffix_len(self._buffer, self.OPEN_TAG)
+                    emit_until = len(self._buffer) - keep
+                    emitted.append(self._buffer[:emit_until])
+                    self._buffer = self._buffer[emit_until:]
+                    return "".join(emitted)
+                emitted.append(self._buffer[:idx])
+                think_at = idx + len(self.OPEN_TAG)
+                self._buffer = self._buffer[think_at:]
+                self._in_think = True
+
+    def flush(self) -> str:
+        """Release held-back text after the stream ends.
+
+        Text held as a potential tag prefix is emitted (it never became a
+        tag); anything inside an unterminated think block stays dropped.
+        """
+        leftover = "" if self._in_think else self._buffer
+        self._buffer = ""
+        self._in_think = False
+        return leftover
 
 
 # =============================================================================
@@ -567,7 +647,7 @@ class InferenceService(BaseService):
         jitter=True,
         retryable_exceptions=(ModelLoadingError, InferenceTimeoutError),
     )
-    def run_inference(
+    def run_inference(  # noqa: C901
         self,
         instruction: Optional[str] = None,
         model_type: str = "qwen",
@@ -575,6 +655,9 @@ class InferenceService(BaseService):
         custom_system_message: Optional[str] = None,
         messages: Optional[List[Dict[str, str]]] = None,
         temperature: float = 0.3,
+        max_tokens: Optional[int] = None,
+        top_p: Optional[float] = None,
+        stop: Optional[Any] = None,
     ) -> Dict[str, Any]:
         """Run inference using the language model.
 
@@ -585,6 +668,9 @@ class InferenceService(BaseService):
             custom_system_message: Custom system message to override the default.
             messages: Full conversation messages in OpenAI format (preferred).
             temperature: Sampling temperature (0.0 to 2.0).
+            max_tokens: Maximum number of tokens to generate (optional).
+            top_p: Nucleus sampling probability cutoff (optional).
+            stop: Stop sequence(s) to halt generation (optional).
 
         Returns:
             Dictionary containing:
@@ -635,6 +721,13 @@ class InferenceService(BaseService):
             "stream": stream,
         }
 
+        if max_tokens is not None:
+            payload["max_tokens"] = max_tokens
+        if top_p is not None:
+            payload["top_p"] = top_p
+        if stop is not None:
+            payload["stop"] = stop
+
         start_time = time.time()
         response_text: Optional[str] = None
 
@@ -643,7 +736,7 @@ class InferenceService(BaseService):
             self.log_debug(f"Request payload: {json.dumps(payload, indent=2)}")
 
             response = client.chat.completions.create(**payload)
-            self.log_info(f"Raw response received")
+            self.log_info("Raw response received")
 
             end_time = time.time()
             processing_time = end_time - start_time
@@ -734,6 +827,110 @@ class InferenceService(BaseService):
             self.log_error(f"Unexpected error during API request: {e}")
             classified_error = classify_error(e, response_text)
             raise classified_error
+
+    def run_inference_stream(  # noqa: C901
+        self,
+        instruction: Optional[str] = None,
+        model_type: str = "qwen",
+        custom_system_message: Optional[str] = None,
+        messages: Optional[List[Dict[str, str]]] = None,
+        temperature: float = 0.3,
+        max_tokens: Optional[int] = None,
+        top_p: Optional[float] = None,
+        stop: Optional[Any] = None,
+    ) -> Iterator[Dict[str, Any]]:
+        """Stream inference results as they are generated.
+
+        Yields dictionaries of two shapes:
+            {"type": "delta", "content": str}   — cleaned content increments
+            {"type": "usage", "usage": dict}    — final token usage, if the
+                                                  upstream API reports it
+
+        ``<think>`` spans are stripped via ThinkTagFilter before content is
+        yielded. Retry with exponential backoff applies only to creating the
+        stream (i.e., before the first token); once streaming has begun,
+        failures propagate to the caller and are never retried.
+
+        Raises:
+            ValueError: If the model type is not supported.
+            ModelLoadingError: If the model is still loading after retries.
+            InferenceTimeoutError: If stream creation times out after retries.
+        """
+        config = self.endpoints.get(model_type.lower())
+        if not config:
+            self.log_error(f"Unsupported model type: {model_type}")
+            raise ValueError(f"Unsupported model type: {model_type}")
+
+        client = self._get_client(model_type)
+        final_messages = self._build_messages(
+            instruction=instruction,
+            messages=messages,
+            custom_system_message=custom_system_message,
+        )
+
+        payload: Dict[str, Any] = {
+            "model": config["model_name"],
+            "messages": final_messages,
+            "temperature": temperature,
+            "stream": True,
+            "stream_options": {"include_usage": True},
+        }
+        if max_tokens is not None:
+            payload["max_tokens"] = max_tokens
+        if top_p is not None:
+            payload["top_p"] = top_p
+        if stop is not None:
+            payload["stop"] = stop
+
+        @exponential_backoff_retry(
+            max_retries=4,
+            base_delay=3.0,
+            max_delay=180.0,
+            exponential_base=2.0,
+            jitter=True,
+            retryable_exceptions=(ModelLoadingError, InferenceTimeoutError),
+        )
+        def _create_stream() -> Any:
+            try:
+                return client.chat.completions.create(**payload)
+            except (ModelLoadingError, InferenceTimeoutError):
+                raise
+            except Exception as e:
+                raise classify_error(e, str(e))
+
+        self.log_info("Opening streaming request to RunPod API...")
+        stream = _create_stream()
+
+        think_filter = ThinkTagFilter()
+        usage_dict: Optional[Dict[str, Any]] = None
+
+        for chunk in stream:
+            usage = getattr(chunk, "usage", None)
+            if usage is not None:
+                usage_dict = {
+                    "completion_tokens": getattr(usage, "completion_tokens", None),
+                    "prompt_tokens": getattr(usage, "prompt_tokens", None),
+                    "total_tokens": getattr(usage, "total_tokens", None),
+                }
+
+            choices = getattr(chunk, "choices", None) or []
+            if not choices:
+                continue
+            delta = getattr(choices[0], "delta", None)
+            content = getattr(delta, "content", None) if delta else None
+            if content:
+                cleaned = think_filter.feed(content)
+                if cleaned:
+                    yield {"type": "delta", "content": cleaned}
+
+        tail = think_filter.flush()
+        if tail:
+            yield {"type": "delta", "content": tail}
+
+        if usage_dict is not None:
+            yield {"type": "usage", "usage": usage_dict}
+
+        self.log_info("Streaming request completed")
 
 
 # =============================================================================

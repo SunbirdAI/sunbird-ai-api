@@ -7,7 +7,6 @@ service dependencies, and integration dependencies.
 """
 
 import pytest
-import pytest_asyncio
 from fastapi import HTTPException
 from jose import jwt
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -260,7 +259,6 @@ class TestTypeHints:
 
     def test_get_db_return_type(self):
         """Test that get_db has proper return type annotation."""
-        import inspect
         from typing import get_type_hints
 
         # Get type hints for the function
@@ -269,7 +267,6 @@ class TestTypeHints:
 
     def test_get_current_user_return_type(self):
         """Test that get_current_user returns User type."""
-        import inspect
         from typing import get_type_hints
 
         hints = get_type_hints(get_current_user)

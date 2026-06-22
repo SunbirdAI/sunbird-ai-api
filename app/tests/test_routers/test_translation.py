@@ -1,9 +1,10 @@
 """
-Tests for Translation Router Module.
+Tests for Translation Router Module (Sunflower-backed).
 
-This module contains tests for the translation API endpoints defined in
-app/routers/translation.py. Tests verify request handling, authentication,
-error responses, and integration with the TranslationService.
+POST /tasks/translate routes through TranslationService.translate_via_sunflower
+(Sunflower model via InferenceService). These tests mock at the service layer
+and verify language resolution, response shape backward compatibility, and
+error mapping.
 """
 
 from typing import Dict
@@ -13,449 +14,370 @@ import pytest
 from httpx import AsyncClient
 
 from app.api import app
-from app.routers.translation import get_service
-from app.services.translation_service import (
-    TranslationConnectionError,
-    TranslationError,
-    TranslationResult,
-    TranslationTimeoutError,
-    TranslationValidationError,
-)
+from app.services.inference_service import InferenceTimeoutError, ModelLoadingError
+from app.services.translation_service import TranslationResult, get_translation_service
+from app.utils.languages import ResolvedLanguage
+
+
+def _make_result(
+    translated_text="Oli otya?",
+    source_language="eng",
+    target_language="lug",
+):
+    return TranslationResult(
+        translated_text=translated_text,
+        source_language=source_language,
+        target_language=target_language,
+        status="COMPLETED",
+        job_id="trans-abc123",
+        raw_response=None,
+    )
+
+
+@pytest.fixture
+def mock_translation_service() -> MagicMock:
+    mock = MagicMock()
+    mock.translate_via_sunflower = AsyncMock(return_value=_make_result())
+    return mock
+
+
+@pytest.fixture
+def override_service(mock_translation_service):
+    app.dependency_overrides[get_translation_service] = lambda: mock_translation_service
+    yield mock_translation_service
+    app.dependency_overrides.pop(get_translation_service, None)
+
+
+def _auth(test_user: Dict) -> Dict[str, str]:
+    return {"Authorization": f"Bearer {test_user['token']}"}
 
 
 class TestTranslateEndpoint:
-    """Tests for POST /tasks/translate endpoint."""
+    """Happy-path and language-resolution tests for POST /tasks/translate."""
 
-    @pytest.fixture
-    def mock_translation_service(self) -> MagicMock:
-        """Create a mock TranslationService for testing."""
-        mock = MagicMock()
-        mock.translate = AsyncMock()
-        mock.validate_and_parse_response = MagicMock()
-        return mock
-
-    @pytest.fixture
-    def sample_translation_result(self) -> TranslationResult:
-        """Create a sample translation result for testing."""
-        return TranslationResult(
-            translated_text="Oli otya?",
-            source_language="eng",
-            target_language="lug",
-            delay_time=100,
-            execution_time=500,
-            job_id="job-123",
-            worker_id="worker-456",
-            status="COMPLETED",
-            raw_response={
-                "id": "job-123",
-                "status": "COMPLETED",
-                "output": {
-                    "translated_text": "Oli otya?",
-                    "source_language": "eng",
-                    "target_language": "lug",
-                },
-                "delayTime": 100,
-                "executionTime": 500,
-                "workerId": "worker-456",
-            },
-        )
-
-    @pytest.mark.asyncio
-    async def test_successful_translation(
-        self,
-        async_client: AsyncClient,
-        test_user: Dict,
-        mock_translation_service: MagicMock,
-        sample_translation_result: TranslationResult,
-    ) -> None:
-        """Test successful translation request."""
-        mock_translation_service.translate = AsyncMock(
-            return_value=sample_translation_result
-        )
-        mock_translation_service.validate_and_parse_response = MagicMock(
-            return_value=MagicMock(
-                model_dump=MagicMock(
-                    return_value={
-                        "id": "job-123",
-                        "status": "COMPLETED",
-                        "output": {
-                            "translated_text": "Oli otya?",
-                            "source_language": "eng",
-                            "target_language": "lug",
-                        },
-                        "delayTime": 100,
-                        "executionTime": 500,
-                        "workerId": "worker-456",
-                    }
-                )
-            )
-        )
-
-        app.dependency_overrides[get_service] = lambda: mock_translation_service
-
-        try:
-            response = await async_client.post(
-                "/tasks/translate",
-                json={
-                    "source_language": "eng",
-                    "target_language": "lug",
-                    "text": "How are you?",
-                },
-                headers={"Authorization": f"Bearer {test_user['token']}"},
-            )
-
-            assert response.status_code == 200
-            data = response.json()
-            assert data["status"] == "COMPLETED"
-            assert data["output"]["translated_text"] == "Oli otya?"
-            mock_translation_service.translate.assert_called_once_with(
-                text="How are you?",
-                source_language="eng",
-                target_language="lug",
-            )
-        finally:
-            app.dependency_overrides.pop(get_service, None)
-
-    @pytest.mark.asyncio
-    async def test_translation_without_auth(
-        self,
-        async_client: AsyncClient,
-    ) -> None:
-        """Test that translation requires authentication."""
+    async def test_legacy_payload_with_codes(
+        self, async_client: AsyncClient, test_user: Dict, override_service
+    ):
         response = await async_client.post(
             "/tasks/translate",
             json={
                 "source_language": "eng",
                 "target_language": "lug",
+                "text": "How are you?",
+            },
+            headers=_auth(test_user),
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "COMPLETED"
+        assert data["id"] == "trans-abc123"
+        assert data["output"]["translated_text"] == "Oli otya?"
+        assert data["output"]["source_language"] == "eng"
+        assert data["output"]["target_language"] == "lug"
+        override_service.translate_via_sunflower.assert_awaited_once_with(
+            text="How are you?",
+            target_language=ResolvedLanguage(code="lug", name="Luganda"),
+            source_language=ResolvedLanguage(code="eng", name="English"),
+        )
+
+    async def test_full_name_payload(
+        self, async_client: AsyncClient, test_user: Dict, override_service
+    ):
+        response = await async_client.post(
+            "/tasks/translate",
+            json={
+                "source_language": "English",
+                "target_language": "Luganda",
+                "text": "How are you?",
+            },
+            headers=_auth(test_user),
+        )
+
+        assert response.status_code == 200
+        override_service.translate_via_sunflower.assert_awaited_once_with(
+            text="How are you?",
+            target_language=ResolvedLanguage(code="lug", name="Luganda"),
+            source_language=ResolvedLanguage(code="eng", name="English"),
+        )
+
+    async def test_alias_name_resolves(
+        self, async_client: AsyncClient, test_user: Dict, override_service
+    ):
+        response = await async_client.post(
+            "/tasks/translate",
+            json={
+                "source_language": "eng",
+                "target_language": "Runyankore",
                 "text": "Hello",
             },
+            headers=_auth(test_user),
         )
 
-        assert response.status_code == 401
+        assert response.status_code == 200
+        call_kwargs = override_service.translate_via_sunflower.await_args.kwargs
+        assert call_kwargs["target_language"] == ResolvedLanguage(
+            code="nyn", name="Runyankole"
+        )
 
-    @pytest.mark.asyncio
-    async def test_translation_invalid_source_language(
+    async def test_omitted_source_language(
         self,
         async_client: AsyncClient,
         test_user: Dict,
-    ) -> None:
-        """Test that invalid source language returns 422."""
+        override_service,
+        mock_translation_service,
+    ):
+        mock_translation_service.translate_via_sunflower = AsyncMock(
+            return_value=_make_result(source_language=None)
+        )
+
         response = await async_client.post(
             "/tasks/translate",
-            json={
-                "source_language": "invalid",
-                "target_language": "lug",
-                "text": "Hello",
-            },
-            headers={"Authorization": f"Bearer {test_user['token']}"},
+            json={"target_language": "lug", "text": "How are you?"},
+            headers=_auth(test_user),
         )
 
-        assert response.status_code == 422
+        assert response.status_code == 200
+        data = response.json()
+        assert data["output"]["source_language"] is None
+        call_kwargs = mock_translation_service.translate_via_sunflower.await_args.kwargs
+        assert call_kwargs["source_language"] is None
 
-    @pytest.mark.asyncio
-    async def test_translation_invalid_target_language(
-        self,
-        async_client: AsyncClient,
-        test_user: Dict,
-    ) -> None:
-        """Test that invalid target language returns 422."""
-        response = await async_client.post(
-            "/tasks/translate",
-            json={
-                "source_language": "eng",
-                "target_language": "invalid",
-                "text": "Hello",
-            },
-            headers={"Authorization": f"Bearer {test_user['token']}"},
-        )
-
-        assert response.status_code == 422
-
-    @pytest.mark.asyncio
-    async def test_translation_empty_text(
-        self,
-        async_client: AsyncClient,
-        test_user: Dict,
-    ) -> None:
-        """Test that empty text returns 422."""
-        response = await async_client.post(
-            "/tasks/translate",
-            json={
-                "source_language": "eng",
-                "target_language": "lug",
-                "text": "",
-            },
-            headers={"Authorization": f"Bearer {test_user['token']}"},
-        )
-
-        assert response.status_code == 422
-
-    @pytest.mark.asyncio
-    async def test_translation_whitespace_only_text(
-        self,
-        async_client: AsyncClient,
-        test_user: Dict,
-    ) -> None:
-        """Test that whitespace-only text returns 422."""
-        response = await async_client.post(
-            "/tasks/translate",
-            json={
-                "source_language": "eng",
-                "target_language": "lug",
-                "text": "   ",
-            },
-            headers={"Authorization": f"Bearer {test_user['token']}"},
-        )
-
-        assert response.status_code == 422
-
-    @pytest.mark.asyncio
-    async def test_translation_timeout_error(
-        self,
-        async_client: AsyncClient,
-        test_user: Dict,
-        mock_translation_service: MagicMock,
-    ) -> None:
-        """Test that timeout error returns 503."""
-        mock_translation_service.translate = AsyncMock(
-            side_effect=TranslationTimeoutError("Timeout")
-        )
-
-        app.dependency_overrides[get_service] = lambda: mock_translation_service
-
-        try:
-            response = await async_client.post(
-                "/tasks/translate",
-                json={
-                    "source_language": "eng",
-                    "target_language": "lug",
-                    "text": "Hello",
-                },
-                headers={"Authorization": f"Bearer {test_user['token']}"},
-            )
-
-            assert response.status_code == 503
-            assert "timeout" in response.json()["message"].lower()
-        finally:
-            app.dependency_overrides.pop(get_service, None)
-
-    @pytest.mark.asyncio
-    async def test_translation_connection_error(
-        self,
-        async_client: AsyncClient,
-        test_user: Dict,
-        mock_translation_service: MagicMock,
-    ) -> None:
-        """Test that connection error returns 503."""
-        mock_translation_service.translate = AsyncMock(
-            side_effect=TranslationConnectionError("Connection failed")
-        )
-
-        app.dependency_overrides[get_service] = lambda: mock_translation_service
-
-        try:
-            response = await async_client.post(
-                "/tasks/translate",
-                json={
-                    "source_language": "eng",
-                    "target_language": "lug",
-                    "text": "Hello",
-                },
-                headers={"Authorization": f"Bearer {test_user['token']}"},
-            )
-
-            assert response.status_code == 502
-            assert "connection" in response.json()["message"].lower()
-        finally:
-            app.dependency_overrides.pop(get_service, None)
-
-    @pytest.mark.asyncio
-    async def test_translation_validation_error(
-        self,
-        async_client: AsyncClient,
-        test_user: Dict,
-        mock_translation_service: MagicMock,
-        sample_translation_result: TranslationResult,
-    ) -> None:
-        """Test that validation error returns 500."""
-        mock_translation_service.translate = AsyncMock(
-            return_value=sample_translation_result
-        )
-        mock_translation_service.validate_and_parse_response = MagicMock(
-            side_effect=TranslationValidationError("Invalid response")
-        )
-
-        app.dependency_overrides[get_service] = lambda: mock_translation_service
-
-        try:
-            response = await async_client.post(
-                "/tasks/translate",
-                json={
-                    "source_language": "eng",
-                    "target_language": "lug",
-                    "text": "Hello",
-                },
-                headers={"Authorization": f"Bearer {test_user['token']}"},
-            )
-
-            assert response.status_code == 502
-            assert "invalid" in response.json()["message"].lower()
-        finally:
-            app.dependency_overrides.pop(get_service, None)
-
-    @pytest.mark.asyncio
-    async def test_translation_generic_error(
-        self,
-        async_client: AsyncClient,
-        test_user: Dict,
-        mock_translation_service: MagicMock,
-    ) -> None:
-        """Test that generic error returns 500."""
-        mock_translation_service.translate = AsyncMock(
-            side_effect=TranslationError("Unknown error")
-        )
-
-        app.dependency_overrides[get_service] = lambda: mock_translation_service
-
-        try:
-            response = await async_client.post(
-                "/tasks/translate",
-                json={
-                    "source_language": "eng",
-                    "target_language": "lug",
-                    "text": "Hello",
-                },
-                headers={"Authorization": f"Bearer {test_user['token']}"},
-            )
-
-            assert response.status_code == 502
-        finally:
-            app.dependency_overrides.pop(get_service, None)
-
-
-class TestSupportedLanguages:
-    """Tests for all supported language codes."""
-
-    @pytest.fixture
-    def mock_translation_service(self) -> MagicMock:
-        """Create a mock TranslationService for testing."""
-        mock = MagicMock()
-        mock.translate = AsyncMock(
-            return_value=TranslationResult(
-                translated_text="Translated text",
-                source_language="eng",
-                target_language="lug",
-                status="COMPLETED",
-                raw_response={
-                    "id": "job-123",
-                    "status": "COMPLETED",
-                    "output": {"translated_text": "Translated text"},
-                },
-            )
-        )
-        mock.validate_and_parse_response = MagicMock(
-            return_value=MagicMock(
-                model_dump=MagicMock(
-                    return_value={
-                        "id": "job-123",
-                        "status": "COMPLETED",
-                        "output": {"translated_text": "Translated text"},
-                    }
-                )
-            )
-        )
-        return mock
-
-    @pytest.mark.asyncio
     @pytest.mark.parametrize(
         "source_lang,target_lang",
         [
-            ("eng", "lug"),  # English to Luganda
-            ("eng", "ach"),  # English to Acholi
-            ("eng", "teo"),  # English to Ateso
-            ("eng", "lgg"),  # English to Lugbara
-            ("eng", "nyn"),  # English to Runyankole
-            ("lug", "eng"),  # Luganda to English
-            ("ach", "eng"),  # Acholi to English
-            ("teo", "eng"),  # Ateso to English
-            ("lgg", "eng"),  # Lugbara to English
-            ("nyn", "eng"),  # Runyankole to English
+            ("eng", "lug"),
+            ("eng", "ach"),
+            ("eng", "teo"),
+            ("eng", "lgg"),
+            ("eng", "nyn"),
+            ("lug", "eng"),
+            ("ach", "eng"),
+            ("teo", "eng"),
+            ("lgg", "eng"),
+            ("nyn", "eng"),
         ],
     )
-    async def test_supported_language_pairs(
+    async def test_legacy_language_pairs_still_accepted(
         self,
         async_client: AsyncClient,
         test_user: Dict,
-        mock_translation_service: MagicMock,
+        override_service,
         source_lang: str,
         target_lang: str,
-    ) -> None:
-        """Test that all supported language pairs are accepted."""
-        app.dependency_overrides[get_service] = lambda: mock_translation_service
+    ):
+        response = await async_client.post(
+            "/tasks/translate",
+            json={
+                "source_language": source_lang,
+                "target_language": target_lang,
+                "text": "Hello world",
+            },
+            headers=_auth(test_user),
+        )
 
-        try:
-            response = await async_client.post(
-                "/tasks/translate",
-                json={
-                    "source_language": source_lang,
-                    "target_language": target_lang,
-                    "text": "Hello world",
-                },
-                headers={"Authorization": f"Bearer {test_user['token']}"},
-            )
+        assert response.status_code == 200
 
-            assert response.status_code == 200
-        finally:
-            app.dependency_overrides.pop(get_service, None)
+    async def test_new_sunflower_pair_accepted(
+        self, async_client: AsyncClient, test_user: Dict, override_service
+    ):
+        # Any-to-any: Swahili -> Kinyarwanda was impossible with NLLB.
+        response = await async_client.post(
+            "/tasks/translate",
+            json={
+                "source_language": "swa",
+                "target_language": "kin",
+                "text": "Habari",
+            },
+            headers=_auth(test_user),
+        )
 
+        assert response.status_code == 200
 
-class TestFallbackResponse:
-    """Tests for fallback response when raw_response is missing."""
-
-    @pytest.fixture
-    def mock_translation_service(self) -> MagicMock:
-        """Create a mock TranslationService for testing."""
-        mock = MagicMock()
-        return mock
-
-    @pytest.mark.asyncio
-    async def test_fallback_response_without_raw_response(
+    async def test_feedback_logged_with_sunflower_model(
         self,
         async_client: AsyncClient,
         test_user: Dict,
-        mock_translation_service: MagicMock,
-    ) -> None:
-        """Test that fallback response is returned when raw_response is None."""
-        # Create result without raw_response
-        result = TranslationResult(
-            translated_text="Oli otya?",
-            source_language="eng",
-            target_language="lug",
-            status="COMPLETED",
-            job_id="job-123",
-            raw_response=None,  # No raw response
+        override_service,
+        monkeypatch,
+    ):
+        calls = []
+
+        async def record_feedback(*args, **kwargs):
+            calls.append(kwargs)
+
+        monkeypatch.setattr(
+            "app.routers.translation.save_api_inference", record_feedback
         )
 
-        mock_translation_service.translate = AsyncMock(return_value=result)
+        response = await async_client.post(
+            "/tasks/translate",
+            json={
+                "source_language": "eng",
+                "target_language": "lug",
+                "text": "Hello",
+            },
+            headers=_auth(test_user),
+        )
 
-        app.dependency_overrides[get_service] = lambda: mock_translation_service
+        assert response.status_code == 200
+        assert len(calls) == 1
+        assert calls[0]["model_type"] == "Sunbird/Sunflower-14B"
+        assert calls[0]["inference_type"] == "translation"
 
-        try:
-            response = await async_client.post(
-                "/tasks/translate",
-                json={
-                    "source_language": "eng",
-                    "target_language": "lug",
-                    "text": "How are you?",
-                },
-                headers={"Authorization": f"Bearer {test_user['token']}"},
-            )
 
-            assert response.status_code == 200
-            data = response.json()
-            assert data["status"] == "COMPLETED"
-            assert data["output"]["translated_text"] == "Oli otya?"
-            assert data["output"]["source_language"] == "eng"
-            assert data["output"]["target_language"] == "lug"
-        finally:
-            app.dependency_overrides.pop(get_service, None)
+class TestTranslateValidation:
+    """400/422 validation tests."""
+
+    async def test_unsupported_target_code(
+        self, async_client: AsyncClient, test_user: Dict, override_service
+    ):
+        response = await async_client.post(
+            "/tasks/translate",
+            json={"target_language": "fra", "text": "Hello"},
+            headers=_auth(test_user),
+        )
+
+        assert response.status_code == 400
+        message = response.json()["message"]
+        assert "fra" in message
+        assert "Supported languages" in message
+        override_service.translate_via_sunflower.assert_not_awaited()
+
+    async def test_unsupported_source_name(
+        self, async_client: AsyncClient, test_user: Dict, override_service
+    ):
+        response = await async_client.post(
+            "/tasks/translate",
+            json={
+                "source_language": "French",
+                "target_language": "lug",
+                "text": "Bonjour",
+            },
+            headers=_auth(test_user),
+        )
+
+        assert response.status_code == 400
+        override_service.translate_via_sunflower.assert_not_awaited()
+
+    async def test_source_equals_target_code_vs_name(
+        self, async_client: AsyncClient, test_user: Dict, override_service
+    ):
+        response = await async_client.post(
+            "/tasks/translate",
+            json={
+                "source_language": "lug",
+                "target_language": "Luganda",
+                "text": "Hello",
+            },
+            headers=_auth(test_user),
+        )
+
+        assert response.status_code == 400
+        assert "different" in response.json()["message"].lower()
+        override_service.translate_via_sunflower.assert_not_awaited()
+
+    async def test_without_auth(self, async_client: AsyncClient):
+        response = await async_client.post(
+            "/tasks/translate",
+            json={"target_language": "lug", "text": "Hello"},
+        )
+        assert response.status_code == 401
+
+    async def test_missing_target_language(
+        self, async_client: AsyncClient, test_user: Dict
+    ):
+        response = await async_client.post(
+            "/tasks/translate",
+            json={"text": "Hello"},
+            headers=_auth(test_user),
+        )
+        assert response.status_code == 422
+
+    async def test_empty_text(self, async_client: AsyncClient, test_user: Dict):
+        response = await async_client.post(
+            "/tasks/translate",
+            json={"target_language": "lug", "text": ""},
+            headers=_auth(test_user),
+        )
+        assert response.status_code == 422
+
+    async def test_whitespace_only_text(
+        self, async_client: AsyncClient, test_user: Dict
+    ):
+        response = await async_client.post(
+            "/tasks/translate",
+            json={"target_language": "lug", "text": "   "},
+            headers=_auth(test_user),
+        )
+        assert response.status_code == 422
+
+
+class TestTranslateErrorMapping:
+    """Inference error -> HTTP status mapping."""
+
+    async def _post(self, async_client, test_user):
+        return await async_client.post(
+            "/tasks/translate",
+            json={
+                "source_language": "eng",
+                "target_language": "lug",
+                "text": "Hello",
+            },
+            headers=_auth(test_user),
+        )
+
+    async def test_model_loading_maps_to_503(
+        self,
+        async_client: AsyncClient,
+        test_user: Dict,
+        override_service,
+        mock_translation_service,
+    ):
+        mock_translation_service.translate_via_sunflower = AsyncMock(
+            side_effect=ModelLoadingError("loading")
+        )
+        response = await self._post(async_client, test_user)
+        assert response.status_code == 503
+        assert "loading" in response.json()["message"].lower()
+
+    async def test_timeout_maps_to_503(
+        self,
+        async_client: AsyncClient,
+        test_user: Dict,
+        override_service,
+        mock_translation_service,
+    ):
+        mock_translation_service.translate_via_sunflower = AsyncMock(
+            side_effect=InferenceTimeoutError("timeout")
+        )
+        response = await self._post(async_client, test_user)
+        assert response.status_code == 503
+        assert "timed out" in response.json()["message"].lower()
+
+    async def test_generic_error_maps_to_502(
+        self,
+        async_client: AsyncClient,
+        test_user: Dict,
+        override_service,
+        mock_translation_service,
+    ):
+        mock_translation_service.translate_via_sunflower = AsyncMock(
+            side_effect=RuntimeError("boom")
+        )
+        response = await self._post(async_client, test_user)
+        assert response.status_code == 502
+
+    async def test_empty_translation_maps_to_502(
+        self,
+        async_client: AsyncClient,
+        test_user: Dict,
+        override_service,
+        mock_translation_service,
+    ):
+        mock_translation_service.translate_via_sunflower = AsyncMock(
+            return_value=_make_result(translated_text=None)
+        )
+        response = await self._post(async_client, test_user)
+        assert response.status_code == 502
+        assert "empty" in response.json()["message"].lower()

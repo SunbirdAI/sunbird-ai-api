@@ -8,37 +8,23 @@ Endpoints:
     POST /tasks/runpod/tts - Convert text to speech audio
 """
 
-import asyncio
-import datetime
-import hashlib
 import json
 import logging
 import os
 import time
-from typing import Any, Dict, Optional
 
-import aiohttp
-import runpod
 from dotenv import load_dotenv
-from fastapi import APIRouter, BackgroundTasks, Depends, Request
-from jose import jwt
-from slowapi import Limiter
-from tenacity import (
-    retry,
-    retry_if_exception_type,
-    stop_after_attempt,
-    wait_exponential,
-)
+from fastapi import APIRouter, BackgroundTasks, Depends, Request, Response
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import (
-    BadRequestError,
-    ExternalServiceError,
-    ServiceUnavailableError,
-    ValidationError,
-)
-from app.deps import get_current_user
+from app.core.exceptions import BadRequestError, ValidationError
+from app.deps import QuotaServiceDep, get_current_user, get_db
 from app.schemas.tasks import TTSRequest
-from app.utils.auth import ALGORITHM, SECRET_KEY
+from app.services.runpod_tts_service import get_runpod_spark_tts_service
+from app.utils.deprecation import SUCCESSOR_SPEECH, add_deprecation_headers
+from app.utils.feedback import INFERENCE_TYPES, save_api_inference
+from app.utils.quota_guard import check_quota
+from app.utils.rate_limit import get_account_type_limit, limiter
 
 router = APIRouter()
 
@@ -46,199 +32,24 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 
 PER_MINUTE_RATE_LIMIT = os.getenv("PER_MINUTE_RATE_LIMIT", 10)
-RUNPOD_ENDPOINT_ID = os.getenv("RUNPOD_ENDPOINT_ID")
-# Set RunPod API Key
-runpod.api_key = os.getenv("RUNPOD_API_KEY")
 
-# Get feedback URL from environment
-FEEDBACK_URL = os.getenv("FEEDBACK_URL")
-
-# Inference type constant
-INFERENCE_TTS = "tts"
-
-
-async def save_api_inference(
-    source_text: Any,
-    model_results: Any,
-    username: Any,
-    model_type: Optional[str] = None,
-    processing_time: Optional[float] = None,
-    inference_type: str = INFERENCE_TTS,
-    job_details: Optional[Dict[str, Any]] = None,
-) -> bool:
-    """
-    Persist a compact, JSON-serializable inference record to the configured
-    FEEDBACK_URL. This function is idempotent and non-blocking when scheduled
-    via FastAPI BackgroundTasks.
-
-    Inputs are deliberately permissive (Any) because callers pass strings,
-    dicts or model objects. The function normalizes values to simple types.
-
-    Returns True on a successful POST (2xx), False otherwise.
-    """
-
-    if not FEEDBACK_URL:
-        logging.debug("FEEDBACK_URL not configured; skipping inference feedback save")
-        return False
-
-    # Timestamp in milliseconds
-    timestamp = int(datetime.datetime.utcnow().timestamp() * 1000)
-
-    # Normalize username to a short string identifier when possible
-    username_str = None
-    try:
-        if hasattr(username, "id"):
-            username_str = str(getattr(username, "id"))
-        elif isinstance(username, dict) and username.get("id"):
-            username_str = str(username.get("id"))
-        elif isinstance(username, str):
-            username_str = username
-        else:
-            # fallback to email/username attributes if present
-            username_str = (
-                getattr(username, "username", None)
-                or getattr(username, "email", None)
-                or str(username)
-            )
-    except Exception:
-        username_str = str(username)
-
-    # Serialize inputs safely
-    def _serialize(v: Any) -> Any:
-        if v is None:
-            return None
-        if isinstance(v, (str, int, float, bool)):
-            return v
-        try:
-            return json.loads(json.dumps(v, ensure_ascii=False))
-        except Exception:
-            return str(v)
-
-    source_serialized = _serialize(source_text)
-    results_serialized = _serialize(model_results)
-
-    payload: Dict[str, Any] = {
-        "Timestamp": timestamp,
-        "feedback": "api_inference",
-        "SourceText": source_serialized,
-        "ModelResults": results_serialized,
-        "username": username_str,
-        "FeedBackType": inference_type,
-    }
-
-    if model_type:
-        payload["ModelType"] = model_type
-    if processing_time is not None:
-        payload["ProcessingTime"] = processing_time
-
-    # Compact job details to avoid leaking large blobs
-    if job_details and isinstance(job_details, dict):
-        jd: Dict[str, Any] = {}
-        # Common safe fields
-        for k in ("job_id", "model_type", "blob", "sample_rate", "speaker_id"):
-            if k in job_details:
-                jd[k] = job_details.get(k)
-
-        # For TTS keep a short hash of the source text instead of raw text
-        if inference_type == INFERENCE_TTS:
-            try:
-                text_val = (
-                    source_serialized
-                    if isinstance(source_serialized, str)
-                    else json.dumps(source_serialized, ensure_ascii=False)
-                )
-                jd.setdefault(
-                    "text_hash", hashlib.sha256(text_val.encode("utf-8")).hexdigest()
-                )
-            except Exception:
-                pass
-
-        if jd:
-            payload["JobDetails"] = jd
-
-    logging.info(
-        f"Saving inference feedback for user: {username_str}, type: {inference_type}"
-    )
-    logging.debug(f"Feedback payload (truncated): {json.dumps(payload)[:1000]}")
-
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(min=1, max=8),
-        retry=retry_if_exception_type((aiohttp.ClientError, asyncio.TimeoutError)),
-        reraise=True,
-    )
-    async def _post_feedback(p: Dict[str, Any]) -> bool:
-        timeout = aiohttp.ClientTimeout(total=10)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.post(
-                FEEDBACK_URL, json=p, headers={"Content-Type": "application/json"}
-            ) as resp:
-                text = await resp.text()
-                if 200 <= resp.status < 300:
-                    logging.info("Inference feedback saved successfully")
-                    return True
-                logging.warning(
-                    f"Feedback save failed status={resp.status} body={text}"
-                )
-                return False
-
-    try:
-        return await _post_feedback(payload)
-    except Exception as e:
-        logging.error(f"Failed to save inference feedback after retries: {e}")
-        return False
-
-
-def custom_key_func(request: Request):
-    header = request.headers.get("Authorization")
-    if not header:
-        return "anonymous"
-    _, _, token = header.partition(" ")
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        account_type: str = payload.get("account_type", "")
-        logging.info(f"account_type: {account_type}")
-        return account_type or ""
-    except Exception:
-        return ""
-
-
-def get_account_type_limit(key: str) -> str:
-    if not key:
-        return "50/minute"
-    if key.lower() == "admin":
-        return "1000/minute"
-    if key.lower() == "premium":
-        return "100/minute"
-    return "50/minute"
-
-
-# Initialize the Limiter
-limiter = Limiter(key_func=custom_key_func)
-
-
-@retry(
-    stop=stop_after_attempt(3),  # Retry up to 3 times
-    wait=wait_exponential(
-        min=1, max=60
-    ),  # Exponential backoff starting at 1s up to 60s
-    retry=retry_if_exception_type(
-        (TimeoutError, ConnectionError)
-    ),  # Retry on these exceptions
-    reraise=True,  # Reraise the exception if all retries fail
-)
-async def call_endpoint_with_retry(endpoint, data):
-    return endpoint.run_sync(data, timeout=600)  # Timeout in seconds
+# Inference type constant — RunPod TTS uses the legacy "tts" classifier so
+# existing dashboards keep working unchanged.
+INFERENCE_TTS = INFERENCE_TYPES["tts"]
 
 
 @router.post(
     "/tts",
+    deprecated=True,
 )
 @limiter.limit(get_account_type_limit)
-async def text_to_speech(
+async def text_to_speech(  # noqa: C901
     request: Request,
     tts_request: TTSRequest,
+    quota: QuotaServiceDep,
     background_tasks: BackgroundTasks,
+    http_response: Response,
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     """
@@ -283,7 +94,11 @@ async def text_to_speech(
             }
         }
     """
-    endpoint = runpod.Endpoint(RUNPOD_ENDPOINT_ID)
+    await check_quota(quota, db, current_user)
+    logging.warning(
+        "Deprecated endpoint /tasks/runpod/tts called; use POST /tasks/audio/speech"
+    )
+    add_deprecation_headers(http_response, SUCCESSOR_SPEECH)
     user = current_user
 
     text = tts_request.text
@@ -341,42 +156,14 @@ async def text_to_speech(
             field="max_new_audio_tokens",
         )
 
-    # Data to be sent in the request body
-    data = {
-        "input": {
-            "task": "tts",
-            "text": text.strip(),  # Remove leading/trailing spaces
-            "speaker_id": speaker_id_val,
-            "temperature": temperature,
-            "max_new_audio_tokens": max_new_audio_tokens,
-        }
-    }
-
+    service = get_runpod_spark_tts_service()
     start_time = time.time()
-    try:
-        request_response = await call_endpoint_with_retry(endpoint, data)
-    except TimeoutError as e:
-        logging.error(f"Job timed out: {str(e)}")
-        raise ServiceUnavailableError(message="Service unavailable due to timeout")
-    except ConnectionError as e:
-        logging.error(f"Connection lost: {str(e)}")
-        raise ExternalServiceError(
-            service_name="RunPod TTS Service",
-            message="Service unavailable due to connection error",
-            original_error=str(e),
-        )
-    except ValueError as e:
-        # Worker reported a bad request / invalid input
-        logging.error(f"Bad request to worker: {e}")
-        raise BadRequestError(message=f"Invalid request to TTS worker: {e}")
-    except Exception as e:
-        logging.exception("Unexpected error when calling TTS worker")
-        raise ExternalServiceError(
-            service_name="RunPod TTS Worker",
-            message="TTS worker error",
-            original_error=str(e),
-        )
-
+    request_response = await service.synthesize(
+        text=text,
+        speaker_id=speaker_id_val,
+        temperature=temperature,
+        max_new_audio_tokens=max_new_audio_tokens,
+    )
     end_time = time.time()
     # Endpoint usage logging is handled automatically by MonitoringMiddleware
 

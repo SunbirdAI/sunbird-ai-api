@@ -7,7 +7,6 @@ and integration with the StorageService.
 """
 
 from datetime import datetime, timezone
-from typing import Dict
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -68,7 +67,7 @@ class TestGenerateUploadUrlEndpoint:
             assert len(data["file_id"]) == 36  # UUID format
             assert data["upload_url"].startswith("https://")
         finally:
-            app.dependency_overrides.clear()
+            app.dependency_overrides.pop(get_service, None)
 
     @pytest.mark.asyncio
     async def test_upload_url_with_different_content_types(

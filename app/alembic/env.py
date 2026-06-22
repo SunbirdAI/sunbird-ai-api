@@ -30,6 +30,7 @@ from app.models.whatsapp import (
     WhatsAppUserMemory,
     WhatsAppUserPreference,
 )
+from app.models.usage import UserUsage  # noqa: F401
 target_metadata = db.Base.metadata
 
 def run_migrations_offline() -> None:

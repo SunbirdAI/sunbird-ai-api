@@ -13,6 +13,9 @@ async def create_user(db: AsyncSession, user: schema.UserInDB) -> schema.User:
         organization=user.organization,
         hashed_password=user.hashed_password,
         oauth_type=user.oauth_type,
+        full_name=getattr(user, "full_name", None),
+        organization_type=getattr(user, "organization_type", None),
+        sector=getattr(user, "sector", None),
     )
     db.add(db_user)
     await db.commit()
@@ -54,4 +57,20 @@ async def update_user_organization(
         user.organization = organization_name
         await db.commit()
         await db.refresh(user)
+    return user
+
+
+async def update_user_profile(
+    db: AsyncSession, user_id: int, profile_data: dict
+) -> User:
+    """Update user profile fields. Only updates non-None values."""
+    result = await db.execute(select(User).filter(User.id == user_id))
+    user = result.scalars().first()
+    if not user:
+        return None
+    for key, value in profile_data.items():
+        if value is not None:
+            setattr(user, key, value)
+    await db.commit()
+    await db.refresh(user)
     return user

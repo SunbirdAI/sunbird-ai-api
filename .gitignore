@@ -43,3 +43,7 @@ wif_credentials.md
 
 # vscode
 .vscode/
+.DS_Store
+
+.superpowers/
+dynamodb_exports/

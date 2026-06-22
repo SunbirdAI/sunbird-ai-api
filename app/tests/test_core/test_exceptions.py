@@ -5,7 +5,6 @@ This module contains unit tests for the custom exception classes defined
 in app/core/exceptions.py.
 """
 
-import pytest
 from fastapi import status
 
 from app.core.exceptions import (

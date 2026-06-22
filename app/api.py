@@ -1,25 +1,18 @@
 import logging
 import os
 from contextlib import asynccontextmanager
-from functools import partial
 from pathlib import Path
-from urllib.parse import urlparse
 
-import redis.asyncio as redis
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi_limiter import FastAPILimiter
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
-from slowapi.util import get_remote_address
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
-from tenacity import RetryError, retry, stop_after_attempt, wait_exponential
 
 from app.core.exceptions import (
     APIException,
@@ -28,11 +21,15 @@ from app.core.exceptions import (
 )
 from app.docs import description, tags_metadata
 from app.middleware import MonitoringMiddleware
+from app.routers.admin_analytics import router as admin_analytics_router
+from app.routers.audio import router as audio_router
 from app.routers.auth import router as auth_router
+from app.routers.chat import router as chat_router
 from app.routers.dashboard import router as dashboard_router
-from app.routers.frontend import router as frontend_router
+from app.routers.google_analytics import router as google_analytics_router
 from app.routers.inference import router as inference_router
 from app.routers.language import router as language_router
+from app.routers.orpheus_tts import router as orpheus_tts_router
 from app.routers.runpod_tts import router as runpod_tts_router
 from app.routers.spa import router as spa_router
 from app.routers.stt import router as stt_router
@@ -41,6 +38,8 @@ from app.routers.translation import router as translation_router
 from app.routers.tts import router as modal_tts_router
 from app.routers.upload import router as upload_router
 from app.routers.webhooks import router as webhooks_router
+from app.services.redis_client import init_redis_client
+from app.utils.rate_limit import limiter
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
@@ -61,62 +60,29 @@ class LargeUploadMiddleware(BaseHTTPMiddleware):
                 content_length = int(content_length)
                 if content_length > MAX_UPLOAD_SIZE:
                     logger.warning(
-                        f"File upload rejected: size {content_length/1024/1024:.1f}MB exceeds limit of {MAX_UPLOAD_SIZE/1024/1024:.1f}MB"
+                        f"File upload rejected: size {content_length / 1024 / 1024:.1f}MB exceeds limit of {MAX_UPLOAD_SIZE / 1024 / 1024:.1f}MB"  # noqa: E501
                     )
                     return Response(
-                        content=f"File too large. Maximum size is {MAX_UPLOAD_SIZE/1024/1024:.1f}MB. For larger files, only the first 10 minutes will be transcribed.",
+                        content=f"File too large. Maximum size is {MAX_UPLOAD_SIZE / 1024 / 1024:.1f}MB. For larger files, only the first 10 minutes will be transcribed.",  # noqa: E501
                         status_code=413,
                     )
         response = await call_next(request)
         return response
 
 
-@retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=1, max=5))
-async def init_redis():
-    redis_url = os.getenv("REDIS_URL")
-    if not redis_url:
-        raise ValueError("REDIS_URL environment variable not set")
-
-    logger.info(f"Attempting to connect to Redis at {redis_url}")
-
-    if ENVIRONMENT == "production":
-        url = urlparse(os.environ.get("REDIS_URL"))
-        redis_instance = redis.Redis(
-            host=url.hostname,
-            port=url.port,
-            password=url.password,
-            ssl=True,
-            ssl_cert_reqs=None,
-        )
-    else:
-        redis_instance = redis.from_url(
-            os.getenv("REDIS_URL"),
-            encoding="utf-8",
-            decode_responses=True,
-            max_connections=10,
-        )
-    await redis_instance.ping()
-    logger.info("Connected to Redis successfully")
-    return redis_instance
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    logger.info("Application startup event")
+    await init_redis_client()  # Fails open: logs and returns None on failure.
+
     try:
-        logger.info("Application startup event")
-        redis_instance = await init_redis()
-        await FastAPILimiter.init(redis_instance)
-        logger.info("FastAPILimiter initialized successfully")
-        yield
-    except RetryError as e:
-        logger.error(f"Failed to connect to Redis: {e}")
-        yield
-    except ValueError as e:
-        logger.error(f"Failed to connect to Redis: {e}")
-        yield
-    except Exception as e:
-        logger.error(f"Error during startup: {str(e)}")
-        yield
+        from app.services.orpheus_tts_service import get_orpheus_tts_service
+
+        await get_orpheus_tts_service().warm_speakers_cache()
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"Orpheus speakers warm-up failed: {e}")
+
+    yield
 
 
 app = FastAPI(
@@ -183,8 +149,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 5. SlowAPIMiddleware - Rate limiting (executes first on incoming requests)
-limiter = Limiter(key_func=get_remote_address)
+# 5. SlowAPIMiddleware — shared limiter lives in app.utils.rate_limit
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
@@ -202,20 +167,46 @@ app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.include_router(auth_router, prefix="/auth", tags=["Authentication Endpoints"])
 
 # Task endpoints
-app.include_router(stt_router, prefix="/tasks", tags=["Speech-to-Text"])
+app.include_router(stt_router, prefix="/tasks", tags=["legacy/deprecated"])
+app.include_router(audio_router, prefix="/tasks")
 app.include_router(translation_router, prefix="/tasks", tags=["Translation"])
 app.include_router(language_router, prefix="/tasks", tags=["Language"])
-app.include_router(inference_router, prefix="/tasks", tags=["Sunflower"])
+# NOTE: inference_router endpoints are all deprecated, so tags are set
+# per-endpoint in the router ("legacy/deprecated"); successor is chat_router.
+app.include_router(inference_router, prefix="/tasks")
+app.include_router(chat_router, prefix="/tasks", tags=["Chat"])
 app.include_router(upload_router, prefix="/tasks", tags=["Upload"])
 app.include_router(webhooks_router, prefix="/tasks", tags=["Webhooks"])
-app.include_router(tasks_router, prefix="/tasks", tags=["AI Tasks"])  # Legacy endpoints
+app.include_router(
+    tasks_router, prefix="/tasks", tags=["legacy/deprecated"]
+)  # Legacy endpoints
 
 # TTS endpoints - organized by provider
-app.include_router(modal_tts_router, prefix="/tasks/modal", tags=["TTS (Modal)"])
-app.include_router(runpod_tts_router, prefix="/tasks/runpod", tags=["TTS (RunPod)"])
+# NOTE: modal_tts_router mixes deprecated and live endpoints, so tags are set
+# per-endpoint in the router (no router-level tag here). All other TTS routers
+# below are fully legacy and carry the shared "legacy/deprecated" tag.
+app.include_router(modal_tts_router, prefix="/tasks/modal")
+app.include_router(
+    orpheus_tts_router,
+    prefix="/tasks/modal/orpheus",
+    tags=["legacy/deprecated"],
+)
+app.include_router(
+    runpod_tts_router, prefix="/tasks/runpod", tags=["legacy/deprecated"]
+)
 # Note: Legacy /tasks/tts endpoint maintained in tasks_router for backward compatibility
 
 # Frontend routes
 # app.include_router(frontend_router, prefix="", tags=["Frontend Routes"]) # Replaced by SPA
 app.include_router(dashboard_router, prefix="/api/dashboard", tags=["Dashboard"])
+app.include_router(
+    admin_analytics_router,
+    prefix="/api/admin/analytics",
+    tags=["Admin Analytics"],
+)
+app.include_router(
+    google_analytics_router,
+    prefix="/api/admin/google-analytics",
+    tags=["Admin Google Analytics"],
+)
 app.include_router(spa_router, prefix="", tags=["Dashboard"])

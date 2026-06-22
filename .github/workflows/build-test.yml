@@ -37,6 +37,7 @@ jobs:
           python -m pip install --upgrade pip
           # pip install setuptools==80.10.2
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
       - name: Unit Testing with pytest
         run: |
           echo "$GCP_CREDENTIALS" > firebase_credentials.json

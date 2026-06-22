@@ -7,13 +7,18 @@ import Dashboard from './pages/Dashboard';
 
 import ApiKeys from './pages/ApiKeys';
 import AccountSettings from './pages/AccountSettings';
+import AdminAnalytics from './pages/AdminAnalytics';
+import GoogleAnalytics from './pages/GoogleAnalytics';
+import EngagementInsights from './pages/EngagementInsights';
 import LandingPage from './pages/LandingPage';
 import Register from './pages/Register';
 import Login from './pages/Login';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import CompleteProfile from './pages/CompleteProfile';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfService from './pages/TermsOfService';
+import Tutorial from './pages/Tutorial';
 import { Loader2 } from 'lucide-react';
 import PageTitle from './components/PageTitle';
 
@@ -34,6 +39,14 @@ function RequireAuth({ children }: { children: JSX.Element }) {
   return children;
 }
 
+function DashboardRedirect() {
+  const { user } = useAuth();
+  if (user?.account_type === 'Admin') {
+    return <Navigate to="/admin/analytics" replace />;
+  }
+  return <Dashboard />;
+}
+
 function AppRoutes() {
   return (
     <Routes>
@@ -44,14 +57,25 @@ function AppRoutes() {
       <Route path="/reset-password" element={<PageTitle title="Reset Password"><ResetPassword /></PageTitle>} />
       <Route path="/privacy_policy" element={<PageTitle title="Privacy Policy"><PrivacyPolicy /></PageTitle>} />
       <Route path="/terms_of_service" element={<PageTitle title="Terms of Service"><TermsOfService /></PageTitle>} />
+      <Route path="/tutorial" element={<PageTitle title="Tutorial"><Tutorial /></PageTitle>} />
       <Route path="/setup-organization" element={<PageTitle title="Setup Organization"><Login /></PageTitle>} /> {/* Handle token redirect via Login component logic */}
+      <Route
+        path="/complete-profile"
+        element={
+          <RequireAuth>
+            <PageTitle title="Complete Profile">
+              <CompleteProfile />
+            </PageTitle>
+          </RequireAuth>
+        }
+      />
       <Route
         path="/dashboard"
         element={
           <RequireAuth>
             <Layout>
               <PageTitle title="Dashboard">
-                <Dashboard />
+                <DashboardRedirect />
               </PageTitle>
             </Layout>
           </RequireAuth>
@@ -77,6 +101,42 @@ function AppRoutes() {
             <Layout>
               <PageTitle title="Account Settings">
                 <AccountSettings />
+              </PageTitle>
+            </Layout>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/admin/analytics"
+        element={
+          <RequireAuth>
+            <Layout>
+              <PageTitle title="Admin Analytics">
+                <AdminAnalytics />
+              </PageTitle>
+            </Layout>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/admin/google-analytics"
+        element={
+          <RequireAuth>
+            <Layout>
+              <PageTitle title="Google Analytics">
+                <GoogleAnalytics />
+              </PageTitle>
+            </Layout>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/admin/engagement-insights"
+        element={
+          <RequireAuth>
+            <Layout>
+              <PageTitle title="Website & Engagement Funnel">
+                <EngagementInsights />
               </PageTitle>
             </Layout>
           </RequireAuth>
