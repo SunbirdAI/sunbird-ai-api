@@ -7,6 +7,9 @@ defined in app/integrations/whatsapp_api.py.
 
 from unittest.mock import MagicMock, patch
 
+import requests
+
+from app.core.config import settings
 from app.integrations.whatsapp_api import (
     DEFAULT_API_VERSION,
     LEGACY_API_VERSION,
@@ -103,6 +106,93 @@ class TestWhatsAppAPIClientSendMessage:
             result = client.send_message("1234567890", "Hello!")
 
             assert result is None
+
+
+class TestWhatsAppAPIClientTimeouts:
+    """Tests for outbound request timeout behavior (Phase 1)."""
+
+    def test_default_timeouts_from_settings(self) -> None:
+        """Client defaults its timeouts from settings."""
+        client = WhatsAppAPIClient(token="t", phone_number_id="123")
+
+        assert client.request_timeout == settings.whatsapp_request_timeout_seconds
+        assert client.upload_timeout == settings.whatsapp_upload_timeout_seconds
+
+    def test_custom_timeouts_override_defaults(self) -> None:
+        """Constructor timeout overrides are respected."""
+        client = WhatsAppAPIClient(
+            token="t",
+            phone_number_id="123",
+            request_timeout=7.5,
+            upload_timeout=11.0,
+        )
+
+        assert client.request_timeout == 7.5
+        assert client.upload_timeout == 11.0
+
+    def test_send_message_passes_timeout(self) -> None:
+        """send_message must pass the configured request timeout to requests."""
+        client = WhatsAppAPIClient(
+            token="t", phone_number_id="123", request_timeout=12.0
+        )
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"messages": [{"id": "wamid.X"}]}
+
+        with patch("requests.post", return_value=mock_response) as mock_post:
+            client.send_message("1234567890", "hi")
+
+            assert mock_post.call_args.kwargs["timeout"] == 12.0
+
+    def test_upload_media_passes_upload_timeout(self, tmp_path) -> None:
+        """upload_media must use the (larger) upload timeout."""
+        media_file = tmp_path / "audio.mp3"
+        media_file.write_bytes(b"fake-audio-bytes")
+        client = WhatsAppAPIClient(
+            token="t", phone_number_id="123", upload_timeout=45.0
+        )
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"id": "media-123"}
+
+        with patch("requests.post", return_value=mock_response) as mock_post:
+            result = client.upload_media(str(media_file))
+
+            assert result == {"id": "media-123"}
+            assert mock_post.call_args.kwargs["timeout"] == 45.0
+
+    def test_send_message_timeout_returns_none(self) -> None:
+        """A timeout during send_message degrades to None (no exception)."""
+        client = WhatsAppAPIClient(token="t", phone_number_id="123")
+
+        with patch("requests.post", side_effect=requests.Timeout("timed out")):
+            result = client.send_message("1234567890", "hi")
+
+        assert result is None
+
+    def test_send_button_timeout_returns_error_dict(self) -> None:
+        """A timeout during a dict-returning call returns an error shape, not a raise."""
+        client = WhatsAppAPIClient(token="t", phone_number_id="123")
+        button = {"action": {"button": "Go", "sections": []}}
+
+        with patch("requests.post", side_effect=requests.ConnectionError("boom")):
+            result = client.send_button("1234567890", button)
+
+        assert isinstance(result, dict)
+        assert result.get("error") is not None
+
+    def test_upload_media_timeout_returns_none(self, tmp_path) -> None:
+        """A timeout during upload_media degrades to None (no exception)."""
+        media_file = tmp_path / "audio.mp3"
+        media_file.write_bytes(b"fake-audio-bytes")
+        client = WhatsAppAPIClient(token="t", phone_number_id="123")
+
+        with patch("requests.post", side_effect=requests.Timeout("slow upload")):
+            result = client.upload_media(str(media_file))
+
+        assert result is None
 
 
 class TestWhatsAppAPIClientSendTemplate:

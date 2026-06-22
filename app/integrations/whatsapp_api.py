@@ -43,6 +43,8 @@ from typing import Any, Dict, List, Optional
 import requests
 from requests_toolbelt import MultipartEncoder
 
+from app.core.config import settings
+
 # Module-level logger
 logger = logging.getLogger(__name__)
 
@@ -74,6 +76,8 @@ class WhatsAppAPIClient:
         token: Optional[str] = None,
         phone_number_id: Optional[str] = None,
         api_version: str = DEFAULT_API_VERSION,
+        request_timeout: Optional[float] = None,
+        upload_timeout: Optional[float] = None,
     ) -> None:
         """Initialize the WhatsApp API client.
 
@@ -81,6 +85,10 @@ class WhatsAppAPIClient:
             token: WhatsApp API token. Defaults to WHATSAPP_TOKEN env var.
             phone_number_id: Phone number ID. Defaults to PHONE_NUMBER_ID env var.
             api_version: Graph API version. Defaults to v20.0.
+            request_timeout: Per-call timeout (seconds) for text/status/interactive
+                calls. Defaults to ``settings.whatsapp_request_timeout_seconds``.
+            upload_timeout: Per-call timeout (seconds) for media upload/download.
+                Defaults to ``settings.whatsapp_upload_timeout_seconds``.
 
         Example:
             >>> # Use environment variables
@@ -96,11 +104,56 @@ class WhatsAppAPIClient:
         self.phone_number_id = phone_number_id or os.getenv("PHONE_NUMBER_ID")
         self.api_version = api_version
         self.base_url = f"https://graph.facebook.com/{api_version}"
+        self.request_timeout = (
+            request_timeout
+            if request_timeout is not None
+            else settings.whatsapp_request_timeout_seconds
+        )
+        self.upload_timeout = (
+            upload_timeout
+            if upload_timeout is not None
+            else settings.whatsapp_upload_timeout_seconds
+        )
 
         if not self.token:
             logger.warning("WHATSAPP_TOKEN not set - WhatsApp API calls will fail")
         if not self.phone_number_id:
             logger.warning("PHONE_NUMBER_ID not set - WhatsApp API calls will fail")
+
+    def _request(
+        self,
+        method: str,
+        url: str,
+        *,
+        timeout: Optional[float] = None,
+        **kwargs: Any,
+    ) -> Optional[requests.Response]:
+        """Perform an outbound HTTP request with a bounded timeout.
+
+        Centralizes timeout handling for all Meta Graph API calls so a slow or
+        unresponsive endpoint can never hang the worker/event loop. Network-level
+        failures (including timeouts) are caught and surfaced as ``None`` so
+        callers degrade gracefully instead of raising unexpected exceptions.
+
+        Args:
+            method: HTTP method ("POST", "GET", "DELETE", ...).
+            url: Fully-qualified request URL.
+            timeout: Override timeout in seconds. Defaults to ``request_timeout``.
+            **kwargs: Passed through to ``requests.request``.
+
+        Returns:
+            The ``requests.Response`` on success, or ``None`` on a network/timeout
+            failure.
+        """
+        # Dispatch to the verb-specific helper (requests.post/get/delete) so that
+        # callers/tests patching e.g. ``requests.post`` continue to intercept.
+        request_fn = getattr(requests, method.lower())
+        effective_timeout = timeout if timeout is not None else self.request_timeout
+        try:
+            return request_fn(url, timeout=effective_timeout, **kwargs)
+        except requests.RequestException as exc:
+            logger.error("WhatsApp API request failed (%s %s): %s", method, url, exc)
+            return None
 
     @property
     def headers(self) -> Dict[str, str]:
@@ -164,17 +217,18 @@ class WhatsAppAPIClient:
         }
 
         logger.info(f"Sending message to {recipient_id}")
-        response = requests.post(legacy_url, headers=self.headers, json=data)
+        response = self._request("POST", legacy_url, headers=self.headers, json=data)
 
-        if response.status_code == 200:
+        if response is not None and response.status_code == 200:
             response_json = response.json()
             message_id = response_json.get("messages", [{}])[0].get("id")
             logger.info(f"Message sent to {recipient_id} with ID: {message_id}")
             return message_id
         else:
             logger.error(f"Message not sent to {recipient_id}")
-            logger.error(f"Status code: {response.status_code}")
-            logger.error(f"Response: {response.json()}")
+            if response is not None:
+                logger.error(f"Status code: {response.status_code}")
+                logger.error(f"Response: {response.text}")
             return None
 
     def reply_to_message(
@@ -211,7 +265,10 @@ class WhatsAppAPIClient:
         }
 
         logger.info(f"Replying to {message_id}")
-        response = requests.post(url, headers=self.headers, json=data)
+        response = self._request("POST", url, headers=self.headers, json=data)
+
+        if response is None:
+            return {"error": {"message": "request_failed"}}
 
         if response.status_code == 200:
             logger.info(f"Reply sent to {recipient_id}")
@@ -266,7 +323,10 @@ class WhatsAppAPIClient:
         }
 
         logger.info(f"Sending template '{template}' to {recipient_id}")
-        response = requests.post(url, headers=self.headers, json=data)
+        response = self._request("POST", url, headers=self.headers, json=data)
+
+        if response is None:
+            return {"error": {"message": "request_failed"}}
 
         if response.status_code == 200:
             logger.info(f"Template sent to {recipient_id}")
@@ -312,13 +372,16 @@ class WhatsAppAPIClient:
             }
 
         logger.info(f"Sending audio to {recipient_id}")
-        response = requests.post(url, headers=self.headers, json=data)
+        response = self._request("POST", url, headers=self.headers, json=data)
+
+        if response is None:
+            return {"error": {"message": "request_failed"}}
 
         if response.status_code == 200:
             logger.info(f"Audio sent to {recipient_id}")
         else:
             logger.warning(f"Audio not sent to {recipient_id}")
-            logger.error(f"Response: {response.json()}")
+            logger.error(f"Response: {response.text}")
 
         return response.json()
 
@@ -359,13 +422,16 @@ class WhatsAppAPIClient:
         }
 
         logger.info(f"Sending image to {recipient_id}")
-        response = requests.post(url, headers=self.headers, json=data)
+        response = self._request("POST", url, headers=self.headers, json=data)
+
+        if response is None:
+            return {"error": {"message": "request_failed"}}
 
         if response.status_code == 200:
             logger.info(f"Image sent to {recipient_id}")
         else:
             logger.warning(f"Image not sent to {recipient_id}")
-            logger.error(f"Response: {response.json()}")
+            logger.error(f"Response: {response.text}")
 
         return response.json()
 
@@ -403,13 +469,16 @@ class WhatsAppAPIClient:
         }
 
         logger.info(f"Sending video to {recipient_id}")
-        response = requests.post(url, headers=self.headers, json=data)
+        response = self._request("POST", url, headers=self.headers, json=data)
+
+        if response is None:
+            return {"error": {"message": "request_failed"}}
 
         if response.status_code == 200:
             logger.info(f"Video sent to {recipient_id}")
         else:
             logger.warning(f"Video not sent to {recipient_id}")
-            logger.error(f"Response: {response.json()}")
+            logger.error(f"Response: {response.text}")
 
         return response.json()
 
@@ -447,13 +516,16 @@ class WhatsAppAPIClient:
         }
 
         logger.info(f"Sending document to {recipient_id}")
-        response = requests.post(url, headers=self.headers, json=data)
+        response = self._request("POST", url, headers=self.headers, json=data)
+
+        if response is None:
+            return {"error": {"message": "request_failed"}}
 
         if response.status_code == 200:
             logger.info(f"Document sent to {recipient_id}")
         else:
             logger.warning(f"Document not sent to {recipient_id}")
-            logger.error(f"Response: {response.json()}")
+            logger.error(f"Response: {response.text}")
 
         return response.json()
 
@@ -493,13 +565,16 @@ class WhatsAppAPIClient:
         }
 
         logger.info(f"Sending location to {recipient_id}")
-        response = requests.post(url, headers=self.headers, json=data)
+        response = self._request("POST", url, headers=self.headers, json=data)
+
+        if response is None:
+            return {"error": {"message": "request_failed"}}
 
         if response.status_code == 200:
             logger.info(f"Location sent to {recipient_id}")
         else:
             logger.warning(f"Location not sent to {recipient_id}")
-            logger.error(f"Response: {response.json()}")
+            logger.error(f"Response: {response.text}")
 
         return response.json()
 
@@ -530,13 +605,16 @@ class WhatsAppAPIClient:
         }
 
         logger.info(f"Sending contacts to {recipient_id}")
-        response = requests.post(url, headers=self.headers, json=data)
+        response = self._request("POST", url, headers=self.headers, json=data)
+
+        if response is None:
+            return {"error": {"message": "request_failed"}}
 
         if response.status_code == 200:
             logger.info(f"Contacts sent to {recipient_id}")
         else:
             logger.warning(f"Contacts not sent to {recipient_id}")
-            logger.error(f"Response: {response.json()}")
+            logger.error(f"Response: {response.text}")
 
         return response.json()
 
@@ -587,13 +665,16 @@ class WhatsAppAPIClient:
         }
 
         logger.info(f"Sending button to {recipient_id}")
-        response = requests.post(url, headers=self.headers, json=data)
+        response = self._request("POST", url, headers=self.headers, json=data)
+
+        if response is None:
+            return {"error": {"message": "request_failed"}}
 
         if response.status_code == 200:
             logger.info(f"Button sent to {recipient_id}")
         else:
             logger.warning(f"Button not sent to {recipient_id}")
-            logger.info(f"Response: {response.json()}")
+            logger.info(f"Response: {response.text}")
 
         return response.json()
 
@@ -624,13 +705,16 @@ class WhatsAppAPIClient:
             "interactive": button,
         }
 
-        response = requests.post(url, headers=self.headers, json=data)
+        response = self._request("POST", url, headers=self.headers, json=data)
+
+        if response is None:
+            return {"error": {"message": "request_failed"}}
 
         if response.status_code == 200:
             logger.info(f"Reply buttons sent to {recipient_id}")
         else:
             logger.warning(f"Reply buttons not sent to {recipient_id}")
-            logger.info(f"Response: {response.json()}")
+            logger.info(f"Response: {response.text}")
 
         return response.json()
 
@@ -652,7 +736,7 @@ class WhatsAppAPIClient:
 
         logger.info(f"Querying media URL for {media_id}")
         try:
-            response = requests.get(url, headers=headers, timeout=30)
+            response = requests.get(url, headers=headers, timeout=self.request_timeout)
             if response.status_code == 200:
                 logger.info(f"Media URL queried for {media_id}")
                 return response.json().get("url")
@@ -684,7 +768,9 @@ class WhatsAppAPIClient:
         headers = {"Authorization": f"Bearer {self.token}"}
 
         logger.info("Downloading media from URL")
-        response = requests.get(media_url, headers=headers, stream=True)
+        response = requests.get(
+            media_url, headers=headers, stream=True, timeout=self.upload_timeout
+        )
 
         if response.status_code == 200:
             with open(file_path, "wb") as f:
@@ -731,7 +817,9 @@ class WhatsAppAPIClient:
 
         # Download with streaming
         headers = {"Authorization": f"Bearer {token}"}
-        response = requests.get(url, headers=headers, stream=True, timeout=60)
+        response = requests.get(
+            url, headers=headers, stream=True, timeout=self.upload_timeout
+        )
 
         if response.status_code == 200:
             with open(temp_file_path, "wb") as f:
@@ -788,14 +876,21 @@ class WhatsAppAPIClient:
         headers["Content-Type"] = form_data.content_type
 
         logger.info(f"Uploading media {media_path}")
-        response = requests.post(url, headers=headers, data=form_data)
+        response = self._request(
+            "POST",
+            url,
+            timeout=self.upload_timeout,
+            headers=headers,
+            data=form_data,
+        )
 
-        if response.status_code == 200:
+        if response is not None and response.status_code == 200:
             logger.info(f"Media {media_path} uploaded")
             return response.json()
 
         logger.warning(f"Error uploading media {media_path}")
-        logger.info(f"Status code: {response.status_code}")
+        if response is not None:
+            logger.info(f"Status code: {response.status_code}")
         return None
 
     def delete_media(self, media_id: str) -> Optional[Dict[str, Any]]:
@@ -810,14 +905,15 @@ class WhatsAppAPIClient:
         url = f"{self.base_url}/{media_id}"
 
         logger.info(f"Deleting media {media_id}")
-        response = requests.delete(url, headers=self.headers)
+        response = self._request("DELETE", url, headers=self.headers)
 
-        if response.status_code == 200:
+        if response is not None and response.status_code == 200:
             logger.info(f"Media {media_id} deleted")
             return response.json()
 
         logger.warning(f"Error deleting media {media_id}")
-        logger.info(f"Status code: {response.status_code}")
+        if response is not None:
+            logger.info(f"Status code: {response.status_code}")
         return None
 
     def fetch_media_url(self, media_id: str) -> Optional[str]:
@@ -833,7 +929,7 @@ class WhatsAppAPIClient:
         headers = {"Authorization": f"Bearer {self.token}"}
 
         try:
-            response = requests.get(url, headers=headers, timeout=30)
+            response = requests.get(url, headers=headers, timeout=self.request_timeout)
 
             if response.status_code == 200:
                 logger.info(f"Fetch response: {response.json()}")
@@ -873,9 +969,9 @@ class WhatsAppAPIClient:
             "message_id": message_id,
         }
 
-        response = requests.post(url, headers=self.headers, json=data)
+        response = self._request("POST", url, headers=self.headers, json=data)
 
-        if response.status_code == 200:
+        if response is not None and response.status_code == 200:
             return response.json().get("success", False)
         return False
 
