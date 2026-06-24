@@ -6,6 +6,9 @@ app/routers/webhooks.py. Tests verify webhook handling, verification,
 and integration with WhatsApp services.
 """
 
+import hashlib
+import hmac
+import json
 import os
 from typing import Dict
 from unittest.mock import AsyncMock, patch
@@ -13,7 +16,15 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from httpx import AsyncClient
 
+from app.routers import webhooks as webhooks_module
 from app.services.message_processor import ProcessingResult, ResponseType
+
+
+def _sign(body: bytes, secret: str) -> str:
+    """Compute a valid X-Hub-Signature-256 header value for ``body``."""
+    return (
+        "sha256=" + hmac.new(secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
+    )
 
 
 class TestWebhookHandler:
@@ -475,3 +486,257 @@ class TestWebhookIntegration:
 
         response = await async_client.get("/tasks/webhook/")
         assert response.status_code == 400
+
+
+class TestWebhookSignatureVerification:
+    """Tests for X-Hub-Signature-256 verification (Phase 2)."""
+
+    SECRET = "test_app_secret_value"
+
+    PAYLOAD = {
+        "object": "whatsapp_business_account",
+        "entry": [
+            {
+                "changes": [
+                    {
+                        "value": {
+                            "messages": [
+                                {
+                                    "id": "wamid.SIGTEST",
+                                    "from": "1234567890",
+                                    "text": {"body": "Hello"},
+                                }
+                            ],
+                            "contacts": [{"profile": {"name": "John Doe"}}],
+                            "metadata": {"phone_number_id": "9876543210"},
+                        }
+                    }
+                ]
+            }
+        ],
+    }
+
+    def _patched_processing(self):
+        """Patch the service + processor so processing is a no-op SKIP."""
+        whatsapp_patch = patch("app.routers.webhooks.whatsapp_service")
+        processor_patch = patch("app.routers.webhooks.processor")
+        mock_whatsapp = whatsapp_patch.start()
+        mock_processor = processor_patch.start()
+
+        mock_whatsapp.valid_payload.return_value = True
+        mock_whatsapp.get_messages_from_payload.return_value = [{"from": "1234567890"}]
+        mock_processor.process_message = AsyncMock(
+            return_value=ProcessingResult(
+                message="",
+                response_type=ResponseType.SKIP,
+                processing_time=0.1,
+            )
+        )
+        return [whatsapp_patch, processor_patch], mock_processor
+
+    def _set_mode(self, monkeypatch, mode, secret):
+        monkeypatch.setattr(webhooks_module.settings, "whatsapp_signature_mode", mode)
+        monkeypatch.setattr(webhooks_module.settings, "whatsapp_app_secret", secret)
+
+    @pytest.mark.asyncio
+    async def test_mode_off_processes_without_signature(
+        self, async_client: AsyncClient, monkeypatch
+    ) -> None:
+        """In 'off' mode, missing signature is irrelevant and message processes."""
+        self._set_mode(monkeypatch, "off", None)
+        patches, mock_processor = self._patched_processing()
+        try:
+            body = json.dumps(self.PAYLOAD).encode()
+            response = await async_client.post(
+                "/tasks/webhook",
+                content=body,
+                headers={"Content-Type": "application/json"},
+            )
+        finally:
+            for p in patches:
+                p.stop()
+
+        assert response.status_code == 200
+        assert response.json()["status"] == "success"
+        mock_processor.process_message.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_mode_log_valid_signature_processes(
+        self, async_client: AsyncClient, monkeypatch
+    ) -> None:
+        """log mode + valid signature: processes normally."""
+        self._set_mode(monkeypatch, "log", self.SECRET)
+        patches, mock_processor = self._patched_processing()
+        try:
+            body = json.dumps(self.PAYLOAD).encode()
+            response = await async_client.post(
+                "/tasks/webhook",
+                content=body,
+                headers={
+                    "Content-Type": "application/json",
+                    "X-Hub-Signature-256": _sign(body, self.SECRET),
+                },
+            )
+        finally:
+            for p in patches:
+                p.stop()
+
+        assert response.status_code == 200
+        assert response.json()["status"] == "success"
+        mock_processor.process_message.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_mode_log_invalid_signature_warns_but_processes(
+        self, async_client: AsyncClient, monkeypatch, caplog
+    ) -> None:
+        """log mode + invalid signature: logs a warning but still processes."""
+        self._set_mode(monkeypatch, "log", self.SECRET)
+        patches, mock_processor = self._patched_processing()
+        try:
+            body = json.dumps(self.PAYLOAD).encode()
+            bad_signature = "sha256=deadbeef"
+            with caplog.at_level("WARNING"):
+                response = await async_client.post(
+                    "/tasks/webhook",
+                    content=body,
+                    headers={
+                        "Content-Type": "application/json",
+                        "X-Hub-Signature-256": bad_signature,
+                    },
+                )
+        finally:
+            for p in patches:
+                p.stop()
+
+        assert response.status_code == 200
+        assert response.json()["status"] == "success"
+        mock_processor.process_message.assert_awaited_once()
+        assert "signature check failed" in caplog.text
+        # The secret and signature header value must never be logged.
+        assert self.SECRET not in caplog.text
+        assert "deadbeef" not in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_mode_log_missing_signature_warns_but_processes(
+        self, async_client: AsyncClient, monkeypatch, caplog
+    ) -> None:
+        """log mode + missing signature header: logs a warning but processes."""
+        self._set_mode(monkeypatch, "log", self.SECRET)
+        patches, mock_processor = self._patched_processing()
+        try:
+            body = json.dumps(self.PAYLOAD).encode()
+            with caplog.at_level("WARNING"):
+                response = await async_client.post(
+                    "/tasks/webhook",
+                    content=body,
+                    headers={"Content-Type": "application/json"},
+                )
+        finally:
+            for p in patches:
+                p.stop()
+
+        assert response.status_code == 200
+        assert response.json()["status"] == "success"
+        mock_processor.process_message.assert_awaited_once()
+        assert "signature check failed" in caplog.text
+        assert "signature_present=False" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_mode_enforce_valid_signature_processes(
+        self, async_client: AsyncClient, monkeypatch
+    ) -> None:
+        """enforce mode + valid signature: processes normally."""
+        self._set_mode(monkeypatch, "enforce", self.SECRET)
+        patches, mock_processor = self._patched_processing()
+        try:
+            body = json.dumps(self.PAYLOAD).encode()
+            response = await async_client.post(
+                "/tasks/webhook",
+                content=body,
+                headers={
+                    "Content-Type": "application/json",
+                    "X-Hub-Signature-256": _sign(body, self.SECRET),
+                },
+            )
+        finally:
+            for p in patches:
+                p.stop()
+
+        assert response.status_code == 200
+        assert response.json()["status"] == "success"
+        mock_processor.process_message.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_mode_enforce_invalid_signature_rejected(
+        self, async_client: AsyncClient, monkeypatch
+    ) -> None:
+        """enforce mode + invalid signature: returns configured reject status,
+        and the message is NOT processed."""
+        self._set_mode(monkeypatch, "enforce", self.SECRET)
+        monkeypatch.setattr(
+            webhooks_module.settings, "whatsapp_signature_reject_status", 403
+        )
+        patches, mock_processor = self._patched_processing()
+        try:
+            body = json.dumps(self.PAYLOAD).encode()
+            response = await async_client.post(
+                "/tasks/webhook",
+                content=body,
+                headers={
+                    "Content-Type": "application/json",
+                    "X-Hub-Signature-256": "sha256=deadbeef",
+                },
+            )
+        finally:
+            for p in patches:
+                p.stop()
+
+        assert response.status_code == 403
+        assert response.json()["status"] == "rejected"
+        mock_processor.process_message.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_mode_log_missing_secret_does_not_crash(
+        self, async_client: AsyncClient, monkeypatch, caplog
+    ) -> None:
+        """log mode but no WHATSAPP_APP_SECRET: falls back to 'off', no crash."""
+        self._set_mode(monkeypatch, "log", None)
+        patches, mock_processor = self._patched_processing()
+        try:
+            body = json.dumps(self.PAYLOAD).encode()
+            with caplog.at_level("WARNING"):
+                response = await async_client.post(
+                    "/tasks/webhook",
+                    content=body,
+                    headers={"Content-Type": "application/json"},
+                )
+        finally:
+            for p in patches:
+                p.stop()
+
+        assert response.status_code == 200
+        assert response.json()["status"] == "success"
+        mock_processor.process_message.assert_awaited_once()
+        assert "WHATSAPP_APP_SECRET is not set" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_enforce_missing_secret_does_not_reject(
+        self, async_client: AsyncClient, monkeypatch
+    ) -> None:
+        """enforce mode but no secret: must not reject (fail-safe to off)."""
+        self._set_mode(monkeypatch, "enforce", None)
+        patches, mock_processor = self._patched_processing()
+        try:
+            body = json.dumps(self.PAYLOAD).encode()
+            response = await async_client.post(
+                "/tasks/webhook",
+                content=body,
+                headers={"Content-Type": "application/json"},
+            )
+        finally:
+            for p in patches:
+                p.stop()
+
+        assert response.status_code == 200
+        assert response.json()["status"] == "success"
+        mock_processor.process_message.assert_awaited_once()
