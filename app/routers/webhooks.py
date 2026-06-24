@@ -20,14 +20,19 @@ Note:
     services layer refactoring to improve modularity.
 """
 
+import hashlib
 import hmac
+import json
 import logging
 import os
 import time
+from typing import Optional
 
 from dotenv import load_dotenv
 from fastapi import APIRouter, BackgroundTasks, Request, Response
+from fastapi.responses import JSONResponse
 
+from app.core.config import settings
 from app.core.exceptions import AuthorizationError, BadRequestError
 from app.integrations.whatsapp_store import save_response
 from app.schemas.webhooks import WebhookResponse
@@ -44,6 +49,64 @@ whatsapp_service = get_whatsapp_service()
 
 # Initialize processor
 processor = OptimizedMessageProcessor()
+
+# Header Meta uses to sign webhook payloads.
+SIGNATURE_HEADER = "X-Hub-Signature-256"
+_VALID_SIGNATURE_MODES = {"off", "log", "enforce"}
+
+
+def _evaluate_webhook_signature(
+    raw_body: bytes, signature_header: Optional[str]
+) -> dict:
+    """Evaluate the X-Hub-Signature-256 header against the raw request body.
+
+    Computes the expected HMAC-SHA256 signature using ``WHATSAPP_APP_SECRET``
+    (never ``VERIFY_TOKEN``) and compares it to the provided header in
+    constant time. This function only evaluates; it never raises and never
+    logs the secret, the signature value, or the body.
+
+    Args:
+        raw_body: The exact raw bytes of the request body.
+        signature_header: Value of the ``X-Hub-Signature-256`` header, if any.
+
+    Returns:
+        A dict with safe-to-log metadata:
+            - mode: effective mode ('off' | 'log' | 'enforce')
+            - active: whether verification is actually applied (mode != off
+              and a secret is configured)
+            - present: whether a signature header was supplied
+            - valid: True/False when active, else None
+    """
+    mode = (settings.whatsapp_signature_mode or "off").strip().lower()
+    if mode not in _VALID_SIGNATURE_MODES:
+        logging.warning("Unknown WHATSAPP_SIGNATURE_MODE %r; treating as 'off'.", mode)
+        mode = "off"
+
+    present = bool(signature_header)
+
+    if mode == "off":
+        return {"mode": "off", "active": False, "present": present, "valid": None}
+
+    secret = settings.whatsapp_app_secret
+    if not secret:
+        # log/enforce requested but no secret available: fail safe to 'off'
+        # behavior without crashing and without exposing any secret value.
+        logging.warning(
+            "WHATSAPP_SIGNATURE_MODE=%s but WHATSAPP_APP_SECRET is not set; "
+            "skipping signature verification (behaving as 'off').",
+            mode,
+        )
+        return {"mode": mode, "active": False, "present": present, "valid": None}
+
+    valid = False
+    if present:
+        expected = (
+            "sha256="
+            + hmac.new(secret.encode("utf-8"), raw_body, hashlib.sha256).hexdigest()
+        )
+        valid = hmac.compare_digest(signature_header, expected)
+
+    return {"mode": mode, "active": True, "present": present, "valid": valid}
 
 
 async def send_template_response(
@@ -62,7 +125,7 @@ async def send_template_response(
         sender_name: Sender's name.
 
     Templates:
-        - custom_feedback: Feedback collection button
+        -  stom_feedback: Feedback collection button
         - welcome_message: Welcome button
         - choose_language: Language selection button
     """
@@ -95,7 +158,7 @@ async def send_template_response(
 @router.post("/webhook")
 @router.post("/webhook/")
 async def webhook(  # noqa: C901
-    payload: dict,
+    request: Request,
     background_tasks: BackgroundTasks,
 ) -> WebhookResponse:
     """
@@ -112,8 +175,13 @@ async def webhook(  # noqa: C901
     - Duplicate message detection
     - Language preference support
 
+    The raw request body is read directly so the X-Hub-Signature-256 header
+    can be verified over the exact signed bytes before JSON parsing. Signature
+    verification behavior is controlled by WHATSAPP_SIGNATURE_MODE
+    ('off' | 'log' | 'enforce'); see ``_evaluate_webhook_signature``.
+
     Args:
-        payload: WhatsApp webhook payload.
+        request: The incoming HTTP request (raw body + headers).
         background_tasks: FastAPI background tasks for async processing.
 
     Returns:
@@ -121,7 +189,8 @@ async def webhook(  # noqa: C901
 
     Response Status Codes:
         - 200: Successfully processed
-        - 400: Invalid payload format
+        - WHATSAPP_SIGNATURE_REJECT_STATUS (default 403): invalid signature in
+          enforce mode
         - 500: Internal server error
 
     Example Payload:
@@ -153,6 +222,49 @@ async def webhook(  # noqa: C901
     start_time = time.time()
 
     try:
+        # Read the raw body first: signature verification must run over the
+        # exact bytes Meta signed, before any JSON parsing.
+        raw_body = await request.body()
+        signature_header = request.headers.get(SIGNATURE_HEADER)
+        signature = _evaluate_webhook_signature(raw_body, signature_header)
+
+        if signature["active"]:
+            if signature["valid"]:
+                logging.info(
+                    "WhatsApp webhook signature verified (mode=%s)",
+                    signature["mode"],
+                )
+            else:
+                # Only safe metadata is logged: never the header value or body.
+                logging.warning(
+                    "WhatsApp webhook signature check failed "
+                    "(mode=%s, signature_present=%s, signature_valid=%s)",
+                    signature["mode"],
+                    signature["present"],
+                    signature["valid"],
+                )
+                if signature["mode"] == "enforce":
+                    reject_status = settings.whatsapp_signature_reject_status
+                    return JSONResponse(
+                        status_code=reject_status,
+                        content={
+                            "status": "rejected",
+                            "processing_time": time.time() - start_time,
+                            "message": "Invalid webhook signature",
+                        },
+                    )
+
+        # Parse JSON safely from the raw body after signature handling.
+        try:
+            payload = json.loads(raw_body)
+        except (json.JSONDecodeError, ValueError, TypeError):
+            logging.info("Webhook payload was not valid JSON; ignoring.")
+            return WebhookResponse(
+                status="ignored",
+                processing_time=time.time() - start_time,
+                message="Invalid JSON payload",
+            )
+
         # Quick validation
         if not whatsapp_service.valid_payload(payload):
             logging.info("Invalid payload received")
