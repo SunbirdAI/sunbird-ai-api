@@ -176,6 +176,35 @@ class Settings(BaseSettings):
             "move larger payloads than text messages."
         ),
     )
+    whatsapp_app_secret: Optional[str] = Field(
+        default=None,
+        description=(
+            "Meta App Secret used as the HMAC-SHA256 key to verify the "
+            "X-Hub-Signature-256 header on inbound webhook POSTs. This is a "
+            "DIFFERENT value from VERIFY_TOKEN (which is only for the GET "
+            "verification handshake). When unset, signature verification is "
+            "skipped regardless of WHATSAPP_SIGNATURE_MODE."
+        ),
+    )
+    whatsapp_signature_mode: str = Field(
+        default="off",
+        description=(
+            "Inbound webhook signature verification mode. One of: "
+            "'off' (skip verification), 'log' (verify and log warnings on "
+            "missing/invalid signatures but still process), 'enforce' (reject "
+            "invalid signatures with WHATSAPP_SIGNATURE_REJECT_STATUS)."
+        ),
+    )
+    whatsapp_signature_reject_status: int = Field(
+        default=403,
+        ge=400,
+        le=599,
+        description=(
+            "HTTP status returned for an invalid signature when "
+            "WHATSAPP_SIGNATURE_MODE='enforce'. Configurable in case Meta retry "
+            "behavior requires adjustment."
+        ),
+    )
 
     # Orpheus TTS Configuration (Modal-deployed vLLM inference)
     orpheus_modal_url: Optional[str] = Field(
