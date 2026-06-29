@@ -108,6 +108,17 @@ async def test_records_are_cached():
     assert runpod.fetch_records.await_count == 1
 
 
+async def test_partial_failure_is_not_cached():
+    service, runpod, modal = _service()
+    modal.fetch_records = AsyncMock(
+        side_effect=ProviderUnavailable("modal", "plan required")
+    )
+    await service.summary(_params())
+    await service.timeseries(_params())
+    # Degraded result must not be cached -> runpod re-fetched on the second call.
+    assert runpod.fetch_records.await_count == 2
+
+
 async def test_timeseries_and_breakdown_and_table():
     service, _, _ = _service()
     ts = await service.timeseries(_params())

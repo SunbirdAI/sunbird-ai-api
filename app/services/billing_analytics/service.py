@@ -120,14 +120,17 @@ class BillingAnalyticsService:
             else:
                 records.extend(result)
 
-        await self.cache.set(
-            key,
-            {
-                "records": [r.model_dump(mode="json") for r in records],
-                "warnings": warnings,
-            },
-            self.ttl,
-        )
+        # Only cache fully-successful results; never persist degraded/partial data
+        # (a billing surface must not serve understated totals after a provider recovers).
+        if not warnings:
+            await self.cache.set(
+                key,
+                {
+                    "records": [r.model_dump(mode="json") for r in records],
+                    "warnings": warnings,
+                },
+                self.ttl,
+            )
         return records, warnings
 
     # ---- high-level endpoints ----
