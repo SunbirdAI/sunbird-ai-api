@@ -10,7 +10,7 @@ from fastapi import APIRouter, status
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from app.core.exceptions import BadRequestError
-from app.deps import CurrentAdminDep
+from app.deps import BillingAnalyticsServiceDep, CurrentAdminDep
 from app.schemas.billing_analytics import (
     BreakdownResponse,
     ProvidersResponse,
@@ -20,10 +20,7 @@ from app.schemas.billing_analytics import (
 )
 from app.services.billing_analytics import aggregation
 from app.services.billing_analytics.ranges import resolve_range
-from app.services.billing_analytics.service import (
-    BillingQueryParams,
-    get_billing_analytics_service,
-)
+from app.services.billing_analytics.service import BillingQueryParams
 
 router = APIRouter()
 
@@ -33,6 +30,14 @@ _VALID_RESOLUTIONS = {"hour", "day", "week", "month", "year"}
 
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def _validate_group_by(group_by: str | None) -> None:
+    if group_by is not None and group_by not in aggregation.SUPPORTED_GROUP_BYS:
+        raise BadRequestError(
+            f"Invalid group_by '{group_by}'. "
+            f"Use one of: {', '.join(aggregation.SUPPORTED_GROUP_BYS)}."
+        )
 
 
 def _build_params(
@@ -68,6 +73,7 @@ def _build_params(
 
 @router.get("/summary", response_model=SummaryResponse)
 async def get_summary(
+    svc: BillingAnalyticsServiceDep,
     current_user: CurrentAdminDep,
     provider: str = "all",
     range: str | None = "last_30_days",
@@ -76,11 +82,12 @@ async def get_summary(
     resolution: str = "day",
 ):
     params = _build_params(provider, range, start, end, resolution)
-    return await get_billing_analytics_service().summary(params)
+    return await svc.summary(params)
 
 
 @router.get("/timeseries", response_model=TimeseriesResponse)
 async def get_timeseries(
+    svc: BillingAnalyticsServiceDep,
     current_user: CurrentAdminDep,
     provider: str = "all",
     range: str | None = "last_30_days",
@@ -89,17 +96,14 @@ async def get_timeseries(
     resolution: str = "day",
     group_by: str | None = None,
 ):
-    if group_by is not None and group_by not in aggregation.SUPPORTED_GROUP_BYS:
-        raise BadRequestError(
-            f"Invalid group_by '{group_by}'. "
-            f"Use one of: {', '.join(aggregation.SUPPORTED_GROUP_BYS)}."
-        )
+    _validate_group_by(group_by)
     params = _build_params(provider, range, start, end, resolution, group_by=group_by)
-    return await get_billing_analytics_service().timeseries(params)
+    return await svc.timeseries(params)
 
 
 @router.get("/providers", response_model=ProvidersResponse)
 async def get_providers(
+    svc: BillingAnalyticsServiceDep,
     current_user: CurrentAdminDep,
     range: str | None = "last_30_days",
     start: str | None = None,
@@ -107,11 +111,12 @@ async def get_providers(
     resolution: str = "day",
 ):
     params = _build_params("all", range, start, end, resolution)
-    return await get_billing_analytics_service().providers(params)
+    return await svc.providers(params)
 
 
 @router.get("/breakdown", response_model=BreakdownResponse)
 async def get_breakdown(
+    svc: BillingAnalyticsServiceDep,
     current_user: CurrentAdminDep,
     group_by: str = "provider",
     provider: str = "all",
@@ -120,17 +125,14 @@ async def get_breakdown(
     end: str | None = None,
     resolution: str = "day",
 ):
-    if group_by not in aggregation.SUPPORTED_GROUP_BYS:
-        raise BadRequestError(
-            f"Invalid group_by '{group_by}'. "
-            f"Use one of: {', '.join(aggregation.SUPPORTED_GROUP_BYS)}."
-        )
+    _validate_group_by(group_by)
     params = _build_params(provider, range, start, end, resolution, group_by=group_by)
-    return await get_billing_analytics_service().breakdown(params)
+    return await svc.breakdown(params)
 
 
 @router.get("/table", response_model=TableResponse)
 async def get_table(
+    svc: BillingAnalyticsServiceDep,
     current_user: CurrentAdminDep,
     provider: str = "all",
     range: str | None = "last_30_days",
@@ -145,13 +147,12 @@ async def get_table(
     if page < 1 or page_size < 1 or page_size > 500:
         raise BadRequestError("page must be >= 1 and page_size between 1 and 500.")
     params = _build_params(provider, range, start, end, resolution, search=search)
-    return await get_billing_analytics_service().table(
-        params, page=page, page_size=page_size, sort=sort
-    )
+    return await svc.table(params, page=page, page_size=page_size, sort=sort)
 
 
 @router.get("/export")
 async def export_csv(
+    svc: BillingAnalyticsServiceDep,
     current_user: CurrentAdminDep,
     provider: str = "all",
     range: str | None = "last_30_days",
@@ -160,7 +161,7 @@ async def export_csv(
     resolution: str = "day",
 ):
     params = _build_params(provider, range, start, end, resolution)
-    records = await get_billing_analytics_service().records_for_export(params)
+    records = await svc.records_for_export(params)
 
     output = io.StringIO()
     writer = csv.writer(output)
@@ -193,7 +194,7 @@ async def export_csv(
             ]
         )
     output.seek(0)
-    filename = f"billing_{provider}_{params.resolution}.csv"
+    filename = f"billing_{provider}_{resolution}.csv"
     return StreamingResponse(
         iter([output.getvalue()]),
         media_type="text/csv",
