@@ -137,7 +137,8 @@ aggregation layer from records, keeping providers thin and aggregation provider-
 ### ModalAnalyticsProvider
 - Wraps `modal.billing.workspace_billing_report(start, end, resolution, tag_names=["*"])`
   (GA since modal-client v1.3.3, 2026-02-12; requires Team/Enterprise plan).
-- Auth via Modal token env vars (`MODAL_TOKEN_ID`/`MODAL_TOKEN_SECRET`).
+- Auth via the Modal SDK's standard token pair, read from env: `MODAL_TOKEN_ID` +
+  `MODAL_TOKEN_SECRET` (passed to a `modal.Client` and threaded into the billing call).
 - Normalize: `object_id`, `description→object_name`, `cost (Decimal→float)`,
   `interval_start→timestamp` (UTC), `environment_name→environment`, `tags`,
   `cost_by_resource→resource_breakdown` (best-effort; `runtime_ms`/`storage_gb` are `None`).
@@ -209,7 +210,7 @@ Shared query params: `provider`, `startTime`/`endTime` (plus named ranges:
 
 ## Config / env additions (`app/core/config.py`)
 
-- `MODAL_TOKEN_ID`, `MODAL_TOKEN_SECRET` (or `MODAL_TOKEN`) — Modal billing auth.
+- `MODAL_TOKEN_ID` + `MODAL_TOKEN_SECRET` — Modal billing auth (SDK standard token pair).
 - `BILLING_CACHE_TTL_SECONDS` (default 3600).
 - `RUNPOD_BILLING_BASE_URL` (optional; default `https://rest.runpod.io/v1`).
 - `RUNPOD_API_KEY` already read via env. Provider keys are never returned to the client.
