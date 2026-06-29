@@ -268,3 +268,9 @@ Shared query params: `provider`, `startTime`/`endTime` (plus named ranges:
 - AI assistant consumes the same aggregation outputs (structured summary → GPT).
 - A persistence layer (DB tables + scheduled sync) can slot behind `BillingAnalyticsService`
   without changing the API contract, if longer history or faster queries are needed later.
+
+## Implementation status
+
+MVP implemented per `docs/superpowers/plans/2026-06-29-admin-billing-analytics.md`.
+Deferred items (AI assistant, forecasting, datacenter/tags grouping, heatmaps,
+Excel/PDF export, DB persistence) remain for later phases.
