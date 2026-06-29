@@ -308,20 +308,22 @@ class TestTTSBackendSelection:
         spark.generate_audio.assert_awaited_once()
 
 
-class TestOrpheusRequestAndSpeakerMapping:
-    @pytest.mark.asyncio
-    async def test_orpheus_request_passes_text_speaker_language(
-        self, monkeypatch
-    ) -> None:
-        proc = OptimizedMessageProcessor()
+class TestOrpheusViaSpeechService:
+    """2A: WhatsApp Orpheus path reuses the shared SpeechService."""
+
+    def _patch_speech_service(self, monkeypatch, audio_url="https://signed/a.wav"):
         service = MagicMock()
         result = MagicMock()
-        result.audio_url = "https://signed.example/a.wav"
+        result.audio_url = audio_url
+        service.validate_request = MagicMock()
         service.synthesize = AsyncMock(return_value=result)
-        monkeypatch.setattr(mp, "get_orpheus_tts_service", lambda: service)
-        monkeypatch.setattr(
-            proc, "_resolve_orpheus_speaker", AsyncMock(return_value=("sp_lug", "lug"))
-        )
+        monkeypatch.setattr(mp, "get_speech_service", lambda: service)
+        return service
+
+    @pytest.mark.asyncio
+    async def test_orpheus_uses_speech_service_request(self, monkeypatch) -> None:
+        proc = OptimizedMessageProcessor()
+        service = self._patch_speech_service(monkeypatch)
         monkeypatch.setattr(
             proc, "_download_audio_bytes", AsyncMock(return_value=b"WAVBYTES")
         )
@@ -329,81 +331,47 @@ class TestOrpheusRequestAndSpeakerMapping:
         out = await proc._generate_orpheus_wav_bytes("Hello", "lug")
 
         assert out == b"WAVBYTES"
-        kwargs = service.synthesize.await_args.kwargs
-        assert kwargs["text"] == "Hello"
-        assert kwargs["speaker_id"] == "sp_lug"
-        assert isinstance(kwargs["speaker_id"], str)
-        assert kwargs["language"] == "lug"
+        # validate_request was run and synthesize received a SpeechRequest.
+        service.validate_request.assert_called_once()
+        req = service.synthesize.await_args.args[0]
+        assert req.text == "Hello"
+        assert req.model == mp.TTSModel.orpheus_3b_tts
+        assert req.platform == mp.TTSPlatform.modal
+        assert req.language == "lug"
         # WAV URL is downloaded, never returned for direct WhatsApp link send.
-        proc._download_audio_bytes.assert_awaited_once_with(
-            "https://signed.example/a.wav"
-        )
+        proc._download_audio_bytes.assert_awaited_once_with("https://signed/a.wav")
 
     @pytest.mark.asyncio
-    async def test_configured_speaker_used(self, monkeypatch) -> None:
+    async def test_default_speaker_left_to_speech_service(self, monkeypatch) -> None:
+        """No override configured -> voice is None so SpeechService applies
+        its canonical default (salt_lug_0001)."""
         proc = OptimizedMessageProcessor()
-        monkeypatch.setattr(
-            mp.settings, "whatsapp_orpheus_speakers", {"lug": "cfg_lug"}
-        )
-        service = MagicMock()
-        service.list_speakers = AsyncMock()
-        speaker, lang = await proc._resolve_orpheus_speaker(service, "Luganda")
-        assert speaker == "cfg_lug"
-        assert lang == "lug"
-        service.list_speakers.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_catalog_by_language_selected(self, monkeypatch) -> None:
-        proc = OptimizedMessageProcessor()
-        monkeypatch.setattr(mp.settings, "whatsapp_orpheus_speakers", {})
-        catalog = MagicMock()
-        catalog.by_language = {"eng": ["sp_eng_1", "sp_eng_2"]}
-        catalog.default = "sp_default"
-        service = MagicMock()
-        service.list_speakers = AsyncMock(return_value=catalog)
-        speaker, lang = await proc._resolve_orpheus_speaker(service, "eng")
-        assert speaker == "sp_eng_1"
-        assert lang == "eng"
-
-    @pytest.mark.asyncio
-    async def test_unsupported_language_falls_back_to_default(
-        self, monkeypatch
-    ) -> None:
-        proc = OptimizedMessageProcessor()
-        monkeypatch.setattr(mp.settings, "whatsapp_orpheus_speakers", {})
-        catalog = MagicMock()
-        catalog.by_language = {"eng": ["sp_eng"]}
-        catalog.default = "sp_default"
-        service = MagicMock()
-        service.list_speakers = AsyncMock(return_value=catalog)
-        speaker, lang = await proc._resolve_orpheus_speaker(service, "xyz")
-        assert speaker == "sp_default"
-        assert lang is None
-
-    @pytest.mark.asyncio
-    async def test_catalog_unavailable_uses_configured_default(
-        self, monkeypatch
-    ) -> None:
-        proc = OptimizedMessageProcessor()
-        monkeypatch.setattr(mp.settings, "whatsapp_orpheus_speakers", {})
-        monkeypatch.setattr(
-            mp.settings, "whatsapp_orpheus_default_speaker", "env_default"
-        )
-        service = MagicMock()
-        service.list_speakers = AsyncMock(side_effect=RuntimeError("catalog down"))
-        speaker, lang = await proc._resolve_orpheus_speaker(service, "lug")
-        assert speaker == "env_default"
-        assert lang is None
-
-    @pytest.mark.asyncio
-    async def test_no_speaker_anywhere_raises(self, monkeypatch) -> None:
-        proc = OptimizedMessageProcessor()
-        monkeypatch.setattr(mp.settings, "whatsapp_orpheus_speakers", {})
         monkeypatch.setattr(mp.settings, "whatsapp_orpheus_default_speaker", None)
-        service = MagicMock()
-        service.list_speakers = AsyncMock(side_effect=RuntimeError("down"))
-        with pytest.raises(RuntimeError):
-            await proc._resolve_orpheus_speaker(service, "lug")
+        service = self._patch_speech_service(monkeypatch)
+        monkeypatch.setattr(
+            proc, "_download_audio_bytes", AsyncMock(return_value=b"WAV")
+        )
+
+        await proc._generate_orpheus_wav_bytes("Hi", "eng")
+
+        req = service.synthesize.await_args.args[0]
+        assert req.voice is None
+
+    @pytest.mark.asyncio
+    async def test_optional_override_speaker_passed(self, monkeypatch) -> None:
+        proc = OptimizedMessageProcessor()
+        monkeypatch.setattr(
+            mp.settings, "whatsapp_orpheus_default_speaker", "salt_ach_0002"
+        )
+        service = self._patch_speech_service(monkeypatch)
+        monkeypatch.setattr(
+            proc, "_download_audio_bytes", AsyncMock(return_value=b"WAV")
+        )
+
+        await proc._generate_orpheus_wav_bytes("Hi", "ach")
+
+        req = service.synthesize.await_args.args[0]
+        assert req.voice == "salt_ach_0002"
 
 
 class TestOrpheusAudioDelivery:
@@ -531,3 +499,187 @@ class TestExplicitTTSCommands:
             )
         assert res is not None and res.send_tts is True
         mock_model.assert_not_called()
+
+
+class TestTTSMode:
+    """2B: persistent TTS task mode."""
+
+    async def _cmd(self, text: str, mode: str = "chat"):
+        proc = OptimizedMessageProcessor()
+        with patch(
+            "app.services.message_processor.save_user_mode", new=AsyncMock()
+        ) as mock_save:
+            res = await proc._handle_quick_commands(
+                input_text=text,
+                target_language="eng",
+                sender_name="John",
+                from_number="256700000001",
+                user_mode=mode,
+                tts_enabled=False,
+            )
+        return res, mock_save
+
+    @pytest.mark.asyncio
+    async def test_enter_tts_mode(self) -> None:
+        for cmd in ["mode tts", "tts mode", "set mode tts", "speak mode"]:
+            res, mock_save = await self._cmd(cmd)
+            assert res is not None
+            assert res.response_type == ResponseType.TEXT
+            assert "TTS mode" in res.message
+            mock_save.assert_awaited_once_with("256700000001", "tts")
+
+    @pytest.mark.asyncio
+    async def test_text_in_tts_mode_routes_to_tts_not_sunflower(self) -> None:
+        proc = OptimizedMessageProcessor()
+        payload = {
+            "entry": [
+                {
+                    "changes": [
+                        {
+                            "value": {
+                                "messages": [
+                                    {
+                                        "from": "256700000001",
+                                        "id": "wamid.x",
+                                        "text": {"body": "Welcome to Sunbird AI"},
+                                    }
+                                ],
+                                "metadata": {"phone_number_id": "PNID"},
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+        with patch(
+            "app.services.message_processor.asyncio.create_task",
+            return_value=MagicMock(),
+        ), patch.object(proc, "_call_sunflower", new=AsyncMock()) as mock_model:
+            result = await proc._handle_text_optimized(
+                payload=payload,
+                target_language="eng",
+                from_number="256700000001",
+                sender_name="John",
+                user_mode="tts",
+                tts_enabled=False,
+                is_new_user=False,
+                lookup_failed=False,
+            )
+
+        assert result.message == "Welcome to Sunbird AI"
+        assert result.send_tts is True
+        mock_model.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_cancel_and_mode_chat_exit_tts(self) -> None:
+        res_cancel, save_cancel = await self._cmd("cancel", mode="tts")
+        assert res_cancel is not None
+        save_cancel.assert_awaited_once_with("256700000001", "chat")
+
+        res_chat, save_chat = await self._cmd("mode chat", mode="tts")
+        assert res_chat is not None
+        save_chat.assert_awaited_once_with("256700000001", "chat")
+
+    @pytest.mark.asyncio
+    async def test_tts_added_to_valid_modes(self) -> None:
+        proc = OptimizedMessageProcessor()
+        assert "tts" in proc.valid_modes
+        assert proc._normalize_mode("tts") == "tts"
+
+
+class TestReplyContext:
+    """2C: best-effort WhatsApp reply context threading."""
+
+    @pytest.mark.asyncio
+    async def test_process_message_sets_reply_to_message_id(self) -> None:
+        clear_processed_messages()
+        proc = OptimizedMessageProcessor()
+        payload = {
+            "entry": [
+                {
+                    "changes": [
+                        {
+                            "value": {
+                                "messages": [
+                                    {
+                                        "from": "256700000001",
+                                        "id": "wamid.INBOUND",
+                                        "text": {"body": "hello"},
+                                    }
+                                ],
+                                "metadata": {"phone_number_id": "PNID"},
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+        with patch(
+            "app.services.message_processor.get_user_settings",
+            new=AsyncMock(
+                return_value={
+                    "found": True,
+                    "lookup_failed": False,
+                    "target_language": "eng",
+                    "mode": "chat",
+                    "tts_enabled": False,
+                }
+            ),
+        ), patch(
+            "app.services.message_processor.asyncio.create_task",
+            return_value=MagicMock(),
+        ):
+            result = await proc.process_message(
+                payload=payload,
+                from_number="256700000001",
+                sender_name="John",
+                target_language="eng",
+                phone_number_id="PNID",
+            )
+
+        assert result.reply_to_message_id == "wamid.INBOUND"
+
+    @pytest.mark.asyncio
+    async def test_tts_audio_replies_to_context_message(self, monkeypatch) -> None:
+        proc = OptimizedMessageProcessor()
+        monkeypatch.setattr(mp.settings, "whatsapp_tts_backend", "orpheus")
+        monkeypatch.setattr(
+            proc, "_generate_orpheus_wav_bytes", AsyncMock(return_value=b"WAV")
+        )
+        monkeypatch.setattr(
+            mp.AudioSegment, "from_file", MagicMock(return_value=MagicMock())
+        )
+        ws = MagicMock()
+        ws.upload_media.return_value = {"id": "MID"}
+        ws.send_audio.return_value = {}
+        monkeypatch.setattr(mp, "whatsapp_service", ws)
+
+        await proc.send_tts_audio_response(
+            "Hello", "lug", "256700000001", "PNID", context_message_id="wamid.IN"
+        )
+
+        assert ws.send_audio.call_args.kwargs["context_message_id"] == "wamid.IN"
+
+    @pytest.mark.asyncio
+    async def test_asr_failure_replies_to_audio_message(self, monkeypatch) -> None:
+        proc = OptimizedMessageProcessor()
+        monkeypatch.setattr(mp.asyncio, "sleep", AsyncMock())
+        ws = MagicMock()
+        monkeypatch.setattr(mp, "whatsapp_service", ws)
+
+        endpoint = MagicMock()
+        endpoint.run_sync.side_effect = RuntimeError("asr down")
+
+        out = await proc._run_asr_with_retry(
+            endpoint=endpoint,
+            transcription_data={"input": {}},
+            from_number="256700000001",
+            phone_number_id="PNID",
+            context_message_id="wamid.AUDIO",
+        )
+
+        assert out is None
+        # Every notice replied to the original audio message.
+        assert ws.send_message.call_count >= 1
+        for call in ws.send_message.call_args_list:
+            assert call.kwargs.get("context_message_id") == "wamid.AUDIO"
