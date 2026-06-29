@@ -1160,7 +1160,7 @@ class OptimizedMessageProcessor:
         ]:
             await self._set_user_mode_async(from_number, "tts")
             return ProcessingResult(
-                "🔊 *TTS mode active.* Send any text and I'll send it back as "
+                "🔊 *TTS mode is active.* Send any text and I'll turn it into "
                 "audio. Type *cancel* to exit.",
                 ResponseType.TEXT,
                 should_save=False,
