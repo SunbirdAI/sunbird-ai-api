@@ -21,6 +21,7 @@ from app.core.exceptions import (
 )
 from app.docs import description, tags_metadata
 from app.middleware import MonitoringMiddleware
+from app.routers import admin_billing
 from app.routers.admin_analytics import router as admin_analytics_router
 from app.routers.audio import router as audio_router
 from app.routers.auth import router as auth_router
@@ -203,6 +204,11 @@ app.include_router(
     admin_analytics_router,
     prefix="/api/admin/analytics",
     tags=["Admin Analytics"],
+)
+app.include_router(
+    admin_billing.router,
+    prefix="/api/admin/analytics/billing",
+    tags=["Admin Billing Analytics"],
 )
 app.include_router(
     google_analytics_router,

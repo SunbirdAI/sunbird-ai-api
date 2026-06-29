@@ -43,6 +43,10 @@ from app.integrations.whatsapp_api import WhatsAppAPIClient, get_whatsapp_api_cl
 from app.schemas.users import TokenData, User
 
 # Service imports
+from app.services.billing_analytics.service import (
+    BillingAnalyticsService,
+    get_billing_analytics_service,
+)
 from app.services.cache import CacheBackend, get_cache_backend
 from app.services.google_analytics_service import (
     GoogleAnalyticsService,
@@ -105,6 +109,9 @@ OpenAIClientDep = Annotated[OpenAIClient, Depends(get_openai_client)]
 OrpheusModalClientDep = Annotated[OrpheusModalClient, Depends(get_orpheus_modal_client)]
 WhatsAppAPIClientDep = Annotated[WhatsAppAPIClient, Depends(get_whatsapp_api_client)]
 CacheBackendDep = Annotated[CacheBackend, Depends(get_cache_backend)]
+BillingAnalyticsServiceDep = Annotated[
+    BillingAnalyticsService, Depends(get_billing_analytics_service)
+]
 QuotaServiceDep = Annotated[QuotaService, Depends(get_quota_service)]
 
 # Legacy dependencies (maintained for backward compatibility)
@@ -245,6 +252,8 @@ __all__ = [
     "OrpheusModalClientDep",
     "WhatsAppAPIClientDep",
     "CacheBackendDep",
+    "BillingAnalyticsServiceDep",
+    "get_billing_analytics_service",
     "CacheBackend",
     # Legacy dependencies
     "LegacyStorageServiceDep",
