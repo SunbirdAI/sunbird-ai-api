@@ -3,6 +3,14 @@ from datetime import datetime
 import pytest
 
 from app.schemas.billing_analytics import BillingRecord
+from app.services.billing_analytics.aggregation import (
+    bucket_key,
+    group_records,
+    paginate_sort_search,
+    provider_totals,
+    rollup_timeseries,
+    summarize,
+)
 from app.services.billing_analytics.ranges import resolve_range
 
 
@@ -46,6 +54,12 @@ def test_resolve_range_custom_requires_both():
         resolve_range("custom", "2026-06-01T00:00:00Z", None, now)
 
 
+def test_resolve_range_custom_without_dates_raises():
+    now = datetime(2026, 6, 29)
+    with pytest.raises(ValueError):
+        resolve_range("custom", None, None, now)
+
+
 def test_resolve_range_custom_parses_iso():
     now = datetime(2026, 6, 29)
     start, end = resolve_range(
@@ -53,16 +67,6 @@ def test_resolve_range_custom_parses_iso():
     )
     assert start == datetime(2026, 5, 1)
     assert end == datetime(2026, 6, 1)
-
-
-from app.services.billing_analytics.aggregation import (
-    bucket_key,
-    group_records,
-    paginate_sort_search,
-    provider_totals,
-    rollup_timeseries,
-    summarize,
-)
 
 
 def test_bucket_key_resolutions():

@@ -90,7 +90,23 @@
       "mcp__context7__resolve-library-id",
       "mcp__context7__query-docs",
       "Bash(git commit -q -m 'docs: add Runpod+Modal admin billing analytics design spec *)",
-      "Bash(git commit -q -am 'docs: clarify Modal token env vars in billing analytics spec *)"
+      "Bash(git commit -q -am 'docs: clarify Modal token env vars in billing analytics spec *)",
+      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\('scripts:', JSON.stringify\\(p.scripts\\)\\); const d={...p.dependencies,...p.devDependencies}; console.log\\('test-deps:', Object.keys\\(d\\).filter\\(k=>/vitest|jest|testing-library|@testing/.test\\(k\\)\\).join\\(', '\\)||'NONE'\\);\")",
+      "Bash(ls frontend/src/components)",
+      "Bash(grep -rln \"Admin Analytics\\\\|/admin/analytics\\\\|account_type === 'Admin'\" frontend/src/components frontend/src/App.tsx)",
+      "Bash(git commit -q -m 'docs: add admin billing analytics implementation plan *)",
+      "Bash(git checkout *)",
+      "Bash(python -m pytest app/tests/ -q)",
+      "Bash(python -m pytest app/tests/test_billing_aggregation.py -v)",
+      "Bash(env/bin/flake8 app/schemas/billing_analytics.py app/services/billing_analytics/ app/tests/test_billing_aggregation.py)",
+      "Bash(grep -iA20 flake8)",
+      "Bash(python -m flake8 app/schemas/billing_analytics.py app/services/billing_analytics/ app/tests/test_billing_aggregation.py)",
+      "Bash(python -m black --check app/schemas/billing_analytics.py app/services/billing_analytics app/tests/test_billing_aggregation.py)",
+      "Bash(python -m isort --check-only app/schemas/billing_analytics.py app/services/billing_analytics app/tests/test_billing_aggregation.py)",
+      "Bash(python -m black --check app/services/billing_analytics/ranges.py app/tests/test_billing_aggregation.py)",
+      "Bash(python -m isort --check-only app/services/billing_analytics/ranges.py app/tests/test_billing_aggregation.py)",
+      "Bash(python -m flake8 app/services/billing_analytics/ranges.py app/tests/test_billing_aggregation.py)",
+      "Bash(git commit -am ' *)"
     ]
   }
 }

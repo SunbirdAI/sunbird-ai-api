@@ -22,6 +22,8 @@ def resolve_range(
     this_month, last_month. 'custom' (or any explicit start/end) requires both
     `start` and `end`. Raises ValueError on invalid input.
     """
+    if range_name == "custom" and not (start and end):
+        raise ValueError("custom range requires both 'start' and 'end'")
     if range_name in (None, "", "custom") and (start or end):
         if not (start and end):
             raise ValueError("custom range requires both 'start' and 'end'")
