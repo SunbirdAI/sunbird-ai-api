@@ -63,8 +63,9 @@ from app.integrations.whatsapp_store import (
     upsert_user_memory_note,
 )
 from app.models.enums import SpeakerID
+from app.schemas.speech import SpeechRequest, TTSModel, TTSPlatform
 from app.services.inference_service import run_inference
-from app.services.orpheus_tts_service import get_orpheus_tts_service
+from app.services.speech_service import get_speech_service
 from app.services.tts_service import get_tts_service
 from app.services.whatsapp_service import get_whatsapp_service
 from app.utils.upload_audio_file_gcp import delete_audio_file, upload_audio_file
@@ -187,6 +188,8 @@ class ProcessingResult:
     post_template_name: str = ""
     resolved_target_language: str = "eng"
     user_message: str = ""
+    # Inbound WhatsApp message id this response should reply to (best-effort).
+    reply_to_message_id: str = ""
 
 
 def clear_processed_messages() -> None:
@@ -234,11 +237,12 @@ class OptimizedMessageProcessor:
             "made by Sunbird AI. You specialise in accurate translations, "
             "explanations, summaries and other cross-lingual tasks."
         )
-        self.valid_modes = {"chat", "translate", "transcribe"}
+        self.valid_modes = {"chat", "translate", "transcribe", "tts"}
         self.mode_labels = {
             "chat": "Chat",
             "translate": "Translate",
             "transcribe": "Transcribe",
+            "tts": "Speak (TTS)",
         }
         self.tts_speaker_by_language = {
             "ach": SpeakerID.ACHOLI_FEMALE,
@@ -253,7 +257,7 @@ class OptimizedMessageProcessor:
             "eng": SpeakerID.LUGANDA_FEMALE,
         }
 
-    async def process_message(
+    async def process_message(  # noqa: C901
         self,
         payload: Dict,
         from_number: str,
@@ -343,6 +347,11 @@ class OptimizedMessageProcessor:
 
             result.processing_time = time.time() - start_time
             result.resolved_target_language = target_language
+            # Best-effort reply context: let outbound replies thread to the
+            # inbound message that triggered them (set only if not already set
+            # by a handler).
+            if not result.reply_to_message_id:
+                result.reply_to_message_id = self._get_message_id(payload) or ""
             return result
 
         except Exception as e:
@@ -653,6 +662,7 @@ class OptimizedMessageProcessor:
                 transcription_data=transcription_data,
                 from_number=from_number,
                 phone_number_id=phone_number_id,
+                context_message_id=audio_message_id,
             )
             if not request_response:
                 return
@@ -939,6 +949,18 @@ class OptimizedMessageProcessor:
                     user_message=input_text,
                 )
 
+            if user_mode == "tts":
+                # Persistent TTS mode: speak the user's own text. Bypass the
+                # Sunflower model entirely; the text is echoed and voiced.
+                return ProcessingResult(
+                    input_text,
+                    ResponseType.TEXT,
+                    send_tts=True,
+                    should_save=False,
+                    post_template_name="welcome_message" if is_new_user else "",
+                    user_message=input_text,
+                )
+
             if user_mode == "translate":
                 translated_text = await self._generate_translation_response(
                     input_text, target_language
@@ -1127,6 +1149,19 @@ class OptimizedMessageProcessor:
             await self._set_user_mode_async(from_number, "transcribe")
             return ProcessingResult(
                 "✅ Mode switched to *Transcribe*.\nSend a voice note and I will return transcription only.",
+                ResponseType.TEXT,
+                should_save=False,
+            )
+        elif text_lower in [
+            "mode tts",
+            "tts mode",
+            "set mode tts",
+            "speak mode",
+        ]:
+            await self._set_user_mode_async(from_number, "tts")
+            return ProcessingResult(
+                "🔊 *TTS mode active.* Send any text and I'll send it back as "
+                "audio. Type *cancel* to exit.",
                 ResponseType.TEXT,
                 should_save=False,
             )
@@ -1488,8 +1523,13 @@ class OptimizedMessageProcessor:
         transcription_data: Dict,
         from_number: str,
         phone_number_id: str,
+        context_message_id: Optional[str] = None,
     ) -> Optional[Dict]:
-        """Run ASR with one retry and user notification on delay/failure."""
+        """Run ASR with one retry and user notification on delay/failure.
+
+        Delay/failure notices reply to the original audio message when
+        ``context_message_id`` is provided (best-effort).
+        """
         attempt_timeouts = [
             WHATSAPP_ASR_TIMEOUT_SECONDS,
             WHATSAPP_ASR_RETRY_TIMEOUT_SECONDS,
@@ -1520,6 +1560,7 @@ class OptimizedMessageProcessor:
                             "than expected, so I’m retrying now."
                         ),
                         phone_number_id=phone_number_id,
+                        context_message_id=context_message_id,
                     )
                     await asyncio.sleep(WHATSAPP_RETRY_DELAY_SECONDS)
                     continue
@@ -1531,6 +1572,7 @@ class OptimizedMessageProcessor:
                         "again with a shorter or clearer voice note."
                     ),
                     phone_number_id=phone_number_id,
+                    context_message_id=context_message_id,
                 )
                 return None
 
@@ -1587,16 +1629,27 @@ class OptimizedMessageProcessor:
     async def _generate_orpheus_wav_bytes(
         self, text: str, target_language: str
     ) -> bytes:
-        """Synthesize via Orpheus and return WAV bytes (downloaded from URL)."""
-        service = get_orpheus_tts_service()
-        speaker_id, language = await self._resolve_orpheus_speaker(
-            service, target_language
+        """Synthesize via the shared SpeechService (Orpheus) -> WAV bytes.
+
+        Reuses the same in-process service that powers POST /tasks/audio/speech
+        (no HTTP self-call). SpeechService owns speaker defaulting
+        (salt_lug_0001) and the Orpheus catalog. The returned signed WAV URL is
+        downloaded here so it can be converted to MP3 and uploaded to WhatsApp
+        (the WAV URL is never sent to WhatsApp directly).
+        """
+        speech_service = get_speech_service()
+        language = self._normalize_language_code(target_language)
+        # voice=None lets SpeechService apply its canonical default speaker
+        # (salt_lug_0001); an optional single override may be configured.
+        request = SpeechRequest(
+            text=text,
+            model=TTSModel.orpheus_3b_tts,
+            platform=TTSPlatform.modal,
+            language=language,
+            voice=settings.whatsapp_orpheus_default_speaker or None,
         )
-        result = await service.synthesize(
-            text=text, speaker_id=speaker_id, language=language
-        )
-        # Orpheus returns a signed URL to a WAV object; download the bytes so we
-        # can convert to MP3 before uploading to WhatsApp.
+        speech_service.validate_request(request)
+        result = await speech_service.synthesize(request)
         return await self._download_audio_bytes(result.audio_url)
 
     async def _download_audio_bytes(self, url: str) -> bytes:
@@ -1609,55 +1662,6 @@ class OptimizedMessageProcessor:
             resp = await client.get(url)
             resp.raise_for_status()
             return resp.content
-
-    async def _resolve_orpheus_speaker(
-        self, service, target_language: Optional[str]
-    ) -> tuple:
-        """Resolve (speaker_id, language) for Orpheus from config or catalog.
-
-        Resolution order: configured per-language speaker -> live /speakers
-        catalog (by language) -> catalog default -> configured default speaker.
-        Never raises for a missing per-language mapping; logs a safe warning.
-        """
-        code = self._normalize_language_code(target_language)
-        configured = settings.whatsapp_orpheus_speakers or {}
-
-        # 1. Explicit per-language configuration.
-        if code and code in configured:
-            return str(configured[code]), code
-
-        # 2. Live speaker catalog (fail-open if unavailable).
-        try:
-            catalog = await service.list_speakers()
-        except Exception as catalog_error:  # noqa: BLE001
-            logging.warning(
-                "Orpheus speaker catalog unavailable (%s); using configured default.",
-                catalog_error,
-            )
-            catalog = None
-
-        if catalog is not None:
-            by_language = getattr(catalog, "by_language", {}) or {}
-            for key in (code, (target_language or "").strip().lower()):
-                if key and by_language.get(key):
-                    return str(by_language[key][0]), key
-            if getattr(catalog, "default", ""):
-                logging.warning(
-                    "No Orpheus speaker mapped for language '%s'; using catalog "
-                    "default speaker.",
-                    target_language,
-                )
-                return str(catalog.default), None
-
-        # 3. Configured fallback default speaker.
-        if settings.whatsapp_orpheus_default_speaker:
-            logging.warning(
-                "Using configured Orpheus default speaker for language '%s'.",
-                target_language,
-            )
-            return str(settings.whatsapp_orpheus_default_speaker), None
-
-        raise RuntimeError("No Orpheus speaker available (catalog + config empty)")
 
     def _normalize_language_code(self, target_language: Optional[str]) -> Optional[str]:
         """Normalize a language code/name to a 3-letter code where possible."""
@@ -1706,8 +1710,13 @@ class OptimizedMessageProcessor:
         target_language: str,
         from_number: str,
         phone_number_id: str,
+        context_message_id: Optional[str] = None,
     ) -> None:
-        """Generate TTS audio for response text and send it through WhatsApp."""
+        """Generate TTS audio for response text and send it through WhatsApp.
+
+        When ``context_message_id`` is provided, the audio is sent as a reply to
+        that inbound message (best-effort).
+        """
         if not WHATSAPP_TTS_ENABLED:
             return
 
@@ -1775,6 +1784,7 @@ class OptimizedMessageProcessor:
                         audio=media_id,
                         link=False,
                         phone_number_id=phone_number_id,
+                        context_message_id=context_message_id,
                     )
                 )
                 if (send_audio_response or {}).get("error"):

@@ -1275,6 +1275,7 @@ class WhatsAppBusinessService(BaseService):
         message: Optional[str] = kwargs.get("message")
         phone_number_id: Optional[str] = kwargs.get("phone_number_id")
         preview_url: bool = kwargs.get("preview_url", True)
+        context_message_id: Optional[str] = kwargs.get("context_message_id")
 
         if args:
             if len(args) >= 4:
@@ -1301,6 +1302,7 @@ class WhatsAppBusinessService(BaseService):
             str(message),
             preview_url=preview_url,
             phone_number_id=phone_number_id,
+            context_message_id=context_message_id,
         )
 
     def send_button(
@@ -1308,6 +1310,7 @@ class WhatsAppBusinessService(BaseService):
         recipient_id: str,
         button: Dict[str, Any],
         phone_number_id: Optional[str] = None,
+        context_message_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Send an interactive button (convenience wrapper).
 
@@ -1315,12 +1318,16 @@ class WhatsAppBusinessService(BaseService):
             recipient_id: Recipient's phone number.
             button: Button configuration.
             phone_number_id: Override phone number ID.
+            context_message_id: Optional inbound message id to reply to.
 
         Returns:
             API response.
         """
         return self.api_client.send_button(
-            recipient_id, button, phone_number_id=phone_number_id
+            recipient_id,
+            button,
+            phone_number_id=phone_number_id,
+            context_message_id=context_message_id,
         )
 
     def send_reply_button(
@@ -1340,6 +1347,7 @@ class WhatsAppBusinessService(BaseService):
         audio: str,
         link: bool = True,
         phone_number_id: Optional[str] = None,
+        context_message_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Send audio message by URL (link=True) or WhatsApp media ID (link=False)."""
         return self.api_client.send_audio(
@@ -1347,6 +1355,7 @@ class WhatsAppBusinessService(BaseService):
             audio=audio,
             link=link,
             phone_number_id=phone_number_id,
+            context_message_id=context_message_id,
         )
 
     def upload_media(

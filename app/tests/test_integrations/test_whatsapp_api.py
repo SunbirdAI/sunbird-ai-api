@@ -397,3 +397,68 @@ class TestAPIVersionConstants:
     def test_legacy_api_version(self) -> None:
         """Test legacy API version constant."""
         assert LEGACY_API_VERSION == "v12.0"
+
+
+class TestWhatsAppReplyContext:
+    """2C: optional reply context (Meta context.message_id)."""
+
+    def test_send_message_includes_context_when_provided(self) -> None:
+        client = WhatsAppAPIClient(token="t", phone_number_id="123")
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"messages": [{"id": "wamid.X"}]}
+        with patch("requests.post", return_value=mock_response) as mock_post:
+            client.send_message("123", "hi", context_message_id="wamid.IN")
+            body = mock_post.call_args.kwargs["json"]
+            assert body["context"] == {"message_id": "wamid.IN"}
+
+    def test_send_message_omits_context_when_not_provided(self) -> None:
+        client = WhatsAppAPIClient(token="t", phone_number_id="123")
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"messages": [{"id": "wamid.X"}]}
+        with patch("requests.post", return_value=mock_response) as mock_post:
+            client.send_message("123", "hi")
+            assert "context" not in mock_post.call_args.kwargs["json"]
+
+    def test_send_audio_includes_context_when_provided(self) -> None:
+        client = WhatsAppAPIClient(token="t", phone_number_id="123")
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"messages": [{"id": "wamid.A"}]}
+        with patch("requests.post", return_value=mock_response) as mock_post:
+            client.send_audio("123", "MID", link=False, context_message_id="wamid.IN")
+            body = mock_post.call_args.kwargs["json"]
+            assert body["context"] == {"message_id": "wamid.IN"}
+            assert body["audio"] == {"id": "MID"}
+
+    def test_contextual_send_message_falls_back_to_plain(self) -> None:
+        """A failed contextual send retries once without context."""
+        client = WhatsAppAPIClient(token="t", phone_number_id="123")
+        fail = MagicMock()
+        fail.status_code = 400
+        fail.text = "bad context"
+        ok = MagicMock()
+        ok.status_code = 200
+        ok.json.return_value = {"messages": [{"id": "wamid.OK"}]}
+        with patch("requests.post", side_effect=[fail, ok]) as mock_post:
+            result = client.send_message("123", "hi", context_message_id="stale")
+            assert result == "wamid.OK"
+            assert mock_post.call_count == 2
+            # First attempt had context, retry dropped it.
+            assert "context" in mock_post.call_args_list[0].kwargs["json"]
+            assert "context" not in mock_post.call_args_list[1].kwargs["json"]
+
+    def test_contextual_send_audio_falls_back_to_plain(self) -> None:
+        client = WhatsAppAPIClient(token="t", phone_number_id="123")
+        fail = MagicMock()
+        fail.status_code = 400
+        fail.text = "bad context"
+        ok = MagicMock()
+        ok.status_code = 200
+        ok.json.return_value = {"messages": [{"id": "wamid.OK"}]}
+        with patch("requests.post", side_effect=[fail, ok]) as mock_post:
+            client.send_audio("123", "MID", link=False, context_message_id="stale")
+            assert mock_post.call_count == 2
+            assert "context" in mock_post.call_args_list[0].kwargs["json"]
+            assert "context" not in mock_post.call_args_list[1].kwargs["json"]
