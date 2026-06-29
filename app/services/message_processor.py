@@ -9,7 +9,7 @@ Architecture:
     The processor integrates with multiple services:
     - WhatsApp API for sending/receiving messages
     - RunPod for audio transcription
-    - UG40 inference for language model responses
+    - Sunflower inference for language model responses
     - User preference storage for personalization
 
 Usage:
@@ -36,6 +36,7 @@ import os
 import re
 import tempfile
 import time
+from collections import Counter
 from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, Optional, Set
@@ -84,6 +85,40 @@ WHATSAPP_ASR_RETRY_TIMEOUT_SECONDS = int(
     os.getenv("WHATSAPP_ASR_RETRY_TIMEOUT_SECONDS", "240")
 )
 WHATSAPP_RETRY_DELAY_SECONDS = float(os.getenv("WHATSAPP_RETRY_DELAY_SECONDS", "2"))
+
+# Output-safety guards (endpoint-independent; do not rely on max_tokens).
+# Final WhatsApp text is capped well under WhatsApp's 4096-char limit.
+WHATSAPP_MAX_RESPONSE_CHARS = int(os.getenv("WHATSAPP_MAX_RESPONSE_CHARS", "3500"))
+# A short token/line/emoji repeated at least this many times is treated as a
+# degenerate (looping) generation.
+WHATSAPP_REPETITION_THRESHOLD = int(os.getenv("WHATSAPP_REPETITION_THRESHOLD", "6"))
+
+# Friendly fallback shown instead of corrupted/looping/empty model output.
+CORRUPTED_OUTPUT_FALLBACK = (
+    "I had trouble putting that response together. Please try rephrasing, "
+    "or type *menu* to see what I can do. 🌻"
+)
+# Friendly message for empty / symbol-only / non-language input.
+LOW_VALUE_INPUT_MESSAGE = (
+    "I didn't catch a clear message there. Please send some text or a voice "
+    "note, or type *menu* to see what I can do. 🌻"
+)
+
+# Sanitization patterns for chat-template / role scaffolding that can leak from
+# the model. Kept deliberately conservative so legitimate prose that merely
+# contains the words "user"/"assistant" (with normal spacing) is preserved.
+_SPECIAL_TOKEN_RE = re.compile(r"<\|[^|>]*\|>")
+# Two or more role words glued together with no separator (e.g. "assistantuser",
+# "assistantassistant"). Single, space-separated occurrences are NOT matched.
+_GLUED_ROLE_RE = re.compile(r"(?i)(?:assistant|user|system){2,}")
+# A mode label glued directly onto role word(s) (e.g. "Translateuser",
+# "Translateassistantuser"). Requires no separating space, so "translate the
+# user's text" is preserved.
+_MODE_GLUE_RE = re.compile(
+    r"(?i)(?:translate|chat|transcribe)(?:assistant|user|system)+"
+)
+# A whole line that is only a role label, optionally with a trailing colon.
+_STANDALONE_ROLE_LINE_RE = re.compile(r"(?im)^\s*(?:assistant|user|system)\s*:?\s*$")
 
 # Initialize services
 whatsapp_service = get_whatsapp_service()
@@ -461,7 +496,7 @@ class OptimizedMessageProcessor:
         """
         # Start background processing immediately
         asyncio.create_task(
-            self._handle_audio_with_ug40_background(
+            self._handle_audio_with_sunflower_background(
                 payload,
                 target_language,
                 from_number,
@@ -478,7 +513,7 @@ class OptimizedMessageProcessor:
             should_save=False,
         )
 
-    async def _handle_audio_with_ug40_background(  # noqa: C901
+    async def _handle_audio_with_sunflower_background(  # noqa: C901
         self,
         payload: Dict,
         target_language: str,
@@ -496,7 +531,7 @@ class OptimizedMessageProcessor:
         3. Validate audio
         4. Upload to cloud storage
         5. Transcribe with RunPod
-        6. Process with UG40 language model
+        6. Process with Sunflower language model
         7. Send response
 
         Args:
@@ -716,7 +751,7 @@ class OptimizedMessageProcessor:
                 return
 
             try:
-                logging.info(f"Sending to UG40 for processing: {transcribed_text}")
+                logging.info(f"Sending to Sunflower for processing: {transcribed_text}")
                 conversation_pairs = await get_user_conversation_pairs(
                     from_number, limit_pairs=10
                 )
@@ -740,10 +775,10 @@ class OptimizedMessageProcessor:
                     memory_note=memory_note,
                 )
 
-                logging.info(f"UG40 Messages: {messages}")
-                response = await self._call_ug40_optimized(messages)
+                logging.info(f"Sunflower Messages: {messages}")
+                response = await self._call_sunflower(messages)
                 final_response = self._clean_response(response)
-                logging.info(f"Final UG40 Response: {final_response}")
+                logging.info(f"Final Sunflower Response: {final_response}")
                 if final_response:
                     response_message_id = whatsapp_service.send_message(
                         recipient_id=from_number,
@@ -775,8 +810,8 @@ class OptimizedMessageProcessor:
                         phone_number_id=phone_number_id,
                     )
 
-            except Exception as ug40_error:
-                logging.error(f"UG40 processing error: {str(ug40_error)}")
+            except Exception as sunflower_error:
+                logging.error(f"Sunflower processing error: {str(sunflower_error)}")
                 whatsapp_service.send_message(
                     recipient_id=from_number,
                     message=(
@@ -880,6 +915,17 @@ class OptimizedMessageProcessor:
                     from_number,
                 )
 
+            # Input guard: empty / whitespace / symbol-only / emoji-only /
+            # non-language input must not reach the model (UAT CF-003, CF-004).
+            if self._is_low_value_input(input_text):
+                return ProcessingResult(
+                    LOW_VALUE_INPUT_MESSAGE,
+                    ResponseType.TEXT,
+                    should_save=False,
+                    post_template_name="welcome_message" if is_new_user else "",
+                    user_message=input_text,
+                )
+
             if user_mode == "transcribe":
                 return ProcessingResult(
                     "📝 *Transcribe mode is active.* Send a voice note and I will "
@@ -930,12 +976,14 @@ class OptimizedMessageProcessor:
                 memory_note=memory_note,
             )
 
-            response = await self._call_ug40_optimized(messages)
+            response = await self._call_sunflower(messages)
             response_content = self._clean_response(response)
 
             send_tts_for_response = response_content not in {
                 "I'm having technical difficulties. \n\n Please try again.",
                 "I'm running a bit slow right now. \n\n Please try again.",
+                CORRUPTED_OUTPUT_FALLBACK,
+                LOW_VALUE_INPUT_MESSAGE,
             }
             return ProcessingResult(
                 response_content,
@@ -975,13 +1023,61 @@ class OptimizedMessageProcessor:
             ProcessingResult if command matched, None otherwise.
         """
         text_lower = input_text.lower().strip()
+        # Normalize punctuation-trimmed form for greeting matching (e.g. "hi!").
+        text_compact = re.sub(r"[^\w\s]", "", text_lower).strip()
 
-        # Greeting messages should continue to normal model processing.
-        if text_lower in ["hello", "hi", "hey", "hola", "greetings"]:
-            return None
+        # Deterministic greeting handling (English + common Luganda greetings).
+        # Returning a fixed, friendly reply avoids routing bare greetings to the
+        # model, which previously produced runaway "Hello!" loops (UAT CF-002).
+        greetings = {
+            "hello",
+            "hi",
+            "hey",
+            "hola",
+            "greetings",
+            "yo",
+            "good morning",
+            "good afternoon",
+            "good evening",
+            "wasuze otya",
+            "wasuze otya nno",
+            "oli otya",
+            "oli otya nno",
+            "ssebo",
+            "nyabo",
+            "webale",
+        }
+        if text_lower in greetings or text_compact in greetings:
+            return ProcessingResult(
+                self._get_greeting_text(sender_name),
+                ResponseType.TEXT,
+                should_save=False,
+            )
 
-        # Most common commands - return immediately without UG40 calls
-        elif text_lower in ["help", "commands"]:
+        # Navigation / recovery commands (UAT CF-005): never fall through to the
+        # model.
+        if text_lower in ["menu", "start", "main menu", "options"]:
+            return ProcessingResult(
+                self._get_menu_text(), ResponseType.TEXT, should_save=False
+            )
+        if text_lower in ["start over", "restart", "reset", "start again"]:
+            await self._set_user_mode_async(from_number, "chat")
+            return ProcessingResult(
+                "🔄 Okay, let's start over. You're back in *Chat* mode.\n\n"
+                + self._get_menu_text(),
+                ResponseType.TEXT,
+                should_save=False,
+            )
+        if text_lower in ["cancel", "stop", "exit", "quit"]:
+            await self._set_user_mode_async(from_number, "chat")
+            return ProcessingResult(
+                "✅ Cancelled. You're back in *Chat* mode. Type *menu* for options.",
+                ResponseType.TEXT,
+                should_save=False,
+            )
+
+        # Most common commands - return immediately without model calls
+        if text_lower in ["help", "commands"]:
             return ProcessingResult(self._get_help_text(), ResponseType.TEXT)
         elif text_lower == "status":
             return ProcessingResult(
@@ -1113,7 +1209,7 @@ class OptimizedMessageProcessor:
         return messages
 
     def _build_compact_retry_messages(self, messages: list) -> list:
-        """Build a minimal prompt for UG40 retry when full context fails."""
+        """Build a minimal prompt for Sunflower retry when full context fails."""
         if not messages:
             return []
 
@@ -1135,9 +1231,11 @@ class OptimizedMessageProcessor:
         )
 
         compact_messages = [
-            first_system
-            if first_system
-            else {"role": "system", "content": self.system_message}
+            (
+                first_system
+                if first_system
+                else {"role": "system", "content": self.system_message}
+            )
         ]
 
         if last_user:
@@ -1156,8 +1254,8 @@ class OptimizedMessageProcessor:
 
         return compact_messages
 
-    async def _call_ug40_optimized(self, messages: list) -> Dict:
-        """Call UG40 language model with optimized settings.
+    async def _call_sunflower(self, messages: list) -> Dict:
+        """Call Sunflower language model with optimized settings.
 
         Args:
             messages: List of message dicts for the model.
@@ -1167,14 +1265,14 @@ class OptimizedMessageProcessor:
         """
         try:
             logging.info(
-                f"Calling UG40 model with optimized settings. Messages: {messages}"
+                f"Calling Sunflower model with optimized settings. Messages: {messages}"
             )
             response = await asyncio.to_thread(
-                run_inference, messages=messages, model_type="qwen"
+                run_inference, messages=messages, model_type="sunflower"
             )
             return response
         except asyncio.TimeoutError:
-            logging.error("UG40 call timed out")
+            logging.error("Sunflower call timed out")
             return {
                 "content": "I'm running a bit slow right now. \n\n Please try again."
             }
@@ -1195,7 +1293,7 @@ class OptimizedMessageProcessor:
                 compact_messages = self._build_compact_retry_messages(messages)
                 if compact_messages and compact_messages != messages:
                     logging.warning(
-                        "UG40 call failed (%s). Retrying with compact context (%s -> %s messages).",
+                        "Sunflower call failed (%s). Retrying with compact context (%s -> %s messages).",
                         e,
                         len(messages),
                         len(compact_messages),
@@ -1204,34 +1302,116 @@ class OptimizedMessageProcessor:
                         return await asyncio.to_thread(
                             run_inference,
                             messages=compact_messages,
-                            model_type="qwen",
+                            model_type="sunflower",
                         )
                     except Exception as compact_retry_error:
                         logging.error(
-                            "UG40 compact-context retry failed: %s",
+                            "Sunflower compact-context retry failed: %s",
                             compact_retry_error,
                         )
 
-            logging.error(f"UG40 call error: {e}")
+            logging.error(f"Sunflower call error: {e}")
             return {
                 "content": "I'm having technical difficulties. \n\n Please try again."
             }
 
-    def _clean_response(self, ug40_response: Dict) -> str:
-        """Clean and validate response from the language model.
+    def _sanitize_model_output(self, text: str) -> str:
+        """Remove leaked chat-template / role scaffolding from model output.
+
+        Conservative: only strips special tokens, role labels glued together
+        (e.g. "assistantuser"), mode labels glued onto role words (e.g.
+        "Translateuser"), and lines that are nothing but a role label. Normal
+        prose that merely contains the words "user"/"assistant" is preserved.
+        """
+        if not text:
+            return ""
+        cleaned = _SPECIAL_TOKEN_RE.sub(" ", text)
+        cleaned = _MODE_GLUE_RE.sub(" ", cleaned)
+        cleaned = _GLUED_ROLE_RE.sub(" ", cleaned)
+        cleaned = _STANDALONE_ROLE_LINE_RE.sub("", cleaned)
+        cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
+        cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+        return cleaned.strip()
+
+    def _has_scaffold_markers(self, text: str) -> bool:
+        """True if the raw text contains chat-template / role scaffolding."""
+        return bool(
+            _SPECIAL_TOKEN_RE.search(text)
+            or _GLUED_ROLE_RE.search(text)
+            or _MODE_GLUE_RE.search(text)
+        )
+
+    def _detect_repetition(
+        self, text: str, threshold: int = WHATSAPP_REPETITION_THRESHOLD
+    ) -> bool:
+        """Detect degenerate, looping output (repeated tokens/emoji/phrases)."""
+        if not text:
+            return False
+        # Same character/emoji repeated many times (e.g. "🌍🌍🌍…").
+        if re.search(r"(.)\1{" + str(max(threshold * 3, 9)) + r",}", text):
+            return True
+        tokens = text.split()
+        if len(tokens) >= threshold:
+            # Longest run of identical consecutive tokens.
+            max_run = run = 1
+            for i in range(1, len(tokens)):
+                if tokens[i] == tokens[i - 1]:
+                    run += 1
+                    max_run = max(max_run, run)
+                else:
+                    run = 1
+            if max_run >= threshold:
+                return True
+            # A single short token dominating the output (e.g. "Hello!" x N).
+            most_common, count = Counter(tokens).most_common(1)[0]
+            if (
+                count >= threshold
+                and len(most_common) <= 20
+                and count / len(tokens) >= 0.5
+            ):
+                return True
+        return False
+
+    def _clean_response(self, response_dict: Dict) -> str:
+        """Clean, validate, and guard response from the language model.
+
+        Applies endpoint-independent safety guards (no reliance on max_tokens):
+        sanitizes leaked scaffolding, detects looping output, caps length, and
+        falls back to a friendly message when output is empty/corrupted.
 
         Args:
-            ug40_response: Response dict from UG40.
+            response_dict: Response dict from the Sunflower model.
 
         Returns:
-            Cleaned response string.
+            Safe response string (possibly the friendly fallback).
         """
-        content = ug40_response.get("content", "").strip()
+        raw = (response_dict.get("content") or "").strip()
+        if not raw:
+            return CORRUPTED_OUTPUT_FALLBACK
 
-        if not content:
-            return "I'm having trouble understanding. Could you please rephrase?"
+        sanitized = self._sanitize_model_output(raw)
 
-        return content
+        # Pure-scaffolding junk: markers were present and little usable text
+        # remains after stripping them.
+        if self._has_scaffold_markers(raw) and len(sanitized) < 8:
+            logging.warning(
+                "Sunflower output flagged as corrupted scaffolding; using fallback."
+            )
+            return CORRUPTED_OUTPUT_FALLBACK
+
+        if not sanitized:
+            return CORRUPTED_OUTPUT_FALLBACK
+
+        if self._detect_repetition(sanitized):
+            logging.warning(
+                "Sunflower output flagged as repetitive/looping; using fallback."
+            )
+            return CORRUPTED_OUTPUT_FALLBACK
+
+        if len(sanitized) > WHATSAPP_MAX_RESPONSE_CHARS:
+            sanitized = sanitized[:WHATSAPP_MAX_RESPONSE_CHARS].rstrip() + "…"
+
+        return sanitized
 
     async def _generate_translation_response(
         self, input_text: str, target_language: str
@@ -1251,7 +1431,7 @@ class OptimizedMessageProcessor:
             },
             {"role": "user", "content": input_text},
         ]
-        response = await self._call_ug40_optimized(translate_messages)
+        response = await self._call_sunflower(translate_messages)
         return self._clean_response(response)
 
     async def _run_asr_with_retry(
@@ -1519,7 +1699,7 @@ class OptimizedMessageProcessor:
             ]
 
             summary_response = await asyncio.to_thread(
-                lambda: run_inference(messages=memory_prompt, model_type="qwen")
+                lambda: run_inference(messages=memory_prompt, model_type="sunflower")
             )
             memory_note = self._clean_response(summary_response)
             if memory_note:
@@ -1557,6 +1737,18 @@ class OptimizedMessageProcessor:
             return "chat"
         normalized = str(mode).strip().lower()
         return normalized if normalized in self.valid_modes else "chat"
+
+    def _is_low_value_input(self, text: str) -> bool:
+        """True for empty, whitespace-only, symbol-only, or emoji-only input.
+
+        Such input should never reach the model. Requires at least two
+        alphanumeric word characters (any script) to be treated as real input.
+        """
+        stripped = (text or "").strip()
+        if not stripped:
+            return True
+        alnum = re.sub(r"[\W_]", "", stripped, flags=re.UNICODE)
+        return len(alnum) < 2
 
     async def _set_default_preference_async(self, from_number: str) -> None:
         """Set default user preference asynchronously.
@@ -2171,6 +2363,34 @@ class OptimizedMessageProcessor:
         }
 
     # Text generators for commands
+    def _get_greeting_text(self, sender_name: str) -> str:
+        """Get a short, friendly greeting that guides the user to actions.
+
+        Deterministic (no model call) to avoid greeting-triggered loops.
+        """
+        name = (sender_name or "there").split()[0] if sender_name else "there"
+        return (
+            f"👋 Hello {name}! I'm *Sunflower* by Sunbird AI. I can help you:\n"
+            "• *Translate* between English and Ugandan languages\n"
+            "• *Transcribe* voice notes\n"
+            "• *Chat* and answer questions\n\n"
+            "Send me text or a voice note to begin, or type *menu* for options."
+        )
+
+    def _get_menu_text(self) -> str:
+        """Get the main menu / quick-actions text."""
+        return (
+            "*🌻 Sunflower — Main Menu*\n\n"
+            "• *help* – show all commands\n"
+            "• *languages* – supported languages\n"
+            "• *set language* – choose your language\n"
+            "• *mode* – switch Chat / Translate / Transcribe\n"
+            "• *voice* – turn voice replies on/off\n"
+            "• *status* – your current settings\n"
+            "• *cancel* / *start over* – reset the conversation\n\n"
+            "Or just send text or a voice note to begin."
+        )
+
     def _get_help_text(self) -> str:
         """Get help text for the help command.
 

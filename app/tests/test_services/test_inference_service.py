@@ -79,6 +79,49 @@ class TestInferenceServiceInitialization:
                 # Should warn about missing config
                 assert mock_log_warning.call_count >= 1
 
+    def test_sunflower_and_qwen_aliases_share_endpoint(self) -> None:
+        """Both model_type keys resolve to the same Sunflower endpoint config."""
+        service = InferenceService(runpod_api_key="k", sunflower_endpoint_id="EP-123")
+        assert "sunflower" in service.endpoints
+        assert "qwen" in service.endpoints
+        assert (
+            service.endpoints["sunflower"]["endpoint_id"]
+            == service.endpoints["qwen"]["endpoint_id"]
+            == "EP-123"
+        )
+        assert service.endpoints["sunflower"]["model_name"] == "Sunbird/Sunflower-14B"
+
+    def test_sunflower_endpoint_id_preferred_over_qwen(self) -> None:
+        """SUNFLOWER_ENDPOINT_ID wins over the legacy QWEN_ENDPOINT_ID."""
+        with patch.dict(
+            "os.environ",
+            {
+                "RUNPOD_API_KEY": "k",
+                "SUNFLOWER_ENDPOINT_ID": "new-ep",
+                "QWEN_ENDPOINT_ID": "legacy-ep",
+            },
+        ):
+            service = InferenceService()
+        assert service.sunflower_endpoint_id == "new-ep"
+
+    def test_falls_back_to_qwen_endpoint_id(self) -> None:
+        """When only QWEN_ENDPOINT_ID is set, it is used (backward compat)."""
+        with patch.dict(
+            "os.environ",
+            {"RUNPOD_API_KEY": "k", "QWEN_ENDPOINT_ID": "legacy-ep"},
+            clear=True,
+        ):
+            service = InferenceService()
+        assert service.sunflower_endpoint_id == "legacy-ep"
+        # Legacy attribute alias still exposed.
+        assert service.qwen_endpoint_id == "legacy-ep"
+
+    def test_legacy_qwen_endpoint_id_kwarg_still_works(self) -> None:
+        """Constructing with the legacy kwarg keeps working."""
+        service = InferenceService(qwen_endpoint_id="kw-ep")
+        assert service.sunflower_endpoint_id == "kw-ep"
+        assert service.endpoints["qwen"]["endpoint_id"] == "kw-ep"
+
 
 class TestPydanticModels:
     """Tests for Pydantic request/response models."""
