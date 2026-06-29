@@ -2,7 +2,7 @@
 Inference Service Module.
 
 This module provides the InferenceService class for running language model
-inference using the Sunflower/UG40 models via RunPod's serverless API.
+inference using the Sunflower model via RunPod's serverless API.
 
 Architecture:
     The service wraps the RunPod API with:
@@ -34,7 +34,7 @@ Usage:
     )
 
 Note:
-    This module was consolidated from app/inference_services/ug40_inference.py
+    This module was consolidated from the legacy inference services module
     as part of the services layer refactoring.
 """
 
@@ -452,8 +452,8 @@ def exponential_backoff_retry(
 class InferenceService(BaseService):
     """Service for running language model inference.
 
-    This service provides methods for running inference using the Sunflower/UG40
-    language models via RunPod's serverless API. It includes automatic retry
+    This service provides methods for running inference using the Sunflower
+    language model via RunPod's serverless API. It includes automatic retry
     logic with exponential backoff for transient failures.
 
     Attributes:
@@ -480,30 +480,50 @@ class InferenceService(BaseService):
         self,
         runpod_api_key: Optional[str] = None,
         qwen_endpoint_id: Optional[str] = None,
+        sunflower_endpoint_id: Optional[str] = None,
     ) -> None:
         """Initialize the inference service.
 
         Args:
             runpod_api_key: RunPod API key. Defaults to RUNPOD_API_KEY env var.
-            qwen_endpoint_id: Qwen endpoint ID. Defaults to QWEN_ENDPOINT_ID env var.
+            sunflower_endpoint_id: Sunflower endpoint ID. Defaults to the
+                SUNFLOWER_ENDPOINT_ID env var, falling back to QWEN_ENDPOINT_ID.
+            qwen_endpoint_id: Deprecated alias for ``sunflower_endpoint_id``,
+                kept for backward compatibility.
         """
         super().__init__()
 
         self.runpod_api_key = runpod_api_key or os.getenv("RUNPOD_API_KEY")
-        self.qwen_endpoint_id = qwen_endpoint_id or os.getenv("QWEN_ENDPOINT_ID")
+        # Prefer the new SUNFLOWER_ENDPOINT_ID; fall back to the legacy
+        # QWEN_ENDPOINT_ID so existing production environments keep working.
+        self.sunflower_endpoint_id = (
+            sunflower_endpoint_id
+            or qwen_endpoint_id
+            or os.getenv("SUNFLOWER_ENDPOINT_ID")
+            or os.getenv("QWEN_ENDPOINT_ID")
+        )
+        # Backward-compatible attribute alias (some callers/tests read this).
+        self.qwen_endpoint_id = self.sunflower_endpoint_id
 
+        # Single shared config; expose under both the canonical "sunflower"
+        # key and the legacy "qwen" alias so existing internal routes and
+        # OpenAI-compatible clients that send model="qwen" keep working.
+        sunflower_config = {
+            "endpoint_id": self.sunflower_endpoint_id,
+            "model_name": "Sunbird/Sunflower-14B",
+        }
         self.endpoints = {
-            "qwen": {
-                "endpoint_id": self.qwen_endpoint_id,
-                "model_name": "Sunbird/Sunflower-14B",
-            },
+            "sunflower": sunflower_config,
+            "qwen": sunflower_config,
         }
 
         if not self.runpod_api_key:
             self.log_warning("RUNPOD_API_KEY not configured")
 
-        if not self.qwen_endpoint_id:
-            self.log_warning("QWEN_ENDPOINT_ID not configured")
+        if not self.sunflower_endpoint_id:
+            self.log_warning(
+                "SUNFLOWER_ENDPOINT_ID (or legacy QWEN_ENDPOINT_ID) not configured"
+            )
 
     def _get_client(self, model_type: str = "qwen") -> OpenAI:
         """Get an OpenAI client configured for the specified model.
@@ -977,10 +997,10 @@ def run_inference(
     custom_system_message: Optional[str] = None,
     messages: Optional[List[Dict[str, str]]] = None,
 ) -> Dict[str, Any]:
-    """Run inference using the UG40 model via RunPod (standalone function).
+    """Run inference using the Sunflower model via RunPod (standalone function).
 
     This function provides backward compatibility with the original
-    ug40_inference module. For new code, prefer using the InferenceService class.
+    inference module. For new code, prefer using the InferenceService class.
 
     The retry logic is handled by the InferenceService.run_inference method,
     so this function does not need its own retry decorator.
