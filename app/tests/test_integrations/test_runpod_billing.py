@@ -88,3 +88,12 @@ async def test_fetch_records_raises_provider_unavailable_on_http_error(monkeypat
     ):
         with pytest.raises(ProviderUnavailable):
             await provider.fetch_records(_query())
+
+
+async def test_fetch_records_raises_on_http_4xx(monkeypatch):
+    monkeypatch.setenv("RUNPOD_API_KEY", "test-key")
+    provider = RunpodAnalyticsProvider()
+    mock_resp = httpx.Response(401, json={"error": "Unauthorized"})
+    with patch.object(provider, "_request", AsyncMock(return_value=mock_resp)):
+        with pytest.raises(ProviderUnavailable):
+            await provider.fetch_records(_query())

@@ -69,6 +69,7 @@ class RunpodAnalyticsProvider(AnalyticsProvider):
             params.append(("gpuTypeId", gpu))
         for dc in query.data_center_ids or []:
             params.append(("dataCenterId", dc))
+        # Runpod billing API has no tag filter; ProviderQuery.tag_names is ignored here.
         return params
 
     @staticmethod
@@ -82,9 +83,7 @@ class RunpodAnalyticsProvider(AnalyticsProvider):
         # Last resort: ISO parse.
         return datetime.fromisoformat(value.replace("Z", "+00:00")).replace(tzinfo=None)
 
-    def _normalize(
-        self, rows: list[dict], grouping: Optional[str]
-    ) -> list[BillingRecord]:
+    def _normalize(self, rows: list[dict]) -> list[BillingRecord]:
         records: list[BillingRecord] = []
         for row in rows:
             gpu = row.get("gpuTypeId")
@@ -126,4 +125,4 @@ class RunpodAnalyticsProvider(AnalyticsProvider):
             ) from exc
         payload = resp.json()
         rows = payload if isinstance(payload, list) else payload.get("billingData", [])
-        return self._normalize(rows, query.grouping)
+        return self._normalize(rows)
