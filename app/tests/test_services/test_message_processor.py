@@ -227,7 +227,8 @@ class TestSunflowerGreetingsAndCommands:
             res = await self._cmd(g)
             assert res is not None
             assert res.response_type == ResponseType.TEXT
-            assert "Sunflower" in res.message
+            # Greeting guides the user to the menu / core capabilities.
+            assert "menu" in res.message.lower()
 
     @pytest.mark.asyncio
     async def test_luganda_greetings_deterministic(self) -> None:
@@ -338,15 +339,18 @@ class TestOrpheusViaSpeechService:
         assert req.model == mp.TTSModel.orpheus_3b_tts
         assert req.platform == mp.TTSPlatform.modal
         assert req.language == "lug"
+        # WhatsApp never sends a blind voice: SpeechService picks per language.
+        assert req.voice is None
         # WAV URL is downloaded, never returned for direct WhatsApp link send.
         proc._download_audio_bytes.assert_awaited_once_with("https://signed/a.wav")
 
     @pytest.mark.asyncio
-    async def test_default_speaker_left_to_speech_service(self, monkeypatch) -> None:
-        """No override configured -> voice is None so SpeechService applies
-        its canonical default (salt_lug_0001)."""
+    async def test_voice_is_none_for_language_aware_selection(
+        self, monkeypatch
+    ) -> None:
+        """WhatsApp passes voice=None so SpeechService selects by language
+        (English never gets the Luganda default)."""
         proc = OptimizedMessageProcessor()
-        monkeypatch.setattr(mp.settings, "whatsapp_orpheus_default_speaker", None)
         service = self._patch_speech_service(monkeypatch)
         monkeypatch.setattr(
             proc, "_download_audio_bytes", AsyncMock(return_value=b"WAV")
@@ -356,22 +360,24 @@ class TestOrpheusViaSpeechService:
 
         req = service.synthesize.await_args.args[0]
         assert req.voice is None
+        assert req.language == "eng"
 
     @pytest.mark.asyncio
-    async def test_optional_override_speaker_passed(self, monkeypatch) -> None:
+    async def test_language_codes_propagated(self, monkeypatch) -> None:
         proc = OptimizedMessageProcessor()
-        monkeypatch.setattr(
-            mp.settings, "whatsapp_orpheus_default_speaker", "salt_ach_0002"
-        )
         service = self._patch_speech_service(monkeypatch)
         monkeypatch.setattr(
             proc, "_download_audio_bytes", AsyncMock(return_value=b"WAV")
         )
-
-        await proc._generate_orpheus_wav_bytes("Hi", "ach")
-
-        req = service.synthesize.await_args.args[0]
-        assert req.voice == "salt_ach_0002"
+        for given, expected in [
+            ("eng", "eng"),
+            ("English", "eng"),
+            ("lug", "lug"),
+            ("Acholi", "ach"),
+        ]:
+            await proc._generate_orpheus_wav_bytes("Hi", given)
+            req = service.synthesize.await_args.args[0]
+            assert req.language == expected
 
 
 class TestOrpheusAudioDelivery:
@@ -683,3 +689,103 @@ class TestReplyContext:
         assert ws.send_message.call_count >= 1
         for call in ws.send_message.call_args_list:
             assert call.kwargs.get("context_message_id") == "wamid.AUDIO"
+
+
+class TestHelpAndDiscoveryText:
+    """2D: help/menu/mode/voice/status text surfaces TTS features."""
+
+    async def _cmd(self, text: str, mode: str = "chat", tts_enabled: bool = False):
+        proc = OptimizedMessageProcessor()
+        with patch(
+            "app.services.message_processor.save_user_mode", new=AsyncMock()
+        ), patch(
+            "app.services.message_processor.save_user_tts_enabled", new=AsyncMock()
+        ):
+            return await proc._handle_quick_commands(
+                input_text=text,
+                target_language="eng",
+                sender_name="John",
+                from_number="256700000001",
+                user_mode=mode,
+                tts_enabled=tts_enabled,
+            )
+
+    @pytest.mark.asyncio
+    async def test_help_mentions_tts_mode_and_oneoff_examples(self) -> None:
+        res = await self._cmd("help")
+        msg = res.message
+        assert "mode tts" in msg
+        assert "speak Welcome to Sunbird AI" in msg
+        assert "change Welcome to Sunbird AI to speech" in msg
+        assert "voice on" in msg and "voice off" in msg
+        assert "cancel" in msg and "menu" in msg
+        for m in ("mode chat", "mode translate", "mode transcribe"):
+            assert m in msg
+
+    @pytest.mark.asyncio
+    async def test_menu_mentions_speak_mode(self) -> None:
+        res = await self._cmd("menu")
+        msg = res.message.lower()
+        assert "mode tts" in msg or "speak" in msg
+
+    @pytest.mark.asyncio
+    async def test_mode_button_lists_modes_and_tts_hint(self) -> None:
+        res = await self._cmd("mode")
+        assert res.response_type == ResponseType.BUTTON
+        body = res.button_data["payload"]["body"]["text"].lower()
+        assert "chat" in body and "translate" in body and "transcribe" in body
+        assert "mode tts" in body  # Speak mode discoverable via command
+
+    @pytest.mark.asyncio
+    async def test_modes_alias_opens_mode_buttons(self) -> None:
+        res = await self._cmd("modes")
+        assert res is not None
+        assert res.response_type == ResponseType.BUTTON
+
+    @pytest.mark.asyncio
+    async def test_mode_tts_activates_tts_mode(self) -> None:
+        res = await self._cmd("mode tts")
+        assert res.response_type == ResponseType.TEXT
+        assert "TTS mode" in res.message
+
+    @pytest.mark.asyncio
+    async def test_voice_alone_explains_replies_and_oneoff(self) -> None:
+        res = await self._cmd("voice")
+        assert res.response_type == ResponseType.TEXT
+        msg = res.message.lower()
+        assert "voice on" in msg and "voice off" in msg
+        assert "voice <your text>" in msg or "voice welcome" in msg
+        assert "mode tts" in msg
+
+    @pytest.mark.asyncio
+    async def test_voice_on_still_toggles(self) -> None:
+        res = await self._cmd("voice on")
+        assert res.response_type == ResponseType.TEXT
+        assert "ON" in res.message
+        assert res.send_tts is False
+
+    @pytest.mark.asyncio
+    async def test_voice_off_still_toggles(self) -> None:
+        res = await self._cmd("voice off")
+        assert res.response_type == ResponseType.TEXT
+        assert "OFF" in res.message
+        assert res.send_tts is False
+
+    @pytest.mark.asyncio
+    async def test_voice_hello_routes_to_tts(self) -> None:
+        res = await self._cmd("voice hello")
+        assert res.send_tts is True
+        assert res.message == "hello"
+
+    def test_status_shows_tts_mode(self) -> None:
+        proc = OptimizedMessageProcessor()
+        text = proc._get_status_text("eng", "John", "tts", False)
+        assert "Speak (TTS)" in text
+        assert "mode" in text.lower()
+
+    def test_status_shows_voice_replies_state(self) -> None:
+        proc = OptimizedMessageProcessor()
+        on = proc._get_status_text("lug", "John", "chat", True)
+        off = proc._get_status_text("lug", "John", "chat", False)
+        assert "ON" in on
+        assert "OFF" in off
