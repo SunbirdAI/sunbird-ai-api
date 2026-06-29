@@ -356,6 +356,7 @@ async def webhook(  # noqa: C901
                     recipient_id=from_number,
                     message=result.message,
                     phone_number_id=phone_number_id,
+                    context_message_id=result.reply_to_message_id or None,
                 )
                 if not outbound_message_id:
                     raise RuntimeError("Failed to send WhatsApp text response")
@@ -374,6 +375,7 @@ async def webhook(  # noqa: C901
                         result.resolved_target_language,
                         from_number,
                         phone_number_id,
+                        result.reply_to_message_id or None,
                     )
                 if result.post_template_name:
                     background_tasks.add_task(

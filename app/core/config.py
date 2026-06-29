@@ -213,20 +213,13 @@ class Settings(BaseSettings):
         default="spark",
         description="WhatsApp TTS backend: 'spark' (default) or 'orpheus'.",
     )
-    whatsapp_orpheus_speakers: dict = Field(
-        default_factory=dict,
-        description=(
-            "Optional JSON map of language code -> Orpheus speaker id (string), "
-            'e.g. {"lug": "speaker_x", "eng": "speaker_y"}. When a '
-            "language is absent, the bot falls back to the live /speakers "
-            "catalog and finally the catalog default speaker."
-        ),
-    )
     whatsapp_orpheus_default_speaker: Optional[str] = Field(
         default=None,
         description=(
-            "Optional fallback Orpheus speaker id used when the /speakers "
-            "catalog is unavailable and no per-language speaker is configured."
+            "Optional single override for the WhatsApp Orpheus speaker id. When "
+            "unset, the shared SpeechService applies its canonical default "
+            "(salt_lug_0001). Speaker selection otherwise comes from the same "
+            "Orpheus catalog that powers GET /tasks/voice/speakers."
         ),
     )
 

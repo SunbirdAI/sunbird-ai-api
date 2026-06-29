@@ -191,6 +191,7 @@ class WhatsAppAPIClient:
         message: str,
         preview_url: bool = True,
         phone_number_id: Optional[str] = None,
+        context_message_id: Optional[str] = None,
     ) -> Optional[str]:
         """Send a text message to a WhatsApp user.
 
@@ -199,6 +200,10 @@ class WhatsAppAPIClient:
             message: Text message to send.
             preview_url: Whether to show URL previews.
             phone_number_id: Override phone number ID.
+            context_message_id: When set, sends the message as a reply to that
+                inbound message (Meta ``context.message_id``). Best-effort: if a
+                contextual send fails it is retried once without context so the
+                user still receives the message.
 
         Returns:
             Message ID if successful, None otherwise.
@@ -215,6 +220,8 @@ class WhatsAppAPIClient:
             "to": recipient_id,
             "text": {"preview_url": preview_url, "body": message},
         }
+        if context_message_id:
+            data["context"] = {"message_id": context_message_id}
 
         logger.info(f"Sending message to {recipient_id}")
         response = self._request("POST", legacy_url, headers=self.headers, json=data)
@@ -224,12 +231,27 @@ class WhatsAppAPIClient:
             message_id = response_json.get("messages", [{}])[0].get("id")
             logger.info(f"Message sent to {recipient_id} with ID: {message_id}")
             return message_id
-        else:
-            logger.error(f"Message not sent to {recipient_id}")
-            if response is not None:
-                logger.error(f"Status code: {response.status_code}")
-                logger.error(f"Response: {response.text}")
-            return None
+
+        # Best-effort: retry once without reply context (a stale/invalid
+        # context.message_id must never block delivery).
+        if context_message_id:
+            logger.warning(
+                "Contextual send to %s failed; retrying without reply context.",
+                recipient_id,
+            )
+            return self.send_message(
+                recipient_id,
+                message,
+                preview_url=preview_url,
+                phone_number_id=phone_number_id,
+                context_message_id=None,
+            )
+
+        logger.error(f"Message not sent to {recipient_id}")
+        if response is not None:
+            logger.error(f"Status code: {response.status_code}")
+            logger.error(f"Response: {response.text}")
+        return None
 
     def reply_to_message(
         self,
@@ -342,6 +364,7 @@ class WhatsAppAPIClient:
         audio: str,
         link: bool = True,
         phone_number_id: Optional[str] = None,
+        context_message_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Send an audio message.
 
@@ -350,31 +373,33 @@ class WhatsAppAPIClient:
             audio: Audio URL (if link=True) or media ID (if link=False).
             link: True for URL, False for media ID.
             phone_number_id: Override phone number ID.
+            context_message_id: When set, sends the audio as a reply to that
+                inbound message (Meta ``context.message_id``). Best-effort: a
+                failed contextual send is retried once without context.
 
         Returns:
             API response dictionary.
         """
         url = self._get_messages_url(phone_number_id, include_token=True)
 
-        if link:
-            data = {
-                "messaging_product": "whatsapp",
-                "to": recipient_id,
-                "type": "audio",
-                "audio": {"link": audio},
-            }
-        else:
-            data = {
-                "messaging_product": "whatsapp",
-                "to": recipient_id,
-                "type": "audio",
-                "audio": {"id": audio},
-            }
+        audio_obj = {"link": audio} if link else {"id": audio}
+        data = {
+            "messaging_product": "whatsapp",
+            "to": recipient_id,
+            "type": "audio",
+            "audio": audio_obj,
+        }
+        if context_message_id:
+            data["context"] = {"message_id": context_message_id}
 
         logger.info(f"Sending audio to {recipient_id}")
         response = self._request("POST", url, headers=self.headers, json=data)
 
         if response is None:
+            if context_message_id:
+                return self.send_audio(
+                    recipient_id, audio, link=link, phone_number_id=phone_number_id
+                )
             return {"error": {"message": "request_failed"}}
 
         if response.status_code == 200:
@@ -382,6 +407,15 @@ class WhatsAppAPIClient:
         else:
             logger.warning(f"Audio not sent to {recipient_id}")
             logger.error(f"Response: {response.text}")
+            # Best-effort: retry once without reply context.
+            if context_message_id:
+                logger.warning(
+                    "Contextual audio send to %s failed; retrying without context.",
+                    recipient_id,
+                )
+                return self.send_audio(
+                    recipient_id, audio, link=link, phone_number_id=phone_number_id
+                )
 
         return response.json()
 
@@ -627,6 +661,7 @@ class WhatsAppAPIClient:
         recipient_id: str,
         button: Dict[str, Any],
         phone_number_id: Optional[str] = None,
+        context_message_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Send an interactive list button message.
 
@@ -634,6 +669,7 @@ class WhatsAppAPIClient:
             recipient_id: Phone number with country code (no +).
             button: Button configuration with header, body, footer, and action.
             phone_number_id: Override phone number ID.
+            context_message_id: Optional inbound message id to reply to.
 
         Returns:
             API response dictionary.
@@ -663,6 +699,8 @@ class WhatsAppAPIClient:
             "type": "interactive",
             "interactive": interactive_data,
         }
+        if context_message_id:
+            data["context"] = {"message_id": context_message_id}
 
         logger.info(f"Sending button to {recipient_id}")
         response = self._request("POST", url, headers=self.headers, json=data)
