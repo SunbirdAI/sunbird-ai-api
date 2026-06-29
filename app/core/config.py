@@ -206,6 +206,30 @@ class Settings(BaseSettings):
         ),
     )
 
+    # WhatsApp TTS backend selection (Phase 2). Default keeps the existing
+    # SparkTTS behavior; set to "orpheus" to route WhatsApp voice replies
+    # through the Orpheus TTS service.
+    whatsapp_tts_backend: str = Field(
+        default="spark",
+        description="WhatsApp TTS backend: 'spark' (default) or 'orpheus'.",
+    )
+    whatsapp_orpheus_speakers: dict = Field(
+        default_factory=dict,
+        description=(
+            "Optional JSON map of language code -> Orpheus speaker id (string), "
+            'e.g. {"lug": "speaker_x", "eng": "speaker_y"}. When a '
+            "language is absent, the bot falls back to the live /speakers "
+            "catalog and finally the catalog default speaker."
+        ),
+    )
+    whatsapp_orpheus_default_speaker: Optional[str] = Field(
+        default=None,
+        description=(
+            "Optional fallback Orpheus speaker id used when the /speakers "
+            "catalog is unavailable and no per-language speaker is configured."
+        ),
+    )
+
     # Orpheus TTS Configuration (Modal-deployed vLLM inference)
     orpheus_modal_url: Optional[str] = Field(
         default=None,

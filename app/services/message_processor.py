@@ -41,11 +41,13 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, Optional, Set
 
+import httpx
 import runpod
 from dotenv import load_dotenv
 from pydub import AudioSegment
 from pydub.exceptions import CouldntDecodeError
 
+from app.core.config import settings
 from app.integrations.whatsapp_store import (
     get_user_conversation_pairs,
     get_user_memory_note,
@@ -62,6 +64,7 @@ from app.integrations.whatsapp_store import (
 )
 from app.models.enums import SpeakerID
 from app.services.inference_service import run_inference
+from app.services.orpheus_tts_service import get_orpheus_tts_service
 from app.services.tts_service import get_tts_service
 from app.services.whatsapp_service import get_whatsapp_service
 from app.utils.upload_audio_file_gcp import delete_audio_file, upload_audio_file
@@ -1169,6 +1172,51 @@ class OptimizedMessageProcessor:
                 should_save=False,
             )
 
+        # Explicit text-to-speech requests (UAT TTS-003/004): route straight to
+        # TTS and never to the Sunflower chat model. Checked last so it cannot
+        # shadow the exact-match voice/mode commands above.
+        explicit_tts_text = self._extract_explicit_tts_text(input_text)
+        if explicit_tts_text is not None:
+            spoken = explicit_tts_text.strip()
+            if not spoken:
+                return ProcessingResult(
+                    "What would you like me to say? For example: "
+                    "*speak Hello, how are you?*",
+                    ResponseType.TEXT,
+                    should_save=False,
+                )
+            # The text is shown and also voiced; send_tts triggers TTS delivery.
+            return ProcessingResult(
+                spoken,
+                ResponseType.TEXT,
+                send_tts=True,
+                should_save=False,
+            )
+
+        return None
+
+    def _extract_explicit_tts_text(self, input_text: str) -> Optional[str]:
+        """Extract the text from an explicit TTS command, else return None.
+
+        Supports: "speak <text>", "voice <text>", "read <text>",
+        "change <text> to speech", "convert <text> to speech".
+        Returns the text to speak (possibly empty if the command had no text),
+        or None when the message is not an explicit TTS command.
+        """
+        raw = (input_text or "").strip()
+        if not raw:
+            return None
+
+        prefix_match = re.match(r"(?is)^(?:speak|voice|read)\b\s*(.*)$", raw)
+        if prefix_match:
+            return prefix_match.group(1).strip()
+
+        wrap_match = re.match(
+            r"(?is)^(?:change|convert)\b\s+(.*?)\s+to\s+speech\b[.!]*$", raw
+        )
+        if wrap_match:
+            return wrap_match.group(1).strip()
+
         return None
 
     def _build_optimized_prompt(
@@ -1520,6 +1568,138 @@ class OptimizedMessageProcessor:
         )
         return SpeakerID.LUGANDA_FEMALE
 
+    async def _generate_tts_wav_bytes(self, text: str, target_language: str) -> bytes:
+        """Generate TTS audio as WAV bytes using the configured backend.
+
+        Default backend is SparkTTS; when WHATSAPP_TTS_BACKEND='orpheus', the
+        Orpheus service is used and its WAV output is downloaded (never sent to
+        WhatsApp by link).
+        """
+        backend = (settings.whatsapp_tts_backend or "spark").strip().lower()
+        if backend == "orpheus":
+            return await self._generate_orpheus_wav_bytes(text, target_language)
+        # Default / unknown values: keep the existing SparkTTS behavior.
+        if backend != "spark":
+            logging.warning("Unknown WHATSAPP_TTS_BACKEND %r; using SparkTTS.", backend)
+        speaker_id = self._resolve_tts_speaker_id(target_language, text)
+        return await get_tts_service().generate_audio(text, speaker_id)
+
+    async def _generate_orpheus_wav_bytes(
+        self, text: str, target_language: str
+    ) -> bytes:
+        """Synthesize via Orpheus and return WAV bytes (downloaded from URL)."""
+        service = get_orpheus_tts_service()
+        speaker_id, language = await self._resolve_orpheus_speaker(
+            service, target_language
+        )
+        result = await service.synthesize(
+            text=text, speaker_id=speaker_id, language=language
+        )
+        # Orpheus returns a signed URL to a WAV object; download the bytes so we
+        # can convert to MP3 before uploading to WhatsApp.
+        return await self._download_audio_bytes(result.audio_url)
+
+    async def _download_audio_bytes(self, url: str) -> bytes:
+        """Download audio bytes from a (signed) URL."""
+        timeout = httpx.Timeout(
+            settings.whatsapp_upload_timeout_seconds,
+            connect=settings.whatsapp_request_timeout_seconds,
+        )
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            resp = await client.get(url)
+            resp.raise_for_status()
+            return resp.content
+
+    async def _resolve_orpheus_speaker(
+        self, service, target_language: Optional[str]
+    ) -> tuple:
+        """Resolve (speaker_id, language) for Orpheus from config or catalog.
+
+        Resolution order: configured per-language speaker -> live /speakers
+        catalog (by language) -> catalog default -> configured default speaker.
+        Never raises for a missing per-language mapping; logs a safe warning.
+        """
+        code = self._normalize_language_code(target_language)
+        configured = settings.whatsapp_orpheus_speakers or {}
+
+        # 1. Explicit per-language configuration.
+        if code and code in configured:
+            return str(configured[code]), code
+
+        # 2. Live speaker catalog (fail-open if unavailable).
+        try:
+            catalog = await service.list_speakers()
+        except Exception as catalog_error:  # noqa: BLE001
+            logging.warning(
+                "Orpheus speaker catalog unavailable (%s); using configured default.",
+                catalog_error,
+            )
+            catalog = None
+
+        if catalog is not None:
+            by_language = getattr(catalog, "by_language", {}) or {}
+            for key in (code, (target_language or "").strip().lower()):
+                if key and by_language.get(key):
+                    return str(by_language[key][0]), key
+            if getattr(catalog, "default", ""):
+                logging.warning(
+                    "No Orpheus speaker mapped for language '%s'; using catalog "
+                    "default speaker.",
+                    target_language,
+                )
+                return str(catalog.default), None
+
+        # 3. Configured fallback default speaker.
+        if settings.whatsapp_orpheus_default_speaker:
+            logging.warning(
+                "Using configured Orpheus default speaker for language '%s'.",
+                target_language,
+            )
+            return str(settings.whatsapp_orpheus_default_speaker), None
+
+        raise RuntimeError("No Orpheus speaker available (catalog + config empty)")
+
+    def _normalize_language_code(self, target_language: Optional[str]) -> Optional[str]:
+        """Normalize a language code/name to a 3-letter code where possible."""
+        if not target_language:
+            return None
+        normalized = str(target_language).strip().lower()
+        known = {"lug", "ach", "teo", "lgg", "nyn", "eng", "swa"}
+        if normalized in known:
+            return normalized
+        alias_map = {
+            "luganda": "lug",
+            "acholi": "ach",
+            "ateso": "teo",
+            "lugbara": "lgg",
+            "runyankore": "nyn",
+            "runyankole": "nyn",
+            "english": "eng",
+            "swahili": "swa",
+        }
+        return alias_map.get(normalized, normalized or None)
+
+    def _normalize_text_for_tts(self, text: str) -> str:
+        """Conservative numeric normalization to reduce TTS mispronunciation.
+
+        - Removes thousands separators inside numbers (150,000 -> 150000).
+        - Spaces out long digit runs (phone numbers, >=7 digits) so they are
+          read digit-by-digit.
+        Names and other words are left untouched.
+        """
+        if not text:
+            return text
+
+        # 150,000 -> 150000 (only between digits).
+        normalized = re.sub(r"(?<=\d),(?=\d)", "", text)
+
+        def _space_digits(match: "re.Match") -> str:
+            return " ".join(match.group(0))
+
+        # Long digit runs (phone-number-like) -> spaced digits.
+        normalized = re.sub(r"\d{7,}", _space_digits, normalized)
+        return normalized
+
     async def send_tts_audio_response(  # noqa: C901
         self,
         response_text: str,
@@ -1539,8 +1719,11 @@ class OptimizedMessageProcessor:
         if len(clean_text) > WHATSAPP_TTS_MAX_CHARS:
             clean_text = clean_text[:WHATSAPP_TTS_MAX_CHARS].rstrip() + "..."
 
-        tts_service = get_tts_service()
-        speaker_id = self._resolve_tts_speaker_id(target_language, clean_text)
+        # Conservative pre-TTS normalization (phone numbers, currency, numbers).
+        clean_text = self._normalize_text_for_tts(clean_text)
+        if not clean_text:
+            return
+
         notified_retry = False
         max_attempts = 2
 
@@ -1549,7 +1732,12 @@ class OptimizedMessageProcessor:
             media_path = ""
             is_last_attempt = attempt_num == max_attempts
             try:
-                audio_bytes = await tts_service.generate_audio(clean_text, speaker_id)
+                # Backend-dispatched WAV generation (spark default, orpheus opt-in).
+                # Both backends yield WAV bytes that are converted to MP3 below;
+                # the Orpheus signed URL is never sent to WhatsApp directly.
+                audio_bytes = await self._generate_tts_wav_bytes(
+                    clean_text, target_language
+                )
 
                 with tempfile.NamedTemporaryFile(
                     delete=False, suffix=".wav"
