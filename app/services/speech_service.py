@@ -147,6 +147,48 @@ class SpeechService:
         if model == "spark-tts":
             self.resolve_spark_speaker(req.voice)
 
+    async def _resolve_orpheus_voice(
+        self, voice: Optional[str], language: Optional[str]
+    ) -> tuple[str, Optional[str]]:
+        """Resolve a (speaker_id, language) pair that is valid for Orpheus.
+
+        Resolution rules:
+        - An explicit ``voice`` is honored as-is (Orpheus validates the pair).
+        - Otherwise a speaker is chosen for the requested ``language`` from the
+          authoritative Orpheus catalog (``/speakers``).
+        - Luganda ('lug') or a missing/unknown language intentionally defaults
+          to ``DEFAULT_ORPHEUS_VOICE`` (salt_lug_0001, a Luganda voice).
+        - A known, non-Luganda language with no catalog speaker (or an
+          unreachable catalog) raises ``BadRequestError`` so callers surface a
+          friendly fallback instead of sending an invalid speaker/language pair
+          (which Orpheus rejects with 'invalid_speaker_for_language').
+        """
+        if voice:
+            return voice, language
+
+        norm = (language or "").strip().lower() or None
+        # Intentional Luganda default for Luganda or when language is unknown.
+        if norm in (None, "lug"):
+            return DEFAULT_ORPHEUS_VOICE, norm
+
+        try:
+            speakers = await self._orpheus.speakers_for_language(norm)
+        except BadRequestError:
+            # Unknown/unsupported language for the catalog.
+            raise
+        except Exception as exc:  # catalog unavailable, etc.
+            raise BadRequestError(
+                message=f"No voice available for language '{norm}'.",
+                details=[{"error_code": "no_speaker_for_language"}],
+            ) from exc
+
+        if speakers:
+            return speakers[0], norm
+        raise BadRequestError(
+            message=f"No voice available for language '{norm}'.",
+            details=[{"error_code": "no_speaker_for_language"}],
+        )
+
     async def synthesize(self, req: SpeechRequest) -> SpeechResult:
         """Dispatch a url-mode synthesis request and normalize the result.
 
@@ -156,12 +198,16 @@ class SpeechService:
         platform = req.platform.value
 
         if model == "orpheus-3b-tts":
+            speaker_id, resolved_language = await self._resolve_orpheus_voice(
+                req.voice, req.language
+            )
             kwargs: Dict[str, Any] = {
                 "text": req.text,
-                "speaker_id": req.voice or DEFAULT_ORPHEUS_VOICE,
+                "speaker_id": speaker_id,
             }
+            if resolved_language is not None:
+                kwargs["language"] = resolved_language
             for name, val in (
-                ("language", req.language),
                 ("seed", req.seed),
                 ("temperature", req.temperature),
                 ("top_p", req.top_p),
@@ -267,19 +313,23 @@ class SpeechService:
                     message=f"item index {i}: `text` is too long "
                     f"(max {ORPHEUS_MAX_TEXT} characters)."
                 )
-        items_payload = [
-            {
-                "text": item.text,
-                "speaker_id": item.voice or DEFAULT_ORPHEUS_VOICE,
-                "language": item.language,
-                "seed": item.seed,
-                "temperature": item.temperature,
-                "top_p": item.top_p,
-                "repetition_penalty": item.repetition_penalty,
-                "max_tokens": item.max_tokens,
-            }
-            for item in req.items
-        ]
+        items_payload = []
+        for item in req.items:
+            speaker_id, resolved_language = await self._resolve_orpheus_voice(
+                item.voice, item.language
+            )
+            items_payload.append(
+                {
+                    "text": item.text,
+                    "speaker_id": speaker_id,
+                    "language": resolved_language,
+                    "seed": item.seed,
+                    "temperature": item.temperature,
+                    "top_p": item.top_p,
+                    "repetition_penalty": item.repetition_penalty,
+                    "max_tokens": item.max_tokens,
+                }
+            )
         return await self._orpheus.synthesize_batch(items_payload)
 
     async def list_voices(

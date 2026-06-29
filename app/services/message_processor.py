@@ -1117,7 +1117,7 @@ class OptimizedMessageProcessor:
             return ProcessingResult(
                 "", ResponseType.TEMPLATE, template_name="choose_language"
             )
-        elif text_lower in ["mode", "switch mode", "change mode"]:
+        elif text_lower in ["mode", "modes", "switch mode", "change mode"]:
             return ProcessingResult(
                 "",
                 ResponseType.BUTTON,
@@ -1172,14 +1172,19 @@ class OptimizedMessageProcessor:
             "tts settings",
             "audio replies",
         ]:
+            voice_status = "ON" if tts_enabled else "OFF"
             return ProcessingResult(
-                "",
-                ResponseType.BUTTON,
+                "🔊 *Voice options*\n\n"
+                "*Hear my replies as audio:*\n"
+                "• *voice on* – I'll also send my answers as audio\n"
+                "• *voice off* – text only\n"
+                f"(currently *{voice_status}*)\n\n"
+                "*Say something now (one-off):*\n"
+                "• *voice <your text>* — e.g. *voice Welcome to Sunbird AI*\n\n"
+                "Tip: for *Speak mode*, where every message you send becomes "
+                "audio, type *mode tts*.",
+                ResponseType.TEXT,
                 should_save=False,
-                button_data={
-                    "interactive_type": "reply",
-                    "payload": self.create_tts_selection_reply_button(tts_enabled),
-                },
             )
         elif text_lower in [
             "voice on",
@@ -1632,21 +1637,23 @@ class OptimizedMessageProcessor:
         """Synthesize via the shared SpeechService (Orpheus) -> WAV bytes.
 
         Reuses the same in-process service that powers POST /tasks/audio/speech
-        (no HTTP self-call). SpeechService owns speaker defaulting
-        (salt_lug_0001) and the Orpheus catalog. The returned signed WAV URL is
-        downloaded here so it can be converted to MP3 and uploaded to WhatsApp
-        (the WAV URL is never sent to WhatsApp directly).
+        (no HTTP self-call). We pass ``voice=None`` so SpeechService selects a
+        speaker that matches the target language from the Orpheus catalog
+        (English uses an English voice, Luganda uses a Luganda voice, etc.).
+        The returned signed WAV URL is downloaded here so it can be converted
+        to MP3 and uploaded to WhatsApp (the WAV URL is never sent directly).
         """
         speech_service = get_speech_service()
         language = self._normalize_language_code(target_language)
-        # voice=None lets SpeechService apply its canonical default speaker
-        # (salt_lug_0001); an optional single override may be configured.
+        # voice=None => language-aware speaker selection in SpeechService.
+        # A blind global override is intentionally NOT used here so an
+        # English reply never gets paired with the Luganda default voice.
         request = SpeechRequest(
             text=text,
             model=TTSModel.orpheus_3b_tts,
             platform=TTSPlatform.modal,
             language=language,
-            voice=settings.whatsapp_orpheus_default_speaker or None,
+            voice=None,
         )
         speech_service.validate_request(request)
         result = await speech_service.synthesize(request)
@@ -2120,11 +2127,13 @@ class OptimizedMessageProcessor:
 
             elif selected_id == "row 3" and selected_title == "Start Chatting":
                 return ProcessingResult(
-                    f"Perfect {sender_name}! 🌻 I'm ready to help you with:\n\n"
-                    f"• Translations between Ugandan languages and English\n"
-                    f"• Audio transcription in local languages\n"
-                    f"• Language learning support\n\n"
-                    f"Just send me a message or audio to get started!",
+                    f"Perfect {sender_name}! 🌻 I can help you with:\n\n"
+                    f"• *Chat* and answer questions\n"
+                    f"• *Translate* between Ugandan languages and English\n"
+                    f"• *Transcribe* your voice notes\n"
+                    f"• *Speak* — turn text into audio (try *speak hello*)\n\n"
+                    f"Just send a message or voice note to get started, or type "
+                    f"*menu* for options!",
                     ResponseType.TEXT,
                     should_save=True,
                 )
@@ -2247,8 +2256,9 @@ class OptimizedMessageProcessor:
                     f"You can now:\n"
                     f"• Send messages in {language_name} or English\n"
                     f"• Ask me to translate to {language_name}\n"
-                    f"• Send audio in {language_name} for transcription\n\n"
-                    f"Just start typing or send an audio message! 🎤📝",
+                    f"• Send a voice note in {language_name} to transcribe\n"
+                    f"• Hear text as audio with *speak <text>* or *mode tts*\n\n"
+                    f"Just start typing or send a voice note! 🎤📝",
                     ResponseType.TEXT,
                     should_save=True,
                 )
@@ -2395,10 +2405,11 @@ class OptimizedMessageProcessor:
             "type": "button",
             "body": {
                 "text": (
-                    "Choose how I should handle your next messages:\n"
-                    "• Chat: normal assistant mode\n"
-                    "• Translate: translation-only output\n"
-                    "• Transcribe: audio transcription-only"
+                    "Choose what I should do with your next messages:\n"
+                    "• Chat: ask me anything\n"
+                    "• Translate: text or audio → translation\n"
+                    "• Transcribe: voice note → text\n\n"
+                    "For Speak mode (text → audio), type *mode tts*."
                 )
             },
             "footer": {"text": f"Current mode: {current_mode_label}"},
@@ -2427,9 +2438,10 @@ class OptimizedMessageProcessor:
             "type": "button",
             "body": {
                 "text": (
-                    "Choose reply format for Chat/Translate modes:\n"
+                    "Voice replies — should I also send my answers as audio?\n"
                     "• Text + Voice\n"
-                    "• Text only"
+                    "• Text only\n\n"
+                    "For one-off audio, type e.g. *voice Welcome to Sunbird AI*."
                 )
             },
             "footer": {"text": f"Current voice replies: {voice_status}"},
@@ -2524,9 +2536,10 @@ class OptimizedMessageProcessor:
             Dict containing the button structure for WhatsApp.
         """
         return {
-            "header": "🌻 Welcome to Sunflower!",
+            "header": "🌻 Welcome to Sunbird AI!",
             "body": (
-                "I'm your multilingual assistant for Ugandan languages. "
+                "I can chat, translate, transcribe voice notes, and speak text "
+                "aloud (try *mode tts* or *speak hello*). "
                 "What would you like to do first?"
             ),
             "footer": "Made with ❤️ by Sunbird AI",
@@ -2568,24 +2581,27 @@ class OptimizedMessageProcessor:
         """
         name = (sender_name or "there").split()[0] if sender_name else "there"
         return (
-            f"👋 Hello {name}! I'm *Sunflower* by Sunbird AI. I can help you:\n"
+            f"👋 Hello {name}! I'm your *Sunbird AI* assistant. I can:\n"
+            "• *Chat* and answer questions\n"
             "• *Translate* between English and Ugandan languages\n"
-            "• *Transcribe* voice notes\n"
-            "• *Chat* and answer questions\n\n"
+            "• *Transcribe* your voice notes\n"
+            "• *Speak* — turn your text into audio\n\n"
             "Send me text or a voice note to begin, or type *menu* for options."
         )
 
     def _get_menu_text(self) -> str:
         """Get the main menu / quick-actions text."""
         return (
-            "*🌻 Sunflower — Main Menu*\n\n"
-            "• *help* – show all commands\n"
-            "• *languages* – supported languages\n"
-            "• *set language* – choose your language\n"
-            "• *mode* – switch Chat / Translate / Transcribe\n"
-            "• *voice* – turn voice replies on/off\n"
-            "• *status* – your current settings\n"
-            "• *cancel* / *start over* – reset the conversation\n\n"
+            "*🌻 Main Menu*\n\n"
+            "• *mode chat* – chat and answer questions\n"
+            "• *mode translate* – translate text or audio\n"
+            "• *mode transcribe* – voice note → text\n"
+            "• *mode tts* – Speak mode: text → audio\n"
+            "  (or one-off: *speak hello*)\n"
+            "• *voice on* / *voice off* – hear my replies as audio\n"
+            "• *languages* / *set language* – language options\n"
+            "• *help* – all commands  •  *status* – your settings\n"
+            "• *cancel* / *start over* – reset to Chat\n\n"
             "Or just send text or a voice note to begin."
         )
 
@@ -2596,27 +2612,30 @@ class OptimizedMessageProcessor:
             Formatted help text string.
         """
         return (
-            "*🌻 Sunflower Assistant Commands*\n\n"
-            "*Basic Commands:*\n"
-            "• *help* – Show this help message\n"
-            "• *status* – Show your current settings\n"
-            "• *languages* – Show supported languages\n\n"
-            "*Language Commands:*\n"
-            "• *set language* – Set your preferred language for audio commands\n\n"
-            "*Mode Commands:*\n"
-            "• *mode* – Open one-tap mode switch buttons\n"
-            "• *mode chat* – Standard conversational assistant\n"
-            "• *mode translate* – Translation-only output\n"
-            "• *mode transcribe* – Audio transcription-only\n\n"
-            "*Voice Reply Commands:*\n"
-            "• *voice* – Open one-tap voice reply options\n"
-            "• *voice on* – Enable text + voice replies\n"
-            "• *voice off* – Text only replies\n\n"
-            "*Natural Questions:*\n"
-            "You can also ask naturally:\n"
-            "• *What can you do?*\n"
-            "• *What languages do you support?*\n\n"
-            "Just type your message normally – *I'm here to help!*"
+            "*🌻 What I can do*\n\n"
+            "I can *Chat*, *Translate*, *Transcribe* voice notes, and *Speak* "
+            "(turn your text into audio).\n\n"
+            "*Modes — choose what I do:*\n"
+            "• *mode chat* – chat and answer questions\n"
+            "• *mode translate* – translate your text or audio\n"
+            "• *mode transcribe* – turn your voice notes into text\n"
+            "• *mode tts* – Speak mode: I read back any text you send as audio\n"
+            "• *mode* – show the mode buttons\n\n"
+            "*Turn text into audio (one-off):*\n"
+            "• *speak Welcome to Sunbird AI*\n"
+            "• *voice Welcome to Sunbird AI*\n"
+            "• *read Welcome to Sunbird AI*\n"
+            "• *change Welcome to Sunbird AI to speech*\n\n"
+            "*Voice replies (hear my answers):*\n"
+            "• *voice on* – also send my replies as audio\n"
+            "• *voice off* – text only\n\n"
+            "*Other:*\n"
+            "• *languages* – supported languages\n"
+            "• *set language* – choose your language\n"
+            "• *status* – your current settings\n"
+            "• *menu* – main menu\n"
+            "• *cancel* / *start over* – reset and return to Chat\n\n"
+            "Just send text or a voice note to begin!"
         )
 
     def _get_status_text(
@@ -2639,15 +2658,14 @@ class OptimizedMessageProcessor:
         """
         language_name = self.language_mapping.get(target_language, target_language)
         mode_label = self.mode_labels.get(self._normalize_mode(user_mode), "Chat")
-        voice_label = "ON (Text + Voice)" if tts_enabled else "OFF (Text Only)"
+        voice_label = "ON (text + voice)" if tts_enabled else "OFF (text only)"
         return (
-            f"*🌻 Status for {sender_name}*\n\n"
-            f"*Current Language:* *{language_name}* ({target_language})\n"
-            f"*Current Mode:* *{mode_label}*\n"
-            f"*Voice Replies:* *{voice_label}*\n"
-            "*Assistant:* Sunflower by Sunbird AI\n"
-            "*Platform:* WhatsApp\n\n"
-            "Type *help* for available commands or just *chat naturally!*"
+            f"*🌻 Your settings*\n\n"
+            f"*Mode:* *{mode_label}*\n"
+            f"*Language:* *{language_name}* ({target_language})\n"
+            f"*Voice replies:* *{voice_label}*\n\n"
+            "Change what I do with *mode* (e.g. *mode tts* for Speak), turn "
+            "audio replies on/off with *voice on* / *voice off*, or type *menu*."
         )
 
     def _get_languages_text(self) -> str:

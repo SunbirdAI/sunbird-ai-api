@@ -462,3 +462,104 @@ async def test_synthesize_batch_rejects_overlong_item():
     with pytest.raises(BadRequestError):
         await svc.synthesize_batch(req)
     orpheus.synthesize_batch.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Phase 2E: language-aware Orpheus speaker resolution
+# ---------------------------------------------------------------------------
+
+
+def _orpheus_req(language=None, voice=None):
+    return SpeechRequest(
+        text="hi",
+        model="orpheus-3b-tts",
+        platform="modal",
+        language=language,
+        voice=voice,
+    )
+
+
+async def test_orpheus_english_does_not_use_luganda_default():
+    facade, _, orpheus, _, _ = make_speech_facade()
+    orpheus.speakers_for_language = AsyncMock(return_value=["salt_eng_0001"])
+
+    await facade.synthesize(_orpheus_req(language="eng"))
+
+    kwargs = orpheus.synthesize.await_args.kwargs
+    assert kwargs["speaker_id"] == "salt_eng_0001"
+    assert kwargs["speaker_id"] != "salt_lug_0001"
+    assert kwargs["language"] == "eng"
+    orpheus.speakers_for_language.assert_awaited_once_with("eng")
+
+
+async def test_orpheus_luganda_uses_default_without_catalog_lookup():
+    facade, _, orpheus, _, _ = make_speech_facade()
+    orpheus.speakers_for_language = AsyncMock()
+
+    await facade.synthesize(_orpheus_req(language="lug"))
+
+    kwargs = orpheus.synthesize.await_args.kwargs
+    assert kwargs["speaker_id"] == "salt_lug_0001"
+    orpheus.speakers_for_language.assert_not_called()
+
+
+async def test_orpheus_missing_language_defaults_to_luganda():
+    facade, _, orpheus, _, _ = make_speech_facade()
+    orpheus.speakers_for_language = AsyncMock()
+
+    await facade.synthesize(_orpheus_req(language=None))
+
+    kwargs = orpheus.synthesize.await_args.kwargs
+    assert kwargs["speaker_id"] == "salt_lug_0001"
+    assert "language" not in kwargs  # let Orpheus infer from the speaker
+    orpheus.speakers_for_language.assert_not_called()
+
+
+async def test_orpheus_other_languages_pick_catalog_speaker():
+    facade, _, orpheus, _, _ = make_speech_facade()
+    catalog = {
+        "ach": ["salt_ach_0001"],
+        "teo": ["salt_teo_0001"],
+        "lgg": ["salt_lgg_0001"],
+        "nyn": ["salt_nyn_0001"],
+    }
+    orpheus.speakers_for_language = AsyncMock(side_effect=lambda lang: catalog[lang])
+
+    for lang, expected in catalog.items():
+        await facade.synthesize(_orpheus_req(language=lang))
+        kwargs = orpheus.synthesize.await_args.kwargs
+        assert kwargs["speaker_id"] == expected[0]
+        assert kwargs["language"] == lang
+
+
+async def test_orpheus_unsupported_language_does_not_call_synthesize():
+    facade, _, orpheus, _, _ = make_speech_facade()
+    orpheus.speakers_for_language = AsyncMock(
+        side_effect=BadRequestError(message="language 'zzz' not supported")
+    )
+
+    with pytest.raises(BadRequestError):
+        await facade.synthesize(_orpheus_req(language="zzz"))
+
+    orpheus.synthesize.assert_not_awaited()
+
+
+async def test_orpheus_catalog_unavailable_raises_not_invalid_pair():
+    facade, _, orpheus, _, _ = make_speech_facade()
+    orpheus.speakers_for_language = AsyncMock(side_effect=RuntimeError("catalog down"))
+
+    with pytest.raises(BadRequestError):
+        await facade.synthesize(_orpheus_req(language="eng"))
+
+    orpheus.synthesize.assert_not_awaited()
+
+
+async def test_orpheus_explicit_voice_honored_as_is():
+    facade, _, orpheus, _, _ = make_speech_facade()
+    orpheus.speakers_for_language = AsyncMock()
+
+    await facade.synthesize(_orpheus_req(language="eng", voice="custom_eng_voice"))
+
+    kwargs = orpheus.synthesize.await_args.kwargs
+    assert kwargs["speaker_id"] == "custom_eng_voice"
+    orpheus.speakers_for_language.assert_not_called()
