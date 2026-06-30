@@ -170,6 +170,7 @@ class BillingAnalyticsService:
             total_runtime_ms=data["total_runtime_ms"],
             avg_daily_runtime_ms=data["avg_daily_runtime_ms"],
             total_storage_gb=data["total_storage_gb"],
+            avg_storage_gb=data["avg_storage_gb"],
             active_endpoints=data["active_endpoints"],
             active_modal_apps=data["active_modal_apps"],
             highest_cost_endpoint=HighestCost(**he) if he else None,

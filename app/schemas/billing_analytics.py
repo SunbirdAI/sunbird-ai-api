@@ -58,7 +58,8 @@ class SummaryResponse(BaseModel):
     avg_daily_spend: float
     total_runtime_ms: int
     avg_daily_runtime_ms: float
-    total_storage_gb: float
+    total_storage_gb: float  # GB-hours (capacity x hours billed)
+    avg_storage_gb: float  # time-weighted average provisioned storage in GB
     active_endpoints: int
     active_modal_apps: int
     highest_cost_endpoint: Optional[HighestCost] = None

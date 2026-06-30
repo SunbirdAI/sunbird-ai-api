@@ -191,7 +191,7 @@ async def export_csv(
             "Timestamp",
             "Cost (USD)",
             "Runtime (ms)",
-            "Storage (GB)",
+            "Storage (GB-hours)",
             "GPU",
             "Environment",
             "Tags",

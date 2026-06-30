@@ -18,6 +18,7 @@ export interface SummaryData {
   total_runtime_ms: number;
   avg_daily_runtime_ms: number;
   total_storage_gb: number;
+  avg_storage_gb: number;
   active_endpoints: number;
   active_modal_apps: number;
   highest_cost_endpoint?: { name: string; cost: number } | null;

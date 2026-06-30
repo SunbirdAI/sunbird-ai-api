@@ -22,6 +22,20 @@ Environment variables:
   named date ranges so repeated/concurrent identical requests share a cache key and
   return consistent results within the window.
 
+## Field meanings
+
+- **cost** — USD billed by the provider for the bucket. Modal amounts are pre-credit.
+- **runtime_ms** — Runpod `timeBilledMs` (billed worker-time). Modal reports none.
+- **storage_gb** — Runpod `diskSpaceBilledGb` / `diskSpaceBilledGB`. This is **GB-hours**
+  (capacity × hours billed), not a GB snapshot: a steady 350 GB volume reports
+  350 × 24 = 8,400 per day. Reconciles to cost (e.g. network volumes: 350 GB ×
+  $0.07/GB-month ÷ 30 ≈ $0.8166/day). The summary's `avg_storage_gb` divides total
+  GB-hours by the hours in the range to give the time-weighted average provisioned GB;
+  the table/CSV show the raw per-bucket GB-hours.
+- **active_endpoints** — distinct Runpod endpoints (network volumes excluded).
+- **Network Volumes** — account-level Runpod storage; included in spend/storage totals,
+  not counted as an endpoint.
+
 ## Endpoints
 
 All admin-only (`CurrentAdminDep`), under `/api/admin/analytics/billing`:

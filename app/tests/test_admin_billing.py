@@ -20,6 +20,7 @@ def _summary():
         avg_daily_spend=7.0,
         total_runtime_ms=1000,
         avg_daily_runtime_ms=500.0,
+        avg_storage_gb=2.5,
         total_storage_gb=5.0,
         active_endpoints=1,
         active_modal_apps=1,

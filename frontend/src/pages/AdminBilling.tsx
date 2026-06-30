@@ -4,7 +4,7 @@ import {
   ArcElement, Title, Tooltip, Legend, Filler,
 } from 'chart.js';
 import { Line, Pie } from 'react-chartjs-2';
-import { DollarSign, Clock, HardDrive, Server, Download } from 'lucide-react';
+import { DollarSign, Clock, HardDrive, Server, Download, Info } from 'lucide-react';
 import MetricCard from '../components/MetricCard';
 import ChartCard from '../components/ChartCard';
 import { Skeleton } from '../components/ui/Skeleton';
@@ -177,8 +177,37 @@ export default function AdminBilling() {
         <MetricCard label="Total Spend" value={`$${(summary?.total_spend || 0).toFixed(2)}`} icon={DollarSign} color="bg-blue-500" />
         <MetricCard label="Avg Daily Spend" value={`$${(summary?.avg_daily_spend || 0).toFixed(2)}`} icon={DollarSign} color="bg-green-500" />
         <MetricCard label="Compute Time" value={`${((summary?.total_runtime_ms || 0) / 3_600_000).toFixed(1)}h`} icon={Clock} color="bg-orange-500" />
-        <MetricCard label="Storage" value={`${(summary?.total_storage_gb || 0).toFixed(0)} GB`} icon={HardDrive} color="bg-purple-500" />
+        <MetricCard label="Avg Storage" value={`${(summary?.avg_storage_gb || 0).toFixed(0)} GB`} icon={HardDrive} color="bg-purple-500" />
       </div>
+
+      {/* What these numbers mean */}
+      <details className="bg-white dark:bg-secondary rounded-xl border border-gray-200 dark:border-white/5 p-4 text-sm text-gray-600 dark:text-gray-300">
+        <summary className="flex items-center gap-2 cursor-pointer font-medium text-gray-900 dark:text-white">
+          <Info size={16} /> What these numbers mean &amp; how they're computed
+        </summary>
+        <div className="mt-3 space-y-2 leading-relaxed">
+          <p><b>Total / Avg Daily Spend</b> — USD billed by the provider for the selected
+            range and platform(s), summed across all records. Modal amounts are pre-credit
+            (before any credits or reservations), so your invoice may be lower.</p>
+          <p><b>Compute Time</b> — total billed run time, from Runpod's <code>timeBilledMs</code>
+            (worker-time across the period). Modal bills per-app cost and does not report a
+            runtime, so this reflects Runpod only.</p>
+          <p><b>Avg Storage (GB)</b> — providers bill storage as <b>GB-hours</b> (capacity ×
+            hours billed), so a steady 350&nbsp;GB volume reports 350&nbsp;×&nbsp;24&nbsp;=&nbsp;8,400 per
+            day. We show the time-weighted average — total GB-hours ÷ hours in the range — as
+            actual provisioned GB. The records table and CSV show the raw per-bucket GB-hours.</p>
+          <p><b>Active Endpoints / Modal Apps</b> — distinct Runpod endpoints and Modal apps
+            with billing in the range. <b>Network Volumes</b> are account-level storage, not an
+            endpoint, so they're excluded from this count (but included in spend/storage).</p>
+          <p><b>Network Volumes</b> — Runpod persistent network storage cost
+            (<code>/billing/networkvolumes</code>), shown as its own row and folded into totals.</p>
+          <p><b>Cost Over Time</b> — per-bucket spend with a line per platform plus a dashed
+            Total. Buckets roll up to the selected resolution (hour → year).</p>
+          <p className="text-gray-500 dark:text-gray-400">Scope &amp; freshness: Runpod is scoped
+            to the configured endpoints; Modal covers the whole workspace. Figures are cached
+            briefly for consistency, so very recent usage settles within the cache window.</p>
+        </div>
+      </details>
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

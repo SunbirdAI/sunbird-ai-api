@@ -266,3 +266,30 @@ def test_summarize_excludes_network_volumes_from_endpoint_count():
     assert s["active_endpoints"] == 1  # network volumes are not an endpoint
     assert s["total_spend"] == 25.0  # but their cost is still in the total
     assert s["highest_cost_endpoint"]["name"] == "ep1"
+
+
+def test_summarize_avg_storage_gb_from_gb_hours():
+    # diskSpaceBilledGb is GB-hours; 350 GB steady over 2 full days = 350*24*2.
+    recs = [
+        _rec(
+            provider="runpod",
+            object_id="nv",
+            object_name="Network Volumes",
+            timestamp=datetime(2026, 5, 1),
+            cost=0.8,
+            storage_gb=8400,
+            metadata={"kind": "network_volume"},
+        ),
+        _rec(
+            provider="runpod",
+            object_id="nv",
+            object_name="Network Volumes",
+            timestamp=datetime(2026, 5, 2),
+            cost=0.8,
+            storage_gb=8400,
+            metadata={"kind": "network_volume"},
+        ),
+    ]
+    s = summarize(recs, num_days=2)
+    assert s["total_storage_gb"] == 16800.0  # raw GB-hours
+    assert s["avg_storage_gb"] == 350.0  # 16800 / (2 days * 24h)

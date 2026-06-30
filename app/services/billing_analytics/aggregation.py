@@ -147,6 +147,9 @@ def summarize(records: list[BillingRecord], num_days: int) -> dict:
         "total_runtime_ms": total_runtime,
         "avg_daily_runtime_ms": round(total_runtime / days, 1),
         "total_storage_gb": total_storage,
+        # storage_gb is GB-hours (capacity x hours billed); dividing by the period's
+        # hours gives the time-weighted average provisioned storage in GB.
+        "avg_storage_gb": round(total_storage / (days * 24), 4),
         "active_endpoints": len(endpoints),
         "active_modal_apps": len(apps),
         "highest_cost_endpoint": highest_endpoint,
