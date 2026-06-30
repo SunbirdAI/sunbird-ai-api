@@ -31,6 +31,7 @@ class RunpodAnalyticsProvider(AnalyticsProvider):
         self.api_key = api_key or os.getenv("RUNPOD_API_KEY")
         self.base_url = settings.runpod_billing_base_url.rstrip("/")
         self.timeout = settings.runpod_billing_timeout_seconds
+        self.include_network_volumes = settings.runpod_include_network_volumes
         self._client: Optional[httpx.AsyncClient] = None
         self._lock = asyncio.Lock()
 
@@ -55,6 +56,16 @@ class RunpodAnalyticsProvider(AnalyticsProvider):
             headers={"Authorization": f"Bearer {self.api_key}"},
         )
 
+    async def _request_network_volumes(
+        self, params: list[tuple[str, str]]
+    ) -> httpx.Response:
+        client = await self._get_client()
+        return await client.get(
+            "/billing/networkvolumes",
+            params=params,
+            headers={"Authorization": f"Bearer {self.api_key}"},
+        )
+
     def _build_params(self, query: ProviderQuery) -> list[tuple[str, str]]:
         params: list[tuple[str, str]] = [
             ("bucketSize", _BUCKET.get(query.base_resolution, "day")),
@@ -72,6 +83,52 @@ class RunpodAnalyticsProvider(AnalyticsProvider):
             params.append(("dataCenterId", dc))
         # Runpod billing API has no tag filter; ProviderQuery.tag_names is ignored here.
         return params
+
+    def _build_network_volume_params(
+        self, query: ProviderQuery
+    ) -> list[tuple[str, str]]:
+        return [
+            ("bucketSize", _BUCKET.get(query.base_resolution, "day")),
+            ("startTime", query.start.strftime("%Y-%m-%dT%H:%M:%SZ")),
+            ("endTime", query.end.strftime("%Y-%m-%dT%H:%M:%SZ")),
+        ]
+
+    def _normalize_network_volumes(self, rows: list[dict]) -> list[BillingRecord]:
+        records: list[BillingRecord] = []
+        for row in rows:
+            storage = row.get("diskSpaceBilledGb", row.get("diskSpaceBilledGB"))
+            records.append(
+                BillingRecord(
+                    provider="runpod",
+                    object_id="network-volumes",
+                    object_name="Network Volumes",
+                    timestamp=self._parse_time(row["startDate"]),
+                    cost=float(row.get("amount", 0.0)),
+                    runtime_ms=None,
+                    storage_gb=float(storage) if storage is not None else None,
+                    metadata={"kind": "network_volume"},
+                )
+            )
+        return records
+
+    async def _fetch_network_volumes(self, query: ProviderQuery) -> list[BillingRecord]:
+        """Fetch account-level network volume storage costs. Degrades to [] on error
+        so a network-volume hiccup never fails the main billing fetch."""
+        try:
+            resp = await self._request_network_volumes(
+                self._build_network_volume_params(query)
+            )
+            if resp.status_code >= 400:
+                logger.warning("runpod_network_volumes_status: %s", resp.status_code)
+                return []
+            payload = resp.json()
+            rows = (
+                payload if isinstance(payload, list) else payload.get("billingData", [])
+            )
+            return self._normalize_network_volumes(rows)
+        except httpx.HTTPError as exc:
+            logger.warning("runpod_network_volumes_unreachable: %s", exc)
+            return []
 
     @staticmethod
     def _parse_time(value: str) -> datetime:
@@ -133,4 +190,8 @@ class RunpodAnalyticsProvider(AnalyticsProvider):
         if query.endpoint_ids and query.grouping == "endpointId":
             wanted = set(query.endpoint_ids)
             records = [r for r in records if r.object_id in wanted]
+        # Network volume storage is account-level (not per endpoint/GPU); include it
+        # on the endpoint-grouped views, after (and exempt from) endpoint scoping.
+        if self.include_network_volumes and query.grouping == "endpointId":
+            records.extend(await self._fetch_network_volumes(query))
         return records

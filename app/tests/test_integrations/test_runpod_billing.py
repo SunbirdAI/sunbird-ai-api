@@ -143,3 +143,78 @@ async def test_fetch_records_filters_to_configured_endpoints(monkeypatch):
     # endpointId must NOT be sent to the (single-valued) API param.
     sent_params = req.call_args.args[0]
     assert not any(k == "endpointId" for k, _ in sent_params)
+
+
+def _nv_query():
+    return ProviderQuery(
+        start=datetime(2026, 5, 1),
+        end=datetime(2026, 5, 3),
+        base_resolution="day",
+        grouping="endpointId",
+        endpoint_ids=["A"],
+    )
+
+
+async def test_fetch_records_includes_network_volumes(monkeypatch):
+    monkeypatch.setenv("RUNPOD_API_KEY", "test-key")
+    provider = RunpodAnalyticsProvider()
+    endpoint_payload = [
+        {
+            "amount": 10.0,
+            "timeBilledMs": 100,
+            "diskSpaceBilledGB": 5,
+            "endpointId": "A",
+            "time": "2026-05-01 00:00:00",
+        },
+    ]
+    nv_payload = [
+        {
+            "amount": 0.8166,
+            "diskSpaceBilledGb": 8400,
+            "startDate": "2026-05-01 00:00:00",
+        },
+    ]
+    with patch.object(
+        provider,
+        "_request",
+        AsyncMock(return_value=httpx.Response(200, json=endpoint_payload)),
+    ), patch.object(
+        provider,
+        "_request_network_volumes",
+        AsyncMock(return_value=httpx.Response(200, json=nv_payload)),
+    ):
+        records = await provider.fetch_records(_nv_query())
+    nv = [r for r in records if r.metadata.get("kind") == "network_volume"]
+    assert len(nv) == 1
+    assert nv[0].cost == 0.8166
+    assert nv[0].storage_gb == 8400.0
+    assert nv[0].object_name == "Network Volumes"
+    # endpoint records still present and scoped
+    assert any(r.object_id == "A" for r in records)
+
+
+async def test_network_volume_fetch_failure_degrades_gracefully(monkeypatch):
+    monkeypatch.setenv("RUNPOD_API_KEY", "test-key")
+    provider = RunpodAnalyticsProvider()
+    endpoint_payload = [
+        {
+            "amount": 10.0,
+            "timeBilledMs": 100,
+            "diskSpaceBilledGB": 5,
+            "endpointId": "A",
+            "time": "2026-05-01 00:00:00",
+        },
+    ]
+    with patch.object(
+        provider,
+        "_request",
+        AsyncMock(return_value=httpx.Response(200, json=endpoint_payload)),
+    ), patch.object(
+        provider,
+        "_request_network_volumes",
+        AsyncMock(side_effect=httpx.ConnectError("boom")),
+    ):
+        records = await provider.fetch_records(_nv_query())
+    # endpoint data still returned; no network volume records, no raise
+    assert any(r.object_id == "A" for r in records)
+    assert not any(r.metadata.get("kind") == "network_volume" for r in records)

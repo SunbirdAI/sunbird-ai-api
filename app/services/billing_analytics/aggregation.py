@@ -118,12 +118,16 @@ def summarize(records: list[BillingRecord], num_days: int) -> dict:
     total_storage = sum_storage_gb(records)
     days = max(num_days, 1)
 
-    endpoints = {r.object_id for r in records if r.provider == "runpod"}
+    # Runpod "endpoints" exclude account-level network volume storage records.
+    runpod_endpoint_records = [
+        r
+        for r in records
+        if r.provider == "runpod" and r.metadata.get("kind") != "network_volume"
+    ]
+    endpoints = {r.object_id for r in runpod_endpoint_records}
     apps = {r.object_id for r in records if r.provider == "modal"}
 
-    endpoint_rows = group_records(
-        [r for r in records if r.provider == "runpod"], "endpoint"
-    )
+    endpoint_rows = group_records(runpod_endpoint_records, "endpoint")
     highest_endpoint = (
         {"name": endpoint_rows[0]["key"], "cost": endpoint_rows[0]["cost"]}
         if endpoint_rows

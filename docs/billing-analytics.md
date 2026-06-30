@@ -10,7 +10,17 @@ Environment variables:
 - `RUNPOD_API_KEY` — Runpod billing API auth (already used elsewhere).
 - `MODAL_TOKEN_ID` + `MODAL_TOKEN_SECRET` — Modal billing API (Team/Enterprise plan).
 - `RUNPOD_BILLING_BASE_URL` — optional, defaults to `https://rest.runpod.io/v1`.
+- `RUNPOD_BILLING_ENDPOINT_IDS` — optional, comma-separated Runpod endpoint IDs to
+  scope billing to (default `f4qvczc8rce33x,yapuzewu3ebmzq`; empty = all endpoints).
+  Runpod's `endpointId` filter is single-valued, so scoping is applied by fetching
+  all endpoints and filtering the normalized records to this set.
+- `RUNPOD_INCLUDE_NETWORK_VOLUMES` — optional bool, default `true`. Adds account-level
+  Runpod network volume storage costs (`/billing/networkvolumes`) to the totals as a
+  "Network Volumes" line (not counted as an endpoint).
 - `BILLING_CACHE_TTL_SECONDS` — optional, defaults to 3600.
+- `BILLING_CACHE_QUANTUM_SECONDS` — optional, defaults to 60. Quantizes `now` for
+  named date ranges so repeated/concurrent identical requests share a cache key and
+  return consistent results within the window.
 
 ## Endpoints
 

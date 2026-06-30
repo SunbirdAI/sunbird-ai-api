@@ -249,3 +249,20 @@ def test_paginate_sort_search_timestamp_ascending():
         datetime(2026, 5, 2),
         datetime(2026, 5, 3),
     ]
+
+
+def test_summarize_excludes_network_volumes_from_endpoint_count():
+    recs = [
+        _rec(provider="runpod", object_id="ep1", object_name="ep1", cost=20.0),
+        _rec(
+            provider="runpod",
+            object_id="network-volumes",
+            object_name="Network Volumes",
+            cost=5.0,
+            metadata={"kind": "network_volume"},
+        ),
+    ]
+    s = summarize(recs, num_days=1)
+    assert s["active_endpoints"] == 1  # network volumes are not an endpoint
+    assert s["total_spend"] == 25.0  # but their cost is still in the total
+    assert s["highest_cost_endpoint"]["name"] == "ep1"

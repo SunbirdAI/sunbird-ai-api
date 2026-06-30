@@ -137,6 +137,13 @@ class Settings(BaseSettings):
     runpod_billing_timeout_seconds: float = Field(
         default=30.0, description="Timeout for a single Runpod billing API call."
     )
+    runpod_include_network_volumes: bool = Field(
+        default=True,
+        description=(
+            "Include Runpod network volume storage costs (account-level) in billing "
+            "totals via the /billing/networkvolumes API."
+        ),
+    )
     billing_cache_ttl_seconds: int = Field(
         default=3600, description="TTL for cached normalized billing records."
     )
