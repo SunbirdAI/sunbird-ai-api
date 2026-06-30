@@ -129,6 +129,50 @@ class Settings(BaseSettings):
         description="Cache backend: 'memory' (default) or 'upstash'.",
     )
 
+    # Billing analytics (Runpod + Modal)
+    runpod_billing_base_url: str = Field(
+        default="https://rest.runpod.io/v1",
+        description="Base URL for the Runpod REST billing API.",
+    )
+    runpod_billing_timeout_seconds: float = Field(
+        default=30.0, description="Timeout for a single Runpod billing API call."
+    )
+    runpod_include_network_volumes: bool = Field(
+        default=True,
+        description=(
+            "Include Runpod network volume storage costs (account-level) in billing "
+            "totals via the /billing/networkvolumes API."
+        ),
+    )
+    billing_cache_ttl_seconds: int = Field(
+        default=3600, description="TTL for cached normalized billing records."
+    )
+    billing_cache_quantum_seconds: int = Field(
+        default=60,
+        description=(
+            "Quantize 'now' for named date ranges to this many seconds so repeated "
+            "and concurrent identical billing requests share a cache key (stable, "
+            "consistent results within the window). Must be >= 1."
+        ),
+    )
+    runpod_billing_endpoint_ids_raw: str = Field(
+        default="f4qvczc8rce33x,yapuzewu3ebmzq",
+        alias="RUNPOD_BILLING_ENDPOINT_IDS",
+        description=(
+            "Comma-separated Runpod endpoint IDs to scope billing to. Empty means "
+            "all endpoints in the account."
+        ),
+    )
+
+    @property
+    def runpod_billing_endpoint_ids(self) -> list[str]:
+        """Parsed list of Runpod endpoint IDs to scope billing to (may be empty)."""
+        return [
+            part.strip()
+            for part in self.runpod_billing_endpoint_ids_raw.split(",")
+            if part.strip()
+        ]
+
     # Redis / Upstash Configuration
     redis_url: Optional[str] = Field(
         default=None,
