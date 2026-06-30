@@ -32,3 +32,5 @@ aiofiles==23.2.1
 # OpenAI for API calls (lightweight)
 openai==1.98.0
 resend==2.24.0
+# Modal for serverless compute
+modal==1.5.1

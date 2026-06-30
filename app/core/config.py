@@ -129,6 +129,18 @@ class Settings(BaseSettings):
         description="Cache backend: 'memory' (default) or 'upstash'.",
     )
 
+    # Billing analytics (Runpod + Modal)
+    runpod_billing_base_url: str = Field(
+        default="https://rest.runpod.io/v1",
+        description="Base URL for the Runpod REST billing API.",
+    )
+    runpod_billing_timeout_seconds: float = Field(
+        default=30.0, description="Timeout for a single Runpod billing API call."
+    )
+    billing_cache_ttl_seconds: int = Field(
+        default=3600, description="TTL for cached normalized billing records."
+    )
+
     # Redis / Upstash Configuration
     redis_url: Optional[str] = Field(
         default=None,
