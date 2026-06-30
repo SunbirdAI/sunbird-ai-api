@@ -1,4 +1,4 @@
-"""Modal billing analytics provider (wraps modal.billing.workspace_billing_report)."""
+"""Modal billing analytics provider (wraps Workspace.billing.report)."""
 
 from __future__ import annotations
 
@@ -33,32 +33,38 @@ class ModalAnalyticsProvider(AnalyticsProvider):
     async def is_available(self) -> bool:
         return bool(self.token_id and self.token_secret)
 
-    def _call_report(self, query: ProviderQuery) -> list[dict]:
-        """Blocking call into the Modal SDK. Patched in tests."""
+    def _call_report(self, query: ProviderQuery) -> list:
+        """Blocking call into the Modal SDK. Patched in tests.
+
+        Uses the current (non-deprecated) ``Workspace.billing.report`` API, which
+        authenticates against the active ``MODAL_TOKEN_ID`` / ``MODAL_TOKEN_SECRET``
+        credentials and returns ``BillingReportItem`` dataclasses.
+        """
         import modal  # imported lazily so import-time never requires modal config
 
         resolution = "h" if query.base_resolution == "hour" else "d"
-        return modal.billing.workspace_billing_report(
+        workspace = modal.Workspace.from_context()
+        return workspace.billing.report(
             start=query.start,
             end=query.end,
             resolution=resolution,
             tag_names=query.tag_names or ["*"],
         )
 
-    def _normalize(self, items: list[dict]) -> list[BillingRecord]:
+    def _normalize(self, items: list) -> list[BillingRecord]:
         records: list[BillingRecord] = []
         for item in items:
-            cost_by_resource = item.get("cost_by_resource") or {}
+            cost_by_resource = getattr(item, "cost_by_resource", None) or {}
             resource_breakdown = {k: _as_float(v) for k, v in cost_by_resource.items()}
             records.append(
                 BillingRecord(
                     provider="modal",
-                    object_id=str(item["object_id"]),
-                    object_name=str(item.get("description") or item["object_id"]),
-                    timestamp=item["interval_start"],
-                    cost=_as_float(item.get("cost")),
-                    environment=item.get("environment_name"),
-                    tags=dict(item.get("tags") or {}),
+                    object_id=str(item.object_id),
+                    object_name=str(item.description or item.object_id),
+                    timestamp=item.interval_start,
+                    cost=_as_float(item.cost),
+                    environment=item.environment_name,
+                    tags=dict(item.tags or {}),
                     resource_breakdown=resource_breakdown,
                 )
             )

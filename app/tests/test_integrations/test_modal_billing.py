@@ -1,5 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -17,23 +18,33 @@ def _query():
     )
 
 
+def _item(**kw):
+    """Mimic a modal.billing.BillingReportItem dataclass (attribute access)."""
+    base = dict(cost_by_resource={}, tags={})
+    base.update(kw)
+    return SimpleNamespace(**base)
+
+
+# The new Workspace.billing.report() API returns BillingReportItem dataclasses
+# (attribute access), not dicts.
 SAMPLE_ITEMS = [
-    {
-        "object_id": "ap-123",
-        "description": "inference-engine",
-        "environment_name": "main",
-        "interval_start": datetime(2026, 5, 1),
-        "cost": Decimal("12.50"),
-        "tags": {"team": "llm-platform"},
-    },
-    {
-        "object_id": "ap-456",
-        "description": "batch-job",
-        "environment_name": "main",
-        "interval_start": datetime(2026, 5, 2),
-        "cost": Decimal("3.25"),
-        "tags": {},
-    },
+    _item(
+        object_id="ap-123",
+        description="inference-engine",
+        environment_name="main",
+        interval_start=datetime(2026, 5, 1),
+        cost=Decimal("12.50"),
+        tags={"team": "llm-platform"},
+        cost_by_resource={"GPU": Decimal("10.00"), "CPU": Decimal("2.50")},
+    ),
+    _item(
+        object_id="ap-456",
+        description="batch-job",
+        environment_name="main",
+        interval_start=datetime(2026, 5, 2),
+        cost=Decimal("3.25"),
+        tags={},
+    ),
 ]
 
 
@@ -51,6 +62,7 @@ async def test_fetch_records_normalizes(monkeypatch):
     assert r.cost == 12.5
     assert r.environment == "main"
     assert r.tags == {"team": "llm-platform"}
+    assert r.resource_breakdown == {"GPU": 10.0, "CPU": 2.5}
     assert r.runtime_ms is None
 
 
