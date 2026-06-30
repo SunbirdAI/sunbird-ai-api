@@ -6,10 +6,10 @@ providers map into, plus the response envelopes the admin endpoints return.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 Provider = Literal["runpod", "modal"]
 
@@ -31,6 +31,21 @@ class BillingRecord(BaseModel):
     metadata: dict = Field(default_factory=dict)
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("timestamp")
+    @classmethod
+    def _to_naive_utc(cls, value: datetime) -> datetime:
+        """Normalize timestamps to naive UTC.
+
+        Providers disagree on tz-awareness — Runpod yields naive datetimes while
+        Modal's billing API returns tz-aware UTC. Coercing every record to naive
+        UTC here keeps the combined set comparable (e.g. when sorting in
+        ``rollup_timeseries``) and matches the naive-UTC convention used across
+        the codebase.
+        """
+        if value.tzinfo is not None:
+            value = value.astimezone(timezone.utc).replace(tzinfo=None)
+        return value
 
 
 class HighestCost(BaseModel):

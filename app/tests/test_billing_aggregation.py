@@ -184,3 +184,29 @@ def test_paginate_sort_search():
     )
     assert total2 == 1
     assert page2[0].object_name == "alpha"
+
+
+def test_billing_record_normalizes_tz_aware_to_naive_utc():
+    from datetime import timezone
+
+    r = _rec(timestamp=datetime(2026, 5, 1, 12, 0, tzinfo=timezone.utc))
+    assert r.timestamp.tzinfo is None
+    assert r.timestamp == datetime(2026, 5, 1, 12, 0)
+
+
+def test_rollup_timeseries_mixed_tz_awareness():
+    from datetime import timezone
+
+    # Modal returns tz-aware UTC timestamps; Runpod returns naive. The combined
+    # set must sort/bucket without raising "can't compare naive and aware".
+    aware = _rec(
+        provider="modal",
+        object_id="app1",
+        object_name="app1",
+        timestamp=datetime(2026, 5, 1, tzinfo=timezone.utc),
+        cost=4.0,
+    )
+    naive = _rec(provider="runpod", timestamp=datetime(2026, 5, 1), cost=10.0)
+    ts = rollup_timeseries([aware, naive], "day", group_by=None)
+    assert ts["labels"] == ["2026-05-01"]
+    assert ts["cost"] == [14.0]
