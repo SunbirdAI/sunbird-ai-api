@@ -97,3 +97,49 @@ async def test_fetch_records_raises_on_http_4xx(monkeypatch):
     with patch.object(provider, "_request", AsyncMock(return_value=mock_resp)):
         with pytest.raises(ProviderUnavailable):
             await provider.fetch_records(_query())
+
+
+async def test_fetch_records_filters_to_configured_endpoints(monkeypatch):
+    """endpointId is single-valued on Runpod's API; scope to several endpoints by
+    fetching all (grouped) and filtering to the configured IDs in code."""
+    monkeypatch.setenv("RUNPOD_API_KEY", "test-key")
+    provider = RunpodAnalyticsProvider()
+    payload = [
+        {
+            "amount": 10.0,
+            "timeBilledMs": 100,
+            "diskSpaceBilledGB": 5,
+            "endpointId": "A",
+            "time": "2026-05-01 00:00:00",
+        },
+        {
+            "amount": 20.0,
+            "timeBilledMs": 200,
+            "diskSpaceBilledGB": 8,
+            "endpointId": "B",
+            "time": "2026-05-01 00:00:00",
+        },
+        {
+            "amount": 99.0,
+            "timeBilledMs": 300,
+            "diskSpaceBilledGB": 9,
+            "endpointId": "C",
+            "time": "2026-05-01 00:00:00",
+        },
+    ]
+    q = ProviderQuery(
+        start=datetime(2026, 5, 1),
+        end=datetime(2026, 5, 3),
+        base_resolution="day",
+        grouping="endpointId",
+        endpoint_ids=["A", "B"],
+    )
+    with patch.object(
+        provider, "_request", AsyncMock(return_value=httpx.Response(200, json=payload))
+    ) as req:
+        records = await provider.fetch_records(q)
+    # Both configured endpoints are present; the unconfigured one is filtered out.
+    assert {r.object_id for r in records} == {"A", "B"}
+    # endpointId must NOT be sent to the (single-valued) API param.
+    sent_params = req.call_args.args[0]
+    assert not any(k == "endpointId" for k, _ in sent_params)

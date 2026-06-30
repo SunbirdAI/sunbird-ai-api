@@ -63,8 +63,9 @@ class RunpodAnalyticsProvider(AnalyticsProvider):
         ]
         if query.grouping:
             params.append(("grouping", query.grouping))
-        for ep in query.endpoint_ids or []:
-            params.append(("endpointId", ep))
+        # NOTE: Runpod's `endpointId` is single-valued, so we cannot filter to
+        # multiple endpoints via the API. We omit it and instead filter the
+        # normalized records to query.endpoint_ids in fetch_records().
         for gpu in query.gpu_types or []:
             params.append(("gpuTypeId", gpu))
         for dc in query.data_center_ids or []:
@@ -125,4 +126,11 @@ class RunpodAnalyticsProvider(AnalyticsProvider):
             ) from exc
         payload = resp.json()
         rows = payload if isinstance(payload, list) else payload.get("billingData", [])
-        return self._normalize(rows)
+        records = self._normalize(rows)
+        # Scope to the configured endpoints. Only applies when the rows are grouped
+        # by endpoint (object_id is an endpoint id); GPU-grouped rows carry no
+        # endpoint and are returned unfiltered.
+        if query.endpoint_ids and query.grouping == "endpointId":
+            wanted = set(query.endpoint_ids)
+            records = [r for r in records if r.object_id in wanted]
+        return records
