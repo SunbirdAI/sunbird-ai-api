@@ -172,12 +172,20 @@ def provider_totals(records: list[BillingRecord]) -> dict:
     }
 
 
+_SORT_KEYS = {
+    "cost": lambda r: r.cost,
+    "timestamp": lambda r: r.timestamp,
+    "runtime": lambda r: r.runtime_ms or 0,
+}
+
+
 def paginate_sort_search(
     records: list[BillingRecord],
     page: int,
     page_size: int,
     sort: Optional[str],
     search: Optional[str],
+    descending: bool = True,
 ) -> tuple[list[BillingRecord], int]:
     rows = records
     if search:
@@ -189,12 +197,9 @@ def paginate_sort_search(
             or needle in (r.environment or "").lower()
             or needle in (r.gpu or "").lower()
         ]
-    if sort == "cost":
-        rows = sorted(rows, key=lambda r: r.cost, reverse=True)
-    elif sort == "timestamp":
-        rows = sorted(rows, key=lambda r: r.timestamp, reverse=True)
-    elif sort == "runtime":
-        rows = sorted(rows, key=lambda r: r.runtime_ms or 0, reverse=True)
+    key_func = _SORT_KEYS.get(sort)
+    if key_func is not None:
+        rows = sorted(rows, key=key_func, reverse=descending)
     total = len(rows)
     start = (page - 1) * page_size
     return rows[start : start + page_size], total  # noqa: E203

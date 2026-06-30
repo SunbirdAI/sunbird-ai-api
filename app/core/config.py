@@ -140,6 +140,31 @@ class Settings(BaseSettings):
     billing_cache_ttl_seconds: int = Field(
         default=3600, description="TTL for cached normalized billing records."
     )
+    billing_cache_quantum_seconds: int = Field(
+        default=60,
+        description=(
+            "Quantize 'now' for named date ranges to this many seconds so repeated "
+            "and concurrent identical billing requests share a cache key (stable, "
+            "consistent results within the window). Must be >= 1."
+        ),
+    )
+    runpod_billing_endpoint_ids_raw: str = Field(
+        default="f4qvczc8rce33x,yapuzewu3ebmzq",
+        alias="RUNPOD_BILLING_ENDPOINT_IDS",
+        description=(
+            "Comma-separated Runpod endpoint IDs to scope billing to. Empty means "
+            "all endpoints in the account."
+        ),
+    )
+
+    @property
+    def runpod_billing_endpoint_ids(self) -> list[str]:
+        """Parsed list of Runpod endpoint IDs to scope billing to (may be empty)."""
+        return [
+            part.strip()
+            for part in self.runpod_billing_endpoint_ids_raw.split(",")
+            if part.strip()
+        ]
 
     # Redis / Upstash Configuration
     redis_url: Optional[str] = Field(

@@ -210,3 +210,42 @@ def test_rollup_timeseries_mixed_tz_awareness():
     ts = rollup_timeseries([aware, naive], "day", group_by=None)
     assert ts["labels"] == ["2026-05-01"]
     assert ts["cost"] == [14.0]
+
+
+def test_floor_to_quantum():
+    from app.services.billing_analytics.ranges import floor_to_quantum
+
+    dt = datetime(2026, 6, 30, 13, 45, 37, 123456)
+    assert floor_to_quantum(dt, 60) == datetime(2026, 6, 30, 13, 45, 0)
+    assert floor_to_quantum(dt, 3600) == datetime(2026, 6, 30, 13, 0, 0)
+    # quantum < 1 is guarded to 1 second (drops sub-second only)
+    assert floor_to_quantum(dt, 0) == datetime(2026, 6, 30, 13, 45, 37)
+
+
+def test_paginate_sort_search_ascending():
+    recs = [
+        _rec(object_name="a", cost=1.0),
+        _rec(object_name="b", cost=3.0),
+        _rec(object_name="c", cost=2.0),
+    ]
+    page, total = paginate_sort_search(
+        recs, page=1, page_size=10, sort="cost", search=None, descending=False
+    )
+    assert total == 3
+    assert [r.cost for r in page] == [1.0, 2.0, 3.0]
+
+
+def test_paginate_sort_search_timestamp_ascending():
+    recs = [
+        _rec(timestamp=datetime(2026, 5, 3), cost=1.0),
+        _rec(timestamp=datetime(2026, 5, 1), cost=2.0),
+        _rec(timestamp=datetime(2026, 5, 2), cost=3.0),
+    ]
+    page, _ = paginate_sort_search(
+        recs, page=1, page_size=10, sort="timestamp", search=None, descending=False
+    )
+    assert [r.timestamp for r in page] == [
+        datetime(2026, 5, 1),
+        datetime(2026, 5, 2),
+        datetime(2026, 5, 3),
+    ]

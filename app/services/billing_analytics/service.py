@@ -63,6 +63,8 @@ class BillingAnalyticsService:
         self.modal = modal_provider or ModalAnalyticsProvider()
         self.cache = cache or get_cache_backend()
         self.ttl = settings.billing_cache_ttl_seconds
+        # Runpod endpoint IDs to scope billing to (empty = all account endpoints).
+        self.runpod_endpoint_ids = settings.runpod_billing_endpoint_ids
         # In-flight provider fetches keyed by cache key, for request coalescing.
         self._inflight: dict[str, asyncio.Future] = {}
 
@@ -72,9 +74,10 @@ class BillingAnalyticsService:
         runpod_grouping = "gpuTypeId" if p.group_by == "gpu" else "endpointId"
         gpus = ",".join(p.gpu_types or [])
         dcs = ",".join(p.data_center_ids or [])
+        eids = ",".join(self.runpod_endpoint_ids)
         return (
-            f"billing:v1:{p.provider}:{p.start.isoformat()}:{p.end.isoformat()}"
-            f":{p.base_resolution}:{runpod_grouping}:{gpus}:{dcs}"
+            f"billing:v2:{p.provider}:{p.start.isoformat()}:{p.end.isoformat()}"
+            f":{p.base_resolution}:{runpod_grouping}:{gpus}:{dcs}:{eids}"
         )
 
     def _providers_for(self, provider: str) -> list[AnalyticsProvider]:
@@ -117,6 +120,7 @@ class BillingAnalyticsService:
             end=p.end,
             base_resolution=p.base_resolution,
             grouping=runpod_grouping,
+            endpoint_ids=self.runpod_endpoint_ids or None,
             gpu_types=p.gpu_types,
             data_center_ids=p.data_center_ids,
             tag_names=["*"],
@@ -194,11 +198,21 @@ class BillingAnalyticsService:
         )
 
     async def table(
-        self, p: BillingQueryParams, page: int, page_size: int, sort: Optional[str]
+        self,
+        p: BillingQueryParams,
+        page: int,
+        page_size: int,
+        sort: Optional[str],
+        descending: bool = True,
     ) -> TableResponse:
         records, warnings = await self._fetch_records(p)
         rows, total = aggregation.paginate_sort_search(
-            records, page=page, page_size=page_size, sort=sort, search=p.search
+            records,
+            page=page,
+            page_size=page_size,
+            sort=sort,
+            search=p.search,
+            descending=descending,
         )
         return TableResponse(
             rows=rows, total=total, page=page, page_size=page_size, warnings=warnings

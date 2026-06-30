@@ -165,3 +165,11 @@ async def test_concurrent_fetches_coalesce_to_one_provider_call():
     # Without coalescing each endpoint fetches independently (await_count == 4).
     assert runpod.fetch_records.await_count == 1
     assert modal.fetch_records.await_count == 1
+
+
+async def test_runpod_query_scoped_to_configured_endpoint_ids():
+    service, runpod, modal = _service()
+    service.runpod_endpoint_ids = ["epA", "epB"]
+    await service.summary(_params(provider="runpod"))
+    query = runpod.fetch_records.call_args.args[0]
+    assert query.endpoint_ids == ["epA", "epB"]

@@ -10,6 +10,21 @@ def _parse_iso(value: str) -> datetime:
     return datetime.fromisoformat(value.replace("Z", "+00:00")).replace(tzinfo=None)
 
 
+def floor_to_quantum(dt: datetime, quantum_seconds: int) -> datetime:
+    """Floor ``dt`` to the nearest lower multiple of ``quantum_seconds`` within its day.
+
+    Stabilizes "now" so repeated and concurrent identical billing requests resolve to
+    the same range (and therefore the same cache key) within the quantum window —
+    giving consistent results instead of a freshly-fluctuating live fetch per call.
+    """
+    q = max(quantum_seconds, 1)
+    seconds = dt.hour * 3600 + dt.minute * 60 + dt.second
+    floored = (seconds // q) * q
+    return dt.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(
+        seconds=floored
+    )
+
+
 def resolve_range(
     range_name: str | None,
     start: str | None,

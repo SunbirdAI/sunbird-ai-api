@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, status
 from fastapi.responses import JSONResponse, StreamingResponse
 
+from app.core.config import settings
 from app.core.exceptions import BadRequestError
 from app.deps import BillingAnalyticsServiceDep, CurrentAdminDep
 from app.schemas.billing_analytics import (
@@ -19,17 +20,22 @@ from app.schemas.billing_analytics import (
     TimeseriesResponse,
 )
 from app.services.billing_analytics import aggregation
-from app.services.billing_analytics.ranges import resolve_range
+from app.services.billing_analytics.ranges import floor_to_quantum, resolve_range
 from app.services.billing_analytics.service import BillingQueryParams
 
 router = APIRouter()
 
 _VALID_PROVIDERS = {"all", "runpod", "modal"}
 _VALID_RESOLUTIONS = {"hour", "day", "week", "month", "year"}
+_VALID_SORTS = {"cost", "timestamp", "runtime"}
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    # Quantize 'now' so repeated/concurrent identical requests resolve to the same
+    # range and share a cache key — making results consistent across the page's
+    # charts and across refreshes within the window.
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    return floor_to_quantum(now, settings.billing_cache_quantum_seconds)
 
 
 def _validate_group_by(group_by: str | None) -> None:
@@ -143,11 +149,24 @@ async def get_table(
     page: int = 1,
     page_size: int = 50,
     sort: str | None = "cost",
+    sort_dir: str = "desc",
 ):
     if page < 1 or page_size < 1 or page_size > 500:
         raise BadRequestError("page must be >= 1 and page_size between 1 and 500.")
+    if sort is not None and sort not in _VALID_SORTS:
+        raise BadRequestError(
+            f"Invalid sort '{sort}'. Use one of: {', '.join(_VALID_SORTS)}."
+        )
+    if sort_dir not in {"asc", "desc"}:
+        raise BadRequestError(f"Invalid sort_dir '{sort_dir}'. Use 'asc' or 'desc'.")
     params = _build_params(provider, range, start, end, resolution, search=search)
-    return await svc.table(params, page=page, page_size=page_size, sort=sort)
+    return await svc.table(
+        params,
+        page=page,
+        page_size=page_size,
+        sort=sort,
+        descending=sort_dir != "asc",
+    )
 
 
 @router.get("/export")
