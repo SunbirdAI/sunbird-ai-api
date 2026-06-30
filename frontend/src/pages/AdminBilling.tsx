@@ -28,18 +28,22 @@ const RANGES = [
   ['this_month', 'This Month'], ['last_month', 'Last Month'],
 ] as const;
 
-const PLATFORM_COLORS = ['#4363D8', '#F58231'];
+const PROVIDER_COLORS: Record<string, string> = { runpod: '#4363D8', modal: '#F58231' };
+
+type SortCol = 'timestamp' | 'cost';
 
 export default function AdminBilling() {
   const [filters, setFilters] = useState<BillingFilters>({
     provider: 'all', range: 'last_30_days', resolution: 'day',
   });
   const [page, setPage] = useState(1);
+  const [sort, setSort] = useState<SortCol>('cost');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
   const { data: summary, loading: summaryLoading } = useBillingSummary(filters);
   const { data: timeseries } = useBillingTimeseries(filters);
   const { data: providers } = useBillingProviders(filters);
-  const { data: table } = useBillingTable(filters, page);
+  const { data: table } = useBillingTable(filters, page, sort, sortDir);
   const { exportCSV } = useBillingExport();
 
   const set = (patch: Partial<BillingFilters>) => {
@@ -47,25 +51,55 @@ export default function AdminBilling() {
     setPage(1);
   };
 
+  const toggleSort = (col: SortCol) => {
+    if (sort === col) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSort(col);
+      setSortDir('desc');
+    }
+    setPage(1);
+  };
+
+  const sortArrow = (col: SortCol) =>
+    sort === col ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
+
+  // One line per platform (from cost_by_group) plus a dashed Total line.
+  const costByGroup = timeseries?.cost_by_group || {};
   const costLine = {
     labels: timeseries?.labels || [],
-    datasets: [{
-      label: 'Cost (USD)', data: timeseries?.cost || [],
-      borderColor: '#4363D8', backgroundColor: 'transparent', tension: 0.4,
-    }],
+    datasets: [
+      ...Object.entries(costByGroup).map(([prov, data]) => ({
+        label: prov,
+        data: data as number[],
+        borderColor: PROVIDER_COLORS[prov] || '#6B7280',
+        backgroundColor: 'transparent',
+        borderWidth: 2,
+        tension: 0.4,
+      })),
+      {
+        label: 'Total',
+        data: timeseries?.cost || [],
+        borderColor: '#6B7280',
+        backgroundColor: 'transparent',
+        borderWidth: 3,
+        borderDash: [5, 5],
+        tension: 0.4,
+      },
+    ],
   };
 
   const platformPie = {
     labels: providers?.labels || [],
     datasets: [{
       data: providers?.cost || [],
-      backgroundColor: PLATFORM_COLORS,
+      backgroundColor: (providers?.labels || []).map((l) => PROVIDER_COLORS[l] || '#6B7280'),
     }],
   };
 
   const chartOptions = {
     responsive: true, maintainAspectRatio: false,
-    plugins: { legend: { display: false } },
+    plugins: { legend: { display: true, labels: { color: 'rgba(156,163,175,0.9)' } } },
     scales: {
       x: { grid: { display: false }, ticks: { color: 'rgba(156,163,175,0.8)' } },
       y: { grid: { color: 'rgba(156,163,175,0.1)' }, beginAtZero: true,
@@ -186,13 +220,27 @@ export default function AdminBilling() {
             <thead>
               <tr className="border-b border-gray-200 dark:border-white/10 text-left text-gray-500 dark:text-gray-400">
                 <th className="py-2 px-3">Provider</th><th className="py-2 px-3">Object</th>
-                <th className="py-2 px-3">Date</th><th className="py-2 px-3 text-right">Cost</th>
+                <th
+                  className="py-2 px-3 cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200"
+                  onClick={() => toggleSort('timestamp')}
+                >
+                  Date{sortArrow('timestamp')}
+                </th>
+                <th
+                  className="py-2 px-3 text-right cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200"
+                  onClick={() => toggleSort('cost')}
+                >
+                  Cost{sortArrow('cost')}
+                </th>
                 <th className="py-2 px-3">GPU</th><th className="py-2 px-3">Env</th>
               </tr>
             </thead>
             <tbody>
               {(table?.rows || []).map((r, i) => (
-                <tr key={i} className="border-b border-gray-100 dark:border-white/5">
+                <tr
+                  key={`${r.provider}-${r.object_name}-${r.timestamp}-${i}`}
+                  className="border-b border-gray-100 dark:border-white/5"
+                >
                   <td className="py-2 px-3">{r.provider}</td>
                   <td className="py-2 px-3">{r.object_name}</td>
                   <td className="py-2 px-3">{r.timestamp.slice(0, 10)}</td>

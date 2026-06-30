@@ -104,16 +104,23 @@ export const useBillingSummary = (f: BillingFilters) =>
   useEndpoint<SummaryData>('/summary', f);
 
 export const useBillingTimeseries = (f: BillingFilters) =>
-  useEndpoint<TimeseriesData>('/timeseries', f, f.groupBy ? { group_by: f.groupBy } : {});
+  // Group by provider so the chart can draw a line per platform (cost_by_group).
+  useEndpoint<TimeseriesData>('/timeseries', f, { group_by: f.groupBy || 'provider' });
 
 export const useBillingProviders = (f: BillingFilters) =>
   useEndpoint<ProvidersData>('/providers', f);
 
-export const useBillingTable = (f: BillingFilters, page: number) =>
+export const useBillingTable = (
+  f: BillingFilters,
+  page: number,
+  sort: string,
+  sortDir: 'asc' | 'desc'
+) =>
   useEndpoint<TableData>('/table', f, {
     page: String(page),
     page_size: '50',
-    sort: 'cost',
+    sort,
+    sort_dir: sortDir,
     ...(f.search ? { search: f.search } : {}),
   });
 
