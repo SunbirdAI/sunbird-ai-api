@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 from unittest.mock import AsyncMock
 
@@ -136,3 +137,31 @@ async def test_timeseries_and_breakdown_and_table():
     table = await service.table(_params(), page=1, page_size=10, sort="cost")
     assert table.total == 2
     assert table.rows[0].cost == 10.0
+
+
+async def test_concurrent_fetches_coalesce_to_one_provider_call():
+    """Four endpoints firing the same query concurrently share one provider fetch."""
+    service, runpod, modal = _service()
+
+    async def slow_runpod(_query):
+        await asyncio.sleep(0.05)
+        return _runpod_records()
+
+    async def slow_modal(_query):
+        await asyncio.sleep(0.05)
+        return _modal_records()
+
+    runpod.fetch_records = AsyncMock(side_effect=slow_runpod)
+    modal.fetch_records = AsyncMock(side_effect=slow_modal)
+
+    p = _params()
+    await asyncio.gather(
+        service.summary(p),
+        service.timeseries(p),
+        service.providers(p),
+        service.table(p, page=1, page_size=10, sort="cost"),
+    )
+
+    # Without coalescing each endpoint fetches independently (await_count == 4).
+    assert runpod.fetch_records.await_count == 1
+    assert modal.fetch_records.await_count == 1

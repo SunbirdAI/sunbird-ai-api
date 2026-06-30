@@ -63,6 +63,8 @@ class BillingAnalyticsService:
         self.modal = modal_provider or ModalAnalyticsProvider()
         self.cache = cache or get_cache_backend()
         self.ttl = settings.billing_cache_ttl_seconds
+        # In-flight provider fetches keyed by cache key, for request coalescing.
+        self._inflight: dict[str, asyncio.Future] = {}
 
     # ---- record fetching (cached) ----
 
@@ -91,6 +93,24 @@ class BillingAnalyticsService:
             records = [BillingRecord(**row) for row in cached["records"]]
             return records, list(cached.get("warnings", []))
 
+        # Coalesce concurrent identical fetches (e.g. the dashboard's four endpoints
+        # loading at once) into a single provider round-trip. Providers such as
+        # Modal's billing API are rate-limited, so N un-coalesced concurrent calls
+        # would trip the limit; sharing one in-flight fetch keeps it to one.
+        inflight = self._inflight.get(key)
+        if inflight is not None:
+            return await inflight
+
+        fut = asyncio.ensure_future(self._fetch_and_cache(p, key))
+        self._inflight[key] = fut
+        try:
+            return await fut
+        finally:
+            self._inflight.pop(key, None)
+
+    async def _fetch_and_cache(
+        self, p: BillingQueryParams, key: str
+    ) -> tuple[list[BillingRecord], list[str]]:
         runpod_grouping = "gpuTypeId" if p.group_by == "gpu" else "endpointId"
         query = ProviderQuery(
             start=p.start,
