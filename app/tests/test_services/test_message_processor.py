@@ -729,12 +729,22 @@ class TestHelpAndDiscoveryText:
         assert "mode tts" in msg or "speak" in msg
 
     @pytest.mark.asyncio
-    async def test_mode_button_lists_modes_and_tts_hint(self) -> None:
+    async def test_mode_list_includes_all_four_modes(self) -> None:
         res = await self._cmd("mode")
         assert res.response_type == ResponseType.BUTTON
-        body = res.button_data["payload"]["body"]["text"].lower()
-        assert "chat" in body and "translate" in body and "transcribe" in body
-        assert "mode tts" in body  # Speak mode discoverable via command
+        # List message (not reply buttons): all four modes are selectable rows.
+        rows = res.button_data["action"]["sections"][0]["rows"]
+        row_ids = {r["id"] for r in rows}
+        assert row_ids == {
+            "mode_chat",
+            "mode_translate",
+            "mode_transcribe",
+            "mode_tts",
+        }
+        titles = " ".join(r["title"] for r in rows).lower()
+        assert "speak" in titles or "tts" in titles
+        # Not a reply-button payload (reply buttons cap at 3).
+        assert "interactive_type" not in res.button_data
 
     @pytest.mark.asyncio
     async def test_modes_alias_opens_mode_buttons(self) -> None:
@@ -789,3 +799,63 @@ class TestHelpAndDiscoveryText:
         off = proc._get_status_text("lug", "John", "chat", False)
         assert "ON" in on
         assert "OFF" in off
+
+
+class TestModeSelectorList:
+    """2F: mode selector uses a list message with a selectable Speak/TTS row."""
+
+    def test_mode_list_builder_has_four_rows_within_limits(self) -> None:
+        proc = OptimizedMessageProcessor()
+        button = proc.create_mode_selection_list_button("chat")
+        rows = button["action"]["sections"][0]["rows"]
+        assert len(rows) == 4
+        # WhatsApp list row constraints: title <= 24, description <= 72.
+        for r in rows:
+            assert len(r["title"]) <= 24
+            assert len(r.get("description", "")) <= 72
+        assert {r["id"] for r in rows} == {
+            "mode_chat",
+            "mode_translate",
+            "mode_transcribe",
+            "mode_tts",
+        }
+
+    async def _select_row(self, row_id: str, title: str = ""):
+        proc = OptimizedMessageProcessor()
+        with patch(
+            "app.services.message_processor.save_user_mode", new=AsyncMock()
+        ) as mock_save:
+            res = await proc._handle_list_reply(
+                {"id": row_id, "title": title}, "256700000001", "John"
+            )
+        return res, mock_save
+
+    @pytest.mark.asyncio
+    async def test_select_speak_sets_tts_mode(self) -> None:
+        res, mock_save = await self._select_row("mode_tts", "Speak / TTS")
+        mock_save.assert_awaited_once_with("256700000001", "tts")
+        assert "TTS mode is active" in res.message
+
+    @pytest.mark.asyncio
+    async def test_select_chat_translate_transcribe(self) -> None:
+        for row_id, mode in [
+            ("mode_chat", "chat"),
+            ("mode_translate", "translate"),
+            ("mode_transcribe", "transcribe"),
+        ]:
+            res, mock_save = await self._select_row(row_id)
+            mock_save.assert_awaited_once_with("256700000001", mode)
+            assert res.response_type == ResponseType.TEXT
+
+    @pytest.mark.asyncio
+    async def test_legacy_button_reply_speak_still_works(self) -> None:
+        """Any in-flight 3-button message tapping mode_tts still works."""
+        proc = OptimizedMessageProcessor()
+        with patch(
+            "app.services.message_processor.save_user_mode", new=AsyncMock()
+        ) as mock_save:
+            res = await proc._handle_button_reply(
+                {"id": "mode_tts", "title": "Speak"}, "256700000001", "John"
+            )
+        mock_save.assert_awaited_once_with("256700000001", "tts")
+        assert "TTS mode is active" in res.message
