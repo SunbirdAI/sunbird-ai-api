@@ -49,6 +49,8 @@ from pydub.exceptions import CouldntDecodeError
 
 from app.core.config import settings
 from app.integrations.whatsapp_store import (
+    claim_inbound_message,
+    finalize_inbound_message,
     get_user_conversation_pairs,
     get_user_memory_note,
     get_user_settings,
@@ -285,13 +287,13 @@ class OptimizedMessageProcessor:
         try:
             message_id = self._get_message_id(payload)
 
-            # Quick duplicate check
-            if message_id in processed_messages:
+            # Atomic dedup claim (backend selected by WHATSAPP_DEDUP_BACKEND).
+            # False => duplicate/in-flight -> skip.
+            claimed = await self._claim_inbound(message_id, from_number)
+            if not claimed:
                 return ProcessingResult(
                     "", ResponseType.SKIP, processing_time=time.time() - start_time
                 )
-
-            processed_messages.add(message_id)
 
             # Determine message type quickly
             message_type = self._determine_message_type(payload)
@@ -352,15 +354,66 @@ class OptimizedMessageProcessor:
             # by a handler).
             if not result.reply_to_message_id:
                 result.reply_to_message_id = self._get_message_id(payload) or ""
+            # Mark the inbound message processed only after a successful result.
+            await self._finalize_inbound(message_id, success=True)
             return result
 
         except Exception as e:
             logging.error(f"Error processing message: {str(e)}")
+            # Mark failed so a genuine failure can be retried on redelivery.
+            try:
+                await self._finalize_inbound(message_id, success=False, error=str(e))
+            except Exception:  # noqa: BLE001 — finalize must never mask the error
+                pass
             return ProcessingResult(
                 f"Sorry {sender_name}, I encountered an error. Please try again.",
                 ResponseType.TEXT,
                 processing_time=time.time() - start_time,
             )
+
+    async def _claim_inbound(self, message_id: str, from_number: str) -> bool:
+        """Claim an inbound message for processing (dedup).
+
+        Backend is selected by ``WHATSAPP_DEDUP_BACKEND`` (default 'memory').
+        Returns True to proceed, False to skip a duplicate/in-flight message.
+        The DB backend fails open (processes) if the dedup store errors, so a
+        real user message is never silently dropped.
+        """
+        backend = (settings.whatsapp_dedup_backend or "memory").strip().lower()
+
+        if backend == "db":
+            claimed = await claim_inbound_message(
+                message_id,
+                from_number,
+                settings.whatsapp_dedup_stale_seconds,
+            )
+            if claimed is None:
+                # Dedup store errored -> fail open (process) rather than drop.
+                logging.warning(
+                    "Dedup store unavailable for %s; processing (fail-open).",
+                    message_id,
+                )
+                return True
+            return claimed
+
+        # Default 'memory' backend: per-instance set (legacy behavior).
+        if backend != "memory":
+            logging.warning(
+                "Unknown WHATSAPP_DEDUP_BACKEND %r; using 'memory'.", backend
+            )
+        if message_id in processed_messages:
+            return False
+        processed_messages.add(message_id)
+        return True
+
+    async def _finalize_inbound(
+        self, message_id: str, success: bool, error: Optional[str] = None
+    ) -> None:
+        """Finalize a claimed inbound message (DB backend only)."""
+        backend = (settings.whatsapp_dedup_backend or "memory").strip().lower()
+        if backend != "db":
+            return
+        await finalize_inbound_message(message_id, success, error)
 
     def _determine_message_type(self, payload: Dict) -> MessageType:
         """Determine the type of incoming message.

@@ -2,10 +2,12 @@ from datetime import datetime, timezone
 from typing import List, Optional
 
 from sqlalchemy import desc, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.whatsapp import (
     WhatsAppFeedback,
+    WhatsAppInboundEvent,
     WhatsAppMessage,
     WhatsAppUserMemory,
     WhatsAppUserPreference,
@@ -309,4 +311,98 @@ async def upsert_user_memory_note(
             last_summarized_at=datetime.now(timezone.utc),
         )
         db.add(row)
+    await db.commit()
+
+
+# ---------------------------------------------------------------------------
+# Inbound event dedup (Phase 3A)
+# ---------------------------------------------------------------------------
+
+
+def _is_stale(updated_at: Optional[datetime], stale_seconds: int) -> bool:
+    """True if ``updated_at`` is older than ``stale_seconds`` (tz-tolerant)."""
+    if updated_at is None:
+        return True
+    if updated_at.tzinfo is not None:
+        now = datetime.now(timezone.utc)
+    else:
+        now = datetime.utcnow()
+    return (now - updated_at).total_seconds() > stale_seconds
+
+
+async def claim_inbound_event(
+    db: AsyncSession,
+    message_id: str,
+    user_id: Optional[str],
+    stale_seconds: int,
+) -> bool:
+    """Atomically claim an inbound message for processing.
+
+    Returns True if the caller should process the message, False if it is a
+    duplicate that should be skipped. The unique ``message_id`` makes the
+    initial INSERT the atomic claim across instances.
+
+    Reclaim rules for an existing row: 'processed' -> skip; 'failed' -> reclaim;
+    'processing' -> skip unless older than ``stale_seconds`` (then reclaim).
+    """
+    event = WhatsAppInboundEvent(
+        message_id=message_id,
+        user_id=user_id,
+        status="processing",
+        attempts=1,
+    )
+    db.add(event)
+    try:
+        await db.commit()
+        return True
+    except IntegrityError:
+        await db.rollback()
+
+    # A row already exists — decide based on its status/staleness.
+    result = await db.execute(
+        select(WhatsAppInboundEvent).where(
+            WhatsAppInboundEvent.message_id == message_id
+        )
+    )
+    existing = result.scalars().first()
+    if existing is None:
+        # Row vanished between the failed insert and this read; process.
+        return True
+
+    if existing.status == "processed":
+        return False
+
+    if existing.status == "failed" or (
+        existing.status == "processing"
+        and _is_stale(existing.updated_at, stale_seconds)
+    ):
+        existing.status = "processing"
+        existing.attempts = (existing.attempts or 0) + 1
+        existing.last_error = None
+        existing.updated_at = datetime.now(timezone.utc)
+        await db.commit()
+        return True
+
+    # Fresh 'processing' by another worker — skip.
+    return False
+
+
+async def finalize_inbound_event(
+    db: AsyncSession,
+    message_id: str,
+    success: bool,
+    error: Optional[str] = None,
+) -> None:
+    """Mark a claimed inbound message as 'processed' or 'failed'."""
+    result = await db.execute(
+        select(WhatsAppInboundEvent).where(
+            WhatsAppInboundEvent.message_id == message_id
+        )
+    )
+    existing = result.scalars().first()
+    if existing is None:
+        return
+    existing.status = "processed" if success else "failed"
+    existing.last_error = None if success else (error or "")[:2000]
+    existing.updated_at = datetime.now(timezone.utc)
     await db.commit()

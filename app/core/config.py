@@ -213,6 +213,24 @@ class Settings(BaseSettings):
         default="spark",
         description="WhatsApp TTS backend: 'spark' (default) or 'orpheus'.",
     )
+    whatsapp_dedup_backend: str = Field(
+        default="memory",
+        description=(
+            "Inbound WhatsApp message dedup backend: 'memory' (default, "
+            "per-instance) or 'db' (cross-instance via whatsapp_inbound_events). "
+            "Default stays 'memory' so the app is safe before the migration is "
+            "applied; switch to 'db' after migrating."
+        ),
+    )
+    whatsapp_dedup_stale_seconds: int = Field(
+        default=900,
+        ge=1,
+        description=(
+            "Seconds after which a stuck 'processing' inbound event may be "
+            "reclaimed. Kept high (900s) so long audio / slow model responses "
+            "are not reclaimed while still in progress."
+        ),
+    )
     whatsapp_orpheus_default_speaker: Optional[str] = Field(
         default=None,
         description=(
