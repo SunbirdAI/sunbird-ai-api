@@ -859,3 +859,155 @@ class TestModeSelectorList:
             )
         mock_save.assert_awaited_once_with("256700000001", "tts")
         assert "TTS mode is active" in res.message
+
+
+class TestInboundDedupBackends:
+    """Phase 3A: memory vs db dedup backends in process_message."""
+
+    def _payload(self, message_id="wamid.DUP1"):
+        return {
+            "entry": [
+                {
+                    "changes": [
+                        {
+                            "value": {
+                                "messages": [
+                                    {
+                                        "from": "256700000001",
+                                        "id": message_id,
+                                        "text": {"body": "hello"},
+                                    }
+                                ],
+                                "metadata": {"phone_number_id": "PNID"},
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+
+    def _patch_settings_and_handlers(self, monkeypatch, backend):
+        monkeypatch.setattr(mp.settings, "whatsapp_dedup_backend", backend)
+        monkeypatch.setattr(
+            mp,
+            "get_user_settings",
+            AsyncMock(
+                return_value={
+                    "found": True,
+                    "lookup_failed": False,
+                    "target_language": "eng",
+                    "mode": "chat",
+                    "tts_enabled": False,
+                }
+            ),
+        )
+        monkeypatch.setattr(
+            "app.services.message_processor.asyncio.create_task",
+            lambda *a, **k: MagicMock(),
+        )
+
+    @pytest.mark.asyncio
+    async def test_memory_backend_preserves_behavior(self, monkeypatch) -> None:
+        clear_processed_messages()
+        proc = OptimizedMessageProcessor()
+        self._patch_settings_and_handlers(monkeypatch, "memory")
+        monkeypatch.setattr(
+            proc,
+            "_handle_text_optimized",
+            AsyncMock(return_value=ProcessingResult("ok", ResponseType.TEXT)),
+        )
+        # DB store must NOT be called in memory mode.
+        claim = AsyncMock()
+        monkeypatch.setattr(mp, "claim_inbound_message", claim)
+
+        r1 = await proc.process_message(
+            self._payload(), "256700000001", "John", "eng", "PNID"
+        )
+        r2 = await proc.process_message(
+            self._payload(), "256700000001", "John", "eng", "PNID"
+        )
+
+        assert r1.response_type == ResponseType.TEXT
+        assert r2.response_type == ResponseType.SKIP  # in-memory dedup
+        claim.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_db_backend_claims_and_finalizes_on_success(
+        self, monkeypatch
+    ) -> None:
+        proc = OptimizedMessageProcessor()
+        self._patch_settings_and_handlers(monkeypatch, "db")
+        monkeypatch.setattr(
+            proc,
+            "_handle_text_optimized",
+            AsyncMock(return_value=ProcessingResult("ok", ResponseType.TEXT)),
+        )
+        claim = AsyncMock(return_value=True)
+        finalize = AsyncMock()
+        monkeypatch.setattr(mp, "claim_inbound_message", claim)
+        monkeypatch.setattr(mp, "finalize_inbound_message", finalize)
+
+        result = await proc.process_message(
+            self._payload(), "256700000001", "John", "eng", "PNID"
+        )
+
+        assert result.response_type == ResponseType.TEXT
+        claim.assert_awaited_once()
+        finalize.assert_awaited_once()
+        assert finalize.await_args.args[1] is True  # success=True
+
+    @pytest.mark.asyncio
+    async def test_db_backend_duplicate_skips(self, monkeypatch) -> None:
+        proc = OptimizedMessageProcessor()
+        self._patch_settings_and_handlers(monkeypatch, "db")
+        handler = AsyncMock(return_value=ProcessingResult("ok", ResponseType.TEXT))
+        monkeypatch.setattr(proc, "_handle_text_optimized", handler)
+        monkeypatch.setattr(mp, "claim_inbound_message", AsyncMock(return_value=False))
+        finalize = AsyncMock()
+        monkeypatch.setattr(mp, "finalize_inbound_message", finalize)
+
+        result = await proc.process_message(
+            self._payload(), "256700000001", "John", "eng", "PNID"
+        )
+
+        assert result.response_type == ResponseType.SKIP
+        handler.assert_not_called()  # not processed
+        finalize.assert_not_called()  # nothing to finalize
+
+    @pytest.mark.asyncio
+    async def test_db_backend_marks_failed_on_error(self, monkeypatch) -> None:
+        proc = OptimizedMessageProcessor()
+        self._patch_settings_and_handlers(monkeypatch, "db")
+        monkeypatch.setattr(
+            proc,
+            "_handle_text_optimized",
+            AsyncMock(side_effect=RuntimeError("boom")),
+        )
+        monkeypatch.setattr(mp, "claim_inbound_message", AsyncMock(return_value=True))
+        finalize = AsyncMock()
+        monkeypatch.setattr(mp, "finalize_inbound_message", finalize)
+
+        result = await proc.process_message(
+            self._payload(), "256700000001", "John", "eng", "PNID"
+        )
+
+        assert result.response_type == ResponseType.TEXT  # error fallback text
+        finalize.assert_awaited_once()
+        assert finalize.await_args.args[1] is False  # success=False
+
+    @pytest.mark.asyncio
+    async def test_db_backend_fails_open_when_store_errors(self, monkeypatch) -> None:
+        proc = OptimizedMessageProcessor()
+        self._patch_settings_and_handlers(monkeypatch, "db")
+        handler = AsyncMock(return_value=ProcessingResult("ok", ResponseType.TEXT))
+        monkeypatch.setattr(proc, "_handle_text_optimized", handler)
+        # None == dedup store error -> fail open (process).
+        monkeypatch.setattr(mp, "claim_inbound_message", AsyncMock(return_value=None))
+        monkeypatch.setattr(mp, "finalize_inbound_message", AsyncMock())
+
+        result = await proc.process_message(
+            self._payload(), "256700000001", "John", "eng", "PNID"
+        )
+
+        assert result.response_type == ResponseType.TEXT
+        handler.assert_awaited_once()  # processed despite store error
