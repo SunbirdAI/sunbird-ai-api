@@ -1118,14 +1118,13 @@ class OptimizedMessageProcessor:
                 "", ResponseType.TEMPLATE, template_name="choose_language"
             )
         elif text_lower in ["mode", "modes", "switch mode", "change mode"]:
+            # List message (not reply buttons) so all four modes fit, including
+            # Speak/TTS (WhatsApp caps reply buttons at 3).
             return ProcessingResult(
                 "",
                 ResponseType.BUTTON,
                 should_save=False,
-                button_data={
-                    "interactive_type": "reply",
-                    "payload": self.create_mode_selection_reply_button(user_mode),
-                },
+                button_data=self.create_mode_selection_list_button(user_mode),
             )
         elif text_lower in ["mode chat", "chat mode", "set mode chat"]:
             await self._set_user_mode_async(from_number, "chat")
@@ -2110,6 +2109,15 @@ class OptimizedMessageProcessor:
                     should_save=False,
                 )
 
+            # Mode selection (list message rows: mode_chat/translate/transcribe/tts)
+            if selected_id in {
+                "mode_chat",
+                "mode_translate",
+                "mode_transcribe",
+                "mode_tts",
+            }:
+                return await self._apply_mode_selection(selected_id, from_number)
+
             # Map row IDs to specific actions based on context
             # Welcome button responses
             if selected_id == "row 1" and selected_title == "Get Help":
@@ -2171,6 +2179,30 @@ class OptimizedMessageProcessor:
                 should_save=False,
             )
 
+    async def _apply_mode_selection(
+        self, mode_id: str, from_number: str
+    ) -> ProcessingResult:
+        """Set the user's mode from an interactive selection id (mode_*).
+
+        Shared by list-message selections and legacy reply-button selections so
+        Chat/Translate/Transcribe/Speak all behave identically.
+        """
+        selected_mode = self._normalize_mode(mode_id.replace("mode_", ""))
+        await self._set_user_mode_async(from_number, selected_mode)
+        if selected_mode == "tts":
+            return ProcessingResult(
+                "🔊 *TTS mode is active.* Send any text and I'll turn it into "
+                "audio. Type *cancel* to exit.",
+                ResponseType.TEXT,
+                should_save=False,
+            )
+        mode_label = self.mode_labels.get(selected_mode, selected_mode.title())
+        return ProcessingResult(
+            f"✅ Mode switched to *{mode_label}*.",
+            ResponseType.TEXT,
+            should_save=False,
+        )
+
     async def _handle_button_reply(
         self, button_reply: Dict, from_number: str, sender_name: str
     ) -> ProcessingResult:
@@ -2185,15 +2217,8 @@ class OptimizedMessageProcessor:
             ProcessingResult for the button response.
         """
         button_id = (button_reply.get("id") or "").strip().lower()
-        if button_id in {"mode_chat", "mode_translate", "mode_transcribe"}:
-            selected_mode = button_id.replace("mode_", "")
-            await self._set_user_mode_async(from_number, selected_mode)
-            mode_label = self.mode_labels.get(selected_mode, selected_mode.title())
-            return ProcessingResult(
-                f"✅ Mode switched to *{mode_label}*.",
-                ResponseType.TEXT,
-                should_save=False,
-            )
+        if button_id in {"mode_chat", "mode_translate", "mode_transcribe", "mode_tts"}:
+            return await self._apply_mode_selection(button_id, from_number)
         if button_id == "tts_on":
             await self._set_user_tts_enabled_async(from_number, True)
             return ProcessingResult(
@@ -2395,39 +2420,51 @@ class OptimizedMessageProcessor:
             logging.error(f"Error saving detailed feedback: {e}")
 
     # Button creation methods
-    def create_mode_selection_reply_button(
+    def create_mode_selection_list_button(
         self, current_mode: Optional[str] = None
     ) -> Dict:
-        """Create one-tap reply buttons for mode switching."""
+        """Create an interactive *list* message for mode switching.
+
+        A list message is used (not reply buttons) because WhatsApp caps reply
+        buttons at 3, and we need four modes including Speak/TTS. Row ids are
+        ``mode_chat``/``mode_translate``/``mode_transcribe``/``mode_tts`` and are
+        handled in ``_handle_list_reply``.
+        """
         normalized_mode = self._normalize_mode(current_mode)
         current_mode_label = self.mode_labels.get(normalized_mode, "Chat")
         return {
-            "type": "button",
-            "body": {
-                "text": (
-                    "Choose what I should do with your next messages:\n"
-                    "• Chat: ask me anything\n"
-                    "• Translate: text or audio → translation\n"
-                    "• Transcribe: voice note → text\n\n"
-                    "For Speak mode (text → audio), type *mode tts*."
-                )
-            },
-            "footer": {"text": f"Current mode: {current_mode_label}"},
+            "header": "🌻 Choose a mode",
+            "body": "What should I do with your next messages?",
+            "footer": f"Current mode: {current_mode_label}",
             "action": {
-                "buttons": [
+                "button": "Select mode",
+                "sections": [
                     {
-                        "type": "reply",
-                        "reply": {"id": "mode_chat", "title": "Chat"},
-                    },
-                    {
-                        "type": "reply",
-                        "reply": {"id": "mode_translate", "title": "Translate"},
-                    },
-                    {
-                        "type": "reply",
-                        "reply": {"id": "mode_transcribe", "title": "Transcribe"},
-                    },
-                ]
+                        "title": "Modes",
+                        "rows": [
+                            {
+                                "id": "mode_chat",
+                                "title": "Chat",
+                                "description": "Ask me anything",
+                            },
+                            {
+                                "id": "mode_translate",
+                                "title": "Translate",
+                                "description": "Text or audio translation",
+                            },
+                            {
+                                "id": "mode_transcribe",
+                                "title": "Transcribe",
+                                "description": "Voice note to text",
+                            },
+                            {
+                                "id": "mode_tts",
+                                "title": "Speak / TTS",
+                                "description": "Turn text into audio",
+                            },
+                        ],
+                    }
+                ],
             },
         }
 
