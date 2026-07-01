@@ -260,19 +260,20 @@ class Settings(BaseSettings):
     whatsapp_dedup_backend: str = Field(
         default="memory",
         description=(
-            "Inbound WhatsApp message dedup backend: 'memory' (default, "
-            "per-instance) or 'db' (cross-instance via whatsapp_inbound_events). "
-            "Default stays 'memory' so the app is safe before the migration is "
-            "applied; switch to 'db' after migrating."
+            "DORMANT / DISABLED pending a reliability redesign. The DB dedup "
+            "path was removed from the request flow after a production "
+            "regression (hot-path DB pressure amplified duplicates). This flag "
+            "is currently inert: the WhatsApp request path always uses the "
+            "legacy per-instance in-memory dedup regardless of value. Keep "
+            "'memory'; do NOT rely on 'db' until the redesigned dedup ships."
         ),
     )
     whatsapp_dedup_stale_seconds: int = Field(
         default=900,
         ge=1,
         description=(
-            "Seconds after which a stuck 'processing' inbound event may be "
-            "reclaimed. Kept high (900s) so long audio / slow model responses "
-            "are not reclaimed while still in progress."
+            "Reclaim window (seconds) for the dormant whatsapp_inbound_events "
+            "table. Unused by live processing until dedup is reintroduced."
         ),
     )
     whatsapp_orpheus_default_speaker: Optional[str] = Field(
