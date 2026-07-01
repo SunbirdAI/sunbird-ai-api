@@ -22,10 +22,7 @@ from app.schemas.billing_analytics import (
 )
 from app.services.billing_analytics import aggregation
 from app.services.billing_analytics.ranges import floor_to_quantum, resolve_range
-from app.services.billing_analytics.service import (  # noqa: F401
-    BillingQueryParams,
-    get_billing_analytics_service,
-)
+from app.services.billing_analytics.service import BillingQueryParams
 
 router = APIRouter()
 

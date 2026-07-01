@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -160,21 +160,14 @@ class TestCategory:
             captured["category"] = params.category
             return _summary()
 
-        with patch("app.routers.admin_billing.get_billing_analytics_service"):
-            # dependency override path
-            from app.api import app
-            from app.services.billing_analytics.service import (
-                get_billing_analytics_service,
+        svc = AsyncMock()
+        svc.summary = AsyncMock(side_effect=fake_summary)
+        app.dependency_overrides[get_billing_analytics_service] = lambda: svc
+        try:
+            resp = await admin_client.get(
+                f"{BASE}/summary?category=training&range=last_7_days"
             )
-
-            svc = AsyncMock()
-            svc.summary = AsyncMock(side_effect=fake_summary)
-            app.dependency_overrides[get_billing_analytics_service] = lambda: svc
-            try:
-                resp = await admin_client.get(
-                    f"{BASE}/summary?category=training&range=last_7_days"
-                )
-            finally:
-                app.dependency_overrides.pop(get_billing_analytics_service, None)
+        finally:
+            app.dependency_overrides.pop(get_billing_analytics_service, None)
         assert resp.status_code == 200
         assert captured["category"] == "training"
