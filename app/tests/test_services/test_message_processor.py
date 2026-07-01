@@ -861,8 +861,13 @@ class TestModeSelectorList:
         assert "TTS mode is active" in res.message
 
 
-class TestInboundDedupBackends:
-    """Phase 3A: memory vs db dedup backends in process_message."""
+class TestInboundDedupReverted:
+    """P0 hotfix: Phase 3A DB dedup reverted; in-memory dedup restored.
+
+    Regression guards: one response per message, no fallback on success, and
+    the DB dedup path is fully de-wired from process_message (so the env flag
+    cannot re-trigger it).
+    """
 
     def _payload(self, message_id="wamid.DUP1"):
         return {
@@ -886,8 +891,7 @@ class TestInboundDedupBackends:
             ]
         }
 
-    def _patch_settings_and_handlers(self, monkeypatch, backend):
-        monkeypatch.setattr(mp.settings, "whatsapp_dedup_backend", backend)
+    def _patch_common(self, monkeypatch):
         monkeypatch.setattr(
             mp,
             "get_user_settings",
@@ -907,107 +911,71 @@ class TestInboundDedupBackends:
         )
 
     @pytest.mark.asyncio
-    async def test_memory_backend_preserves_behavior(self, monkeypatch) -> None:
+    async def test_single_response_no_fallback_on_success(self, monkeypatch) -> None:
         clear_processed_messages()
         proc = OptimizedMessageProcessor()
-        self._patch_settings_and_handlers(monkeypatch, "memory")
+        self._patch_common(monkeypatch)
         monkeypatch.setattr(
             proc,
             "_handle_text_optimized",
-            AsyncMock(return_value=ProcessingResult("ok", ResponseType.TEXT)),
+            AsyncMock(return_value=ProcessingResult("Real answer", ResponseType.TEXT)),
         )
-        # DB store must NOT be called in memory mode.
-        claim = AsyncMock()
-        monkeypatch.setattr(mp, "claim_inbound_message", claim)
+        result = await proc.process_message(
+            self._payload(), "256700000001", "John", "eng", "PNID"
+        )
+        assert result.response_type == ResponseType.TEXT
+        assert result.message == "Real answer"
+        # The success path must NOT emit the corruption fallback.
+        assert result.message != CORRUPTED_OUTPUT_FALLBACK
 
+    @pytest.mark.asyncio
+    async def test_duplicate_message_id_skips_silently(self, monkeypatch) -> None:
+        clear_processed_messages()
+        proc = OptimizedMessageProcessor()
+        self._patch_common(monkeypatch)
+        monkeypatch.setattr(
+            proc,
+            "_handle_text_optimized",
+            AsyncMock(return_value=ProcessingResult("Real answer", ResponseType.TEXT)),
+        )
         r1 = await proc.process_message(
             self._payload(), "256700000001", "John", "eng", "PNID"
         )
         r2 = await proc.process_message(
             self._payload(), "256700000001", "John", "eng", "PNID"
         )
-
         assert r1.response_type == ResponseType.TEXT
-        assert r2.response_type == ResponseType.SKIP  # in-memory dedup
-        claim.assert_not_called()
+        # Duplicate delivery -> SKIP (empty), never a second/fallback message.
+        assert r2.response_type == ResponseType.SKIP
+        assert r2.message == ""
 
     @pytest.mark.asyncio
-    async def test_db_backend_claims_and_finalizes_on_success(
-        self, monkeypatch
-    ) -> None:
+    async def test_dedup_flag_db_does_not_change_behavior(self, monkeypatch) -> None:
+        """Even if WHATSAPP_DEDUP_BACKEND=db is set, the request path stays
+        in-memory (DB dedup fully de-wired) — no DB calls, same dedup result."""
+        clear_processed_messages()
         proc = OptimizedMessageProcessor()
-        self._patch_settings_and_handlers(monkeypatch, "db")
+        monkeypatch.setattr(mp.settings, "whatsapp_dedup_backend", "db")
+        self._patch_common(monkeypatch)
         monkeypatch.setattr(
             proc,
             "_handle_text_optimized",
-            AsyncMock(return_value=ProcessingResult("ok", ResponseType.TEXT)),
+            AsyncMock(return_value=ProcessingResult("Real answer", ResponseType.TEXT)),
         )
-        claim = AsyncMock(return_value=True)
-        finalize = AsyncMock()
-        monkeypatch.setattr(mp, "claim_inbound_message", claim)
-        monkeypatch.setattr(mp, "finalize_inbound_message", finalize)
-
-        result = await proc.process_message(
-            self._payload(), "256700000001", "John", "eng", "PNID"
+        r1 = await proc.process_message(
+            self._payload("wamid.DBFLAG"), "256700000001", "John", "eng", "PNID"
         )
+        r2 = await proc.process_message(
+            self._payload("wamid.DBFLAG"), "256700000001", "John", "eng", "PNID"
+        )
+        assert r1.response_type == ResponseType.TEXT
+        assert r2.response_type == ResponseType.SKIP
 
-        assert result.response_type == ResponseType.TEXT
-        claim.assert_awaited_once()
-        finalize.assert_awaited_once()
-        assert finalize.await_args.args[1] is True  # success=True
-
-    @pytest.mark.asyncio
-    async def test_db_backend_duplicate_skips(self, monkeypatch) -> None:
+    def test_db_dedup_path_is_removed_from_processor(self) -> None:
+        """Regression guard: the DB dedup wiring is no longer in the hot path."""
         proc = OptimizedMessageProcessor()
-        self._patch_settings_and_handlers(monkeypatch, "db")
-        handler = AsyncMock(return_value=ProcessingResult("ok", ResponseType.TEXT))
-        monkeypatch.setattr(proc, "_handle_text_optimized", handler)
-        monkeypatch.setattr(mp, "claim_inbound_message", AsyncMock(return_value=False))
-        finalize = AsyncMock()
-        monkeypatch.setattr(mp, "finalize_inbound_message", finalize)
-
-        result = await proc.process_message(
-            self._payload(), "256700000001", "John", "eng", "PNID"
-        )
-
-        assert result.response_type == ResponseType.SKIP
-        handler.assert_not_called()  # not processed
-        finalize.assert_not_called()  # nothing to finalize
-
-    @pytest.mark.asyncio
-    async def test_db_backend_marks_failed_on_error(self, monkeypatch) -> None:
-        proc = OptimizedMessageProcessor()
-        self._patch_settings_and_handlers(monkeypatch, "db")
-        monkeypatch.setattr(
-            proc,
-            "_handle_text_optimized",
-            AsyncMock(side_effect=RuntimeError("boom")),
-        )
-        monkeypatch.setattr(mp, "claim_inbound_message", AsyncMock(return_value=True))
-        finalize = AsyncMock()
-        monkeypatch.setattr(mp, "finalize_inbound_message", finalize)
-
-        result = await proc.process_message(
-            self._payload(), "256700000001", "John", "eng", "PNID"
-        )
-
-        assert result.response_type == ResponseType.TEXT  # error fallback text
-        finalize.assert_awaited_once()
-        assert finalize.await_args.args[1] is False  # success=False
-
-    @pytest.mark.asyncio
-    async def test_db_backend_fails_open_when_store_errors(self, monkeypatch) -> None:
-        proc = OptimizedMessageProcessor()
-        self._patch_settings_and_handlers(monkeypatch, "db")
-        handler = AsyncMock(return_value=ProcessingResult("ok", ResponseType.TEXT))
-        monkeypatch.setattr(proc, "_handle_text_optimized", handler)
-        # None == dedup store error -> fail open (process).
-        monkeypatch.setattr(mp, "claim_inbound_message", AsyncMock(return_value=None))
-        monkeypatch.setattr(mp, "finalize_inbound_message", AsyncMock())
-
-        result = await proc.process_message(
-            self._payload(), "256700000001", "John", "eng", "PNID"
-        )
-
-        assert result.response_type == ResponseType.TEXT
-        handler.assert_awaited_once()  # processed despite store error
+        assert not hasattr(proc, "_claim_inbound")
+        assert not hasattr(proc, "_finalize_inbound")
+        # The store dedup helpers are not imported into the processor module.
+        assert not hasattr(mp, "claim_inbound_message")
+        assert not hasattr(mp, "finalize_inbound_message")
