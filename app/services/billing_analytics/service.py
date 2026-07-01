@@ -14,8 +14,10 @@ from app.integrations.billing.base import (
     ProviderQuery,
     ProviderUnavailable,
 )
+from app.integrations.billing.categories import providers_in_category
 from app.integrations.billing.modal import ModalAnalyticsProvider
 from app.integrations.billing.runpod import RunpodAnalyticsProvider
+from app.integrations.billing.vastai import VastaiAnalyticsProvider
 from app.schemas.billing_analytics import (
     BillingRecord,
     BreakdownResponse,
@@ -34,10 +36,11 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class BillingQueryParams:
-    provider: str  # "all" | "runpod" | "modal"
+    provider: str  # "all" | "runpod" | "modal" | "vastai"
     start: datetime
     end: datetime
     resolution: str  # display: hour | day | week | month | year
+    category: str = "inference"
     group_by: Optional[str] = None
     search: Optional[str] = None
     gpu_types: Optional[list[str]] = None
@@ -61,6 +64,7 @@ class BillingAnalyticsService:
     ) -> None:
         self.runpod = runpod_provider or RunpodAnalyticsProvider()
         self.modal = modal_provider or ModalAnalyticsProvider()
+        self.vastai = VastaiAnalyticsProvider()
         self.cache = cache or get_cache_backend()
         self.ttl = settings.billing_cache_ttl_seconds
         # Runpod endpoint IDs to scope billing to (empty = all account endpoints).
@@ -76,16 +80,19 @@ class BillingAnalyticsService:
         dcs = ",".join(p.data_center_ids or [])
         eids = ",".join(self.runpod_endpoint_ids)
         return (
-            f"billing:v2:{p.provider}:{p.start.isoformat()}:{p.end.isoformat()}"
-            f":{p.base_resolution}:{runpod_grouping}:{gpus}:{dcs}:{eids}"
+            f"billing:v3:{p.category}:{p.provider}:{p.start.isoformat()}"
+            f":{p.end.isoformat()}:{p.base_resolution}:{runpod_grouping}"
+            f":{gpus}:{dcs}:{eids}"
         )
 
-    def _providers_for(self, provider: str) -> list[AnalyticsProvider]:
-        if provider == "runpod":
-            return [self.runpod]
-        if provider == "modal":
-            return [self.modal]
-        return [self.runpod, self.modal]
+    def _provider_by_name(self, name: str) -> AnalyticsProvider:
+        return {"runpod": self.runpod, "modal": self.modal, "vastai": self.vastai}[name]
+
+    def _providers_for(self, category: str, provider: str) -> list[AnalyticsProvider]:
+        names = providers_in_category(category)
+        if provider != "all":
+            names = [n for n in names if n == provider]
+        return [self._provider_by_name(n) for n in names]
 
     async def _fetch_records(
         self, p: BillingQueryParams
@@ -126,7 +133,7 @@ class BillingAnalyticsService:
             tag_names=["*"],
         )
 
-        providers = self._providers_for(p.provider)
+        providers = self._providers_for(p.category, p.provider)
         results = await asyncio.gather(
             *(prov.fetch_records(query) for prov in providers),
             return_exceptions=True,
@@ -173,6 +180,7 @@ class BillingAnalyticsService:
             avg_storage_gb=data["avg_storage_gb"],
             active_endpoints=data["active_endpoints"],
             active_modal_apps=data["active_modal_apps"],
+            active_instances=data["active_instances"],
             highest_cost_endpoint=HighestCost(**he) if he else None,
             highest_cost_platform=HighestCost(**hp) if hp else None,
             num_days=data["num_days"],

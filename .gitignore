@@ -49,3 +49,5 @@ wif_credentials.md
 dynamodb_exports/
 .DS_Store
 bin/runpod-modal-usage.md
+bin/show-charges-vastai.md
+bin/Runpod-State-of-AI-dark.pdf

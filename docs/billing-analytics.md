@@ -21,6 +21,9 @@ Environment variables:
 - `BILLING_CACHE_QUANTUM_SECONDS` — optional, defaults to 60. Quantizes `now` for
   named date ranges so repeated/concurrent identical requests share a cache key and
   return consistent results within the window.
+- `VAST_API_KEY` — Vast.ai charges API auth (training category).
+- `VAST_BILLING_BASE_URL` — optional, defaults to `https://console.vast.ai`.
+- `VAST_CONTRACT_TYPES` — optional, comma-separated (default `instance,volume`; empty = all).
 
 ## Field meanings
 
@@ -35,6 +38,18 @@ Environment variables:
 - **active_endpoints** — distinct Runpod endpoints (network volumes excluded).
 - **Network Volumes** — account-level Runpod storage; included in spend/storage totals,
   not counted as an endpoint.
+
+## Categories
+
+The dashboard is split into categories, selected by the `category` query param
+(default `inference`):
+
+- **Inference** — Runpod + Modal (per-day billing).
+- **Training** — Vast.ai. Vast.ai bills per contract (one total per job), so the provider
+  amortizes each contract's cost and GPU-hours evenly across the days it ran into per-day
+  records; the Training Jobs table groups those back into one row per contract. Vast.ai
+  storage is billed as cost, not GB.
+- **Cloud** (AWS/GCP/Heroku) — reserved for a later phase.
 
 ## Endpoints
 
