@@ -15,6 +15,7 @@ from app.schemas.billing_analytics import BillingRecord
 # group_by keys we can derive directly from a normalized record.
 _GROUP_KEY_FUNCS = {
     "provider": lambda r: r.provider,
+    "object": lambda r: r.object_name,
     "endpoint": lambda r: r.object_name if r.provider == "runpod" else None,
     "app": lambda r: r.object_name if r.provider == "modal" else None,
     "gpu": lambda r: r.gpu,

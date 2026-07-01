@@ -11,7 +11,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-Provider = Literal["runpod", "modal"]
+Provider = Literal["runpod", "modal", "vastai"]
 
 
 class BillingRecord(BaseModel):
