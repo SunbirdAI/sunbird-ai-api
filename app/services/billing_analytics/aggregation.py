@@ -162,11 +162,20 @@ def summarize(records: list[BillingRecord], num_days: int) -> dict:
 
 
 def provider_totals(records: list[BillingRecord]) -> dict:
+    # Providers present, in a stable order: known ones first, then any others.
+    present: list[str] = []
+    for name in ("runpod", "modal", "vastai"):
+        if any(r.provider == name for r in records):
+            present.append(name)
+    for r in records:
+        if r.provider not in present:
+            present.append(r.provider)
+
     labels: list[str] = []
     cost: list[float] = []
     runtime: list[float] = []
     storage: list[float] = []
-    for provider in ("runpod", "modal"):
+    for provider in present:
         subset = [r for r in records if r.provider == provider]
         if not subset:
             continue

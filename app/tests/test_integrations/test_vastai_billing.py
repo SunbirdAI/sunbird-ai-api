@@ -111,3 +111,34 @@ async def test_fetch_records_wraps_parse_errors(monkeypatch):
     ):
         with pytest.raises(ProviderUnavailable):
             await provider.fetch_records(_query())
+
+
+async def test_amortization_clamped_to_query_window(monkeypatch):
+    monkeypatch.setenv("VAST_API_KEY", "test-key")
+    provider = VastaiAnalyticsProvider()
+    # contract spans 2024-11-01 .. 2024-11-10, but the query only covers 11-01..11-05
+    contract = {
+        "start": 1730419200,  # 2024-11-01 00:00 UTC
+        "end": 1731196800,  # 2024-11-10 00:00 UTC
+        "type": "instance",
+        "source": "instance-1",
+        "description": "job",
+        "amount": 100.0,
+        "metadata": {"label": "job"},
+        "items": [],
+    }
+    query = ProviderQuery(
+        start=datetime(2024, 11, 1),
+        end=datetime(2024, 11, 5),
+        base_resolution="day",
+    )
+    page = {"results": [contract], "next_token": None}
+    with patch.object(
+        provider, "_request", AsyncMock(return_value=httpx.Response(200, json=page))
+    ):
+        records = await provider.fetch_records(query)
+    days = [r.timestamp for r in records]
+    assert min(days) >= datetime(2024, 11, 1)
+    assert max(days) <= datetime(2024, 11, 5)
+    # per-day rate divides by the FULL 10-day contract span
+    assert round(records[0].cost, 5) == round(100.0 / 10, 5)

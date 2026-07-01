@@ -321,3 +321,13 @@ def test_summarize_active_instances():
     s = summarize(recs, num_days=1)
     assert s["active_instances"] == 2
     assert s["active_endpoints"] == 1
+
+
+def test_provider_totals_includes_vastai():
+    recs = [
+        _rec(provider="runpod", cost=10.0),
+        _rec(provider="vastai", object_id="instance-1", object_name="job", cost=4.0),
+    ]
+    pt = provider_totals(recs)
+    assert pt["labels"] == ["runpod", "vastai"]
+    assert pt["cost"] == [10.0, 4.0]

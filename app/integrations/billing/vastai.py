@@ -110,7 +110,7 @@ class VastaiAnalyticsProvider(AnalyticsProvider):
                     total += float(match.group(1)) * 3600 * 1000
         return int(total) if total else None
 
-    def _amortize(self, contract: dict) -> list[BillingRecord]:
+    def _amortize(self, contract: dict, query: ProviderQuery) -> list[BillingRecord]:
         start = contract.get("start")
         end = contract.get("end")
         if start is None or end is None:
@@ -131,6 +131,9 @@ class VastaiAnalyticsProvider(AnalyticsProvider):
                 )
         gpu_ms = self._parse_gpu_ms(items)
 
+        win_start = query.start.replace(hour=0, minute=0, second=0, microsecond=0)
+        win_end = query.end
+
         start_day = _from_unix_day(start)
         end_dt = datetime.fromtimestamp(int(end), tz=timezone.utc).replace(tzinfo=None)
         days: list[datetime] = []
@@ -143,6 +146,8 @@ class VastaiAnalyticsProvider(AnalyticsProvider):
         per_day_breakdown = {k: v / num_days for k, v in breakdown.items()}
         records: list[BillingRecord] = []
         for day in days:
+            if day < win_start or day > win_end:
+                continue
             records.append(
                 BillingRecord(
                     provider="vastai",
@@ -172,7 +177,7 @@ class VastaiAnalyticsProvider(AnalyticsProvider):
             contracts = await self._fetch_all_contracts(query)
             records: list[BillingRecord] = []
             for contract in contracts:
-                records.extend(self._amortize(contract))
+                records.extend(self._amortize(contract, query))
             return records
         except ProviderUnavailable:
             raise
