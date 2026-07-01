@@ -127,6 +127,7 @@ def summarize(records: list[BillingRecord], num_days: int) -> dict:
     ]
     endpoints = {r.object_id for r in runpod_endpoint_records}
     apps = {r.object_id for r in records if r.provider == "modal"}
+    instances = {r.object_id for r in records if r.provider == "vastai"}
 
     endpoint_rows = group_records(runpod_endpoint_records, "endpoint")
     highest_endpoint = (
@@ -153,6 +154,7 @@ def summarize(records: list[BillingRecord], num_days: int) -> dict:
         "avg_storage_gb": round(total_storage / (days * 24), 4),
         "active_endpoints": len(endpoints),
         "active_modal_apps": len(apps),
+        "active_instances": len(instances),
         "highest_cost_endpoint": highest_endpoint,
         "highest_cost_platform": highest_platform,
         "num_days": num_days,

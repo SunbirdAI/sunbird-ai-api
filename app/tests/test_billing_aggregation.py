@@ -310,3 +310,14 @@ def test_object_in_supported_group_bys():
     from app.services.billing_analytics.aggregation import SUPPORTED_GROUP_BYS
 
     assert "object" in SUPPORTED_GROUP_BYS
+
+
+def test_summarize_active_instances():
+    recs = [
+        _rec(provider="vastai", object_id="instance-1", object_name="a", cost=5.0),
+        _rec(provider="vastai", object_id="instance-2", object_name="b", cost=3.0),
+        _rec(provider="runpod", object_id="ep1", object_name="ep1", cost=1.0),
+    ]
+    s = summarize(recs, num_days=1)
+    assert s["active_instances"] == 2
+    assert s["active_endpoints"] == 1

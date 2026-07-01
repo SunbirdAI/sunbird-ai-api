@@ -62,6 +62,7 @@ class SummaryResponse(BaseModel):
     avg_storage_gb: float  # time-weighted average provisioned storage in GB
     active_endpoints: int
     active_modal_apps: int
+    active_instances: int = 0
     highest_cost_endpoint: Optional[HighestCost] = None
     highest_cost_platform: Optional[HighestCost] = None
     num_days: int
