@@ -144,6 +144,33 @@ class Settings(BaseSettings):
             "totals via the /billing/networkvolumes API."
         ),
     )
+
+    # Vast.ai (training) billing
+    vast_billing_base_url: str = Field(
+        default="https://console.vast.ai",
+        description="Base URL for the Vast.ai charges API.",
+    )
+    vast_billing_timeout_seconds: float = Field(
+        default=30.0, description="Timeout for a single Vast.ai charges API call."
+    )
+    vast_contract_types_raw: str = Field(
+        default="instance,volume",
+        alias="VAST_CONTRACT_TYPES",
+        description=(
+            "Comma-separated Vast.ai contract types to include "
+            "(instance, volume, serverless). Empty = all types."
+        ),
+    )
+
+    @property
+    def vast_contract_types(self) -> list[str]:
+        """Parsed list of Vast.ai contract types to include (may be empty)."""
+        return [
+            part.strip()
+            for part in self.vast_contract_types_raw.split(",")
+            if part.strip()
+        ]
+
     billing_cache_ttl_seconds: int = Field(
         default=3600, description="TTL for cached normalized billing records."
     )

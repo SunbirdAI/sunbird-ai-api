@@ -173,3 +173,61 @@ async def test_runpod_query_scoped_to_configured_endpoint_ids():
     await service.summary(_params(provider="runpod"))
     query = runpod.fetch_records.call_args.args[0]
     assert query.endpoint_ids == ["epA", "epB"]
+
+
+def _service_with_vastai():
+    runpod = AsyncMock()
+    runpod.name = "runpod"
+    runpod.fetch_records = AsyncMock(return_value=_runpod_records())
+    modal = AsyncMock()
+    modal.name = "modal"
+    modal.fetch_records = AsyncMock(return_value=_modal_records())
+    vastai = AsyncMock()
+    vastai.name = "vastai"
+    vastai.fetch_records = AsyncMock(
+        return_value=[
+            BillingRecord(
+                provider="vastai",
+                object_id="instance-1",
+                object_name="job",
+                timestamp=datetime(2026, 5, 1),
+                cost=7.0,
+            )
+        ]
+    )
+    service = BillingAnalyticsService(
+        runpod_provider=runpod, modal_provider=modal, cache=FakeCache()
+    )
+    service.vastai = vastai
+    return service, runpod, modal, vastai
+
+
+async def test_training_category_uses_only_vastai():
+    service, runpod, modal, vastai = _service_with_vastai()
+    p = BillingQueryParams(
+        provider="all",
+        start=datetime(2026, 5, 1),
+        end=datetime(2026, 5, 3),
+        resolution="day",
+        category="training",
+    )
+    result = await service.summary(p)
+    vastai.fetch_records.assert_awaited()
+    runpod.fetch_records.assert_not_awaited()
+    modal.fetch_records.assert_not_awaited()
+    assert result.total_spend == 7.0
+
+
+async def test_inference_category_uses_runpod_and_modal():
+    service, runpod, modal, vastai = _service_with_vastai()
+    p = BillingQueryParams(
+        provider="all",
+        start=datetime(2026, 5, 1),
+        end=datetime(2026, 5, 3),
+        resolution="day",
+        category="inference",
+    )
+    await service.summary(p)
+    runpod.fetch_records.assert_awaited()
+    modal.fetch_records.assert_awaited()
+    vastai.fetch_records.assert_not_awaited()

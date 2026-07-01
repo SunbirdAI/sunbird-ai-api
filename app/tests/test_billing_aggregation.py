@@ -293,3 +293,41 @@ def test_summarize_avg_storage_gb_from_gb_hours():
     s = summarize(recs, num_days=2)
     assert s["total_storage_gb"] == 16800.0  # raw GB-hours
     assert s["avg_storage_gb"] == 350.0  # 16800 / (2 days * 24h)
+
+
+def test_group_records_by_object_any_provider():
+    recs = [
+        _rec(provider="vastai", object_id="instance-1", object_name="job-a", cost=10.0),
+        _rec(provider="vastai", object_id="instance-1", object_name="job-a", cost=5.0),
+        _rec(provider="vastai", object_id="instance-2", object_name="job-b", cost=3.0),
+    ]
+    rows = group_records(recs, "object")
+    keys = {row["key"]: row["cost"] for row in rows}
+    assert keys == {"job-a": 15.0, "job-b": 3.0}
+
+
+def test_object_in_supported_group_bys():
+    from app.services.billing_analytics.aggregation import SUPPORTED_GROUP_BYS
+
+    assert "object" in SUPPORTED_GROUP_BYS
+
+
+def test_summarize_active_instances():
+    recs = [
+        _rec(provider="vastai", object_id="instance-1", object_name="a", cost=5.0),
+        _rec(provider="vastai", object_id="instance-2", object_name="b", cost=3.0),
+        _rec(provider="runpod", object_id="ep1", object_name="ep1", cost=1.0),
+    ]
+    s = summarize(recs, num_days=1)
+    assert s["active_instances"] == 2
+    assert s["active_endpoints"] == 1
+
+
+def test_provider_totals_includes_vastai():
+    recs = [
+        _rec(provider="runpod", cost=10.0),
+        _rec(provider="vastai", object_id="instance-1", object_name="job", cost=4.0),
+    ]
+    pt = provider_totals(recs)
+    assert pt["labels"] == ["runpod", "vastai"]
+    assert pt["cost"] == [10.0, 4.0]

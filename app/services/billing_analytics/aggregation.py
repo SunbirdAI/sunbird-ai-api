@@ -15,6 +15,7 @@ from app.schemas.billing_analytics import BillingRecord
 # group_by keys we can derive directly from a normalized record.
 _GROUP_KEY_FUNCS = {
     "provider": lambda r: r.provider,
+    "object": lambda r: r.object_name,
     "endpoint": lambda r: r.object_name if r.provider == "runpod" else None,
     "app": lambda r: r.object_name if r.provider == "modal" else None,
     "gpu": lambda r: r.gpu,
@@ -126,6 +127,7 @@ def summarize(records: list[BillingRecord], num_days: int) -> dict:
     ]
     endpoints = {r.object_id for r in runpod_endpoint_records}
     apps = {r.object_id for r in records if r.provider == "modal"}
+    instances = {r.object_id for r in records if r.provider == "vastai"}
 
     endpoint_rows = group_records(runpod_endpoint_records, "endpoint")
     highest_endpoint = (
@@ -152,6 +154,7 @@ def summarize(records: list[BillingRecord], num_days: int) -> dict:
         "avg_storage_gb": round(total_storage / (days * 24), 4),
         "active_endpoints": len(endpoints),
         "active_modal_apps": len(apps),
+        "active_instances": len(instances),
         "highest_cost_endpoint": highest_endpoint,
         "highest_cost_platform": highest_platform,
         "num_days": num_days,
@@ -159,11 +162,20 @@ def summarize(records: list[BillingRecord], num_days: int) -> dict:
 
 
 def provider_totals(records: list[BillingRecord]) -> dict:
+    # Providers present, in a stable order: known ones first, then any others.
+    present: list[str] = []
+    for name in ("runpod", "modal", "vastai"):
+        if any(r.provider == name for r in records):
+            present.append(name)
+    for r in records:
+        if r.provider not in present:
+            present.append(r.provider)
+
     labels: list[str] = []
     cost: list[float] = []
     runtime: list[float] = []
     storage: list[float] = []
-    for provider in ("runpod", "modal"):
+    for provider in present:
         subset = [r for r in records if r.provider == provider]
         if not subset:
             continue

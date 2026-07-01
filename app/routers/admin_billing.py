@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from app.core.config import settings
 from app.core.exceptions import BadRequestError
 from app.deps import BillingAnalyticsServiceDep, CurrentAdminDep
+from app.integrations.billing.categories import CATEGORIES
 from app.schemas.billing_analytics import (
     BreakdownResponse,
     ProvidersResponse,
@@ -54,7 +55,12 @@ def _build_params(
     resolution: str,
     group_by: str | None = None,
     search: str | None = None,
+    category: str = "inference",
 ) -> BillingQueryParams:
+    if category not in CATEGORIES:
+        raise BadRequestError(
+            f"Invalid category '{category}'. Use one of: {', '.join(CATEGORIES)}."
+        )
     if provider not in _VALID_PROVIDERS:
         raise BadRequestError(
             f"Invalid provider '{provider}'. Use: all, runpod, modal."
@@ -69,6 +75,7 @@ def _build_params(
         raise BadRequestError(str(exc))
     return BillingQueryParams(
         provider=provider,
+        category=category,
         start=start_dt,
         end=end_dt,
         resolution=resolution,
@@ -82,12 +89,13 @@ async def get_summary(
     svc: BillingAnalyticsServiceDep,
     current_user: CurrentAdminDep,
     provider: str = "all",
+    category: str = "inference",
     range: str | None = "last_30_days",
     start: str | None = None,
     end: str | None = None,
     resolution: str = "day",
 ):
-    params = _build_params(provider, range, start, end, resolution)
+    params = _build_params(provider, range, start, end, resolution, category=category)
     return await svc.summary(params)
 
 
@@ -96,6 +104,7 @@ async def get_timeseries(
     svc: BillingAnalyticsServiceDep,
     current_user: CurrentAdminDep,
     provider: str = "all",
+    category: str = "inference",
     range: str | None = "last_30_days",
     start: str | None = None,
     end: str | None = None,
@@ -103,7 +112,9 @@ async def get_timeseries(
     group_by: str | None = None,
 ):
     _validate_group_by(group_by)
-    params = _build_params(provider, range, start, end, resolution, group_by=group_by)
+    params = _build_params(
+        provider, range, start, end, resolution, group_by=group_by, category=category
+    )
     return await svc.timeseries(params)
 
 
@@ -111,12 +122,13 @@ async def get_timeseries(
 async def get_providers(
     svc: BillingAnalyticsServiceDep,
     current_user: CurrentAdminDep,
+    category: str = "inference",
     range: str | None = "last_30_days",
     start: str | None = None,
     end: str | None = None,
     resolution: str = "day",
 ):
-    params = _build_params("all", range, start, end, resolution)
+    params = _build_params("all", range, start, end, resolution, category=category)
     return await svc.providers(params)
 
 
@@ -126,13 +138,16 @@ async def get_breakdown(
     current_user: CurrentAdminDep,
     group_by: str = "provider",
     provider: str = "all",
+    category: str = "inference",
     range: str | None = "last_30_days",
     start: str | None = None,
     end: str | None = None,
     resolution: str = "day",
 ):
     _validate_group_by(group_by)
-    params = _build_params(provider, range, start, end, resolution, group_by=group_by)
+    params = _build_params(
+        provider, range, start, end, resolution, group_by=group_by, category=category
+    )
     return await svc.breakdown(params)
 
 
@@ -141,6 +156,7 @@ async def get_table(
     svc: BillingAnalyticsServiceDep,
     current_user: CurrentAdminDep,
     provider: str = "all",
+    category: str = "inference",
     range: str | None = "last_30_days",
     start: str | None = None,
     end: str | None = None,
@@ -159,7 +175,9 @@ async def get_table(
         )
     if sort_dir not in {"asc", "desc"}:
         raise BadRequestError(f"Invalid sort_dir '{sort_dir}'. Use 'asc' or 'desc'.")
-    params = _build_params(provider, range, start, end, resolution, search=search)
+    params = _build_params(
+        provider, range, start, end, resolution, search=search, category=category
+    )
     return await svc.table(
         params,
         page=page,
@@ -174,12 +192,13 @@ async def export_csv(
     svc: BillingAnalyticsServiceDep,
     current_user: CurrentAdminDep,
     provider: str = "all",
+    category: str = "inference",
     range: str | None = "last_30_days",
     start: str | None = None,
     end: str | None = None,
     resolution: str = "day",
 ):
-    params = _build_params(provider, range, start, end, resolution)
+    params = _build_params(provider, range, start, end, resolution, category=category)
     records = await svc.records_for_export(params)
 
     output = io.StringIO()

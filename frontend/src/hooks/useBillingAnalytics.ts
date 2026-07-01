@@ -5,7 +5,8 @@ import { toast } from 'sonner';
 const BASE = '/api/admin/analytics/billing';
 
 export interface BillingFilters {
-  provider: 'all' | 'runpod' | 'modal';
+  category: 'inference' | 'training';
+  provider: 'all' | 'runpod' | 'modal' | 'vastai';
   range: string;
   resolution: 'hour' | 'day' | 'week' | 'month' | 'year';
   groupBy?: string;
@@ -21,6 +22,7 @@ export interface SummaryData {
   avg_storage_gb: number;
   active_endpoints: number;
   active_modal_apps: number;
+  active_instances: number;
   highest_cost_endpoint?: { name: string; cost: number } | null;
   highest_cost_platform?: { name: string; cost: number } | null;
   num_days: number;
@@ -64,8 +66,23 @@ export interface TableData {
   warnings: string[];
 }
 
+export interface BreakdownRow {
+  key: string;
+  cost: number;
+  runtime_ms: number;
+  storage_gb: number;
+  count: number;
+}
+
+export interface BreakdownData {
+  group_by: string;
+  rows: BreakdownRow[];
+  warnings: string[];
+}
+
 function params(f: BillingFilters, extra: Record<string, string> = {}) {
   const p = new URLSearchParams({
+    category: f.category,
     provider: f.provider,
     range: f.range,
     resolution: f.resolution,
@@ -92,7 +109,7 @@ function useEndpoint<T>(path: string, f: BillingFilters, extra: Record<string, s
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [path, f.provider, f.range, f.resolution, extraKey]);
+  }, [path, f.category, f.provider, f.range, f.resolution, extraKey]);
 
   useEffect(() => {
     fetchData();
@@ -124,6 +141,9 @@ export const useBillingTable = (
     sort_dir: sortDir,
     ...(f.search ? { search: f.search } : {}),
   });
+
+export const useBillingBreakdown = (f: BillingFilters, groupBy: string) =>
+  useEndpoint<BreakdownData>('/breakdown', f, { group_by: groupBy });
 
 export function useBillingExport() {
   const exportCSV = async (f: BillingFilters) => {

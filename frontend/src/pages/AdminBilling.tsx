@@ -14,6 +14,7 @@ import {
   useBillingTimeseries,
   useBillingProviders,
   useBillingTable,
+  useBillingBreakdown,
   useBillingExport,
 } from '../hooks/useBillingAnalytics';
 
@@ -28,13 +29,13 @@ const RANGES = [
   ['this_month', 'This Month'], ['last_month', 'Last Month'],
 ] as const;
 
-const PROVIDER_COLORS: Record<string, string> = { runpod: '#4363D8', modal: '#F58231' };
+const PROVIDER_COLORS: Record<string, string> = { runpod: '#4363D8', modal: '#F58231', vastai: '#16A34A' };
 
 type SortCol = 'timestamp' | 'cost';
 
 export default function AdminBilling() {
   const [filters, setFilters] = useState<BillingFilters>({
-    provider: 'all', range: 'last_30_days', resolution: 'day',
+    category: 'inference', provider: 'all', range: 'last_30_days', resolution: 'day',
   });
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState<SortCol>('cost');
@@ -44,6 +45,7 @@ export default function AdminBilling() {
   const { data: timeseries } = useBillingTimeseries(filters);
   const { data: providers } = useBillingProviders(filters);
   const { data: table } = useBillingTable(filters, page, sort, sortDir);
+  const { data: jobs } = useBillingBreakdown(filters, 'object');
   const { exportCSV } = useBillingExport();
 
   const set = (patch: Partial<BillingFilters>) => {
@@ -127,7 +129,9 @@ export default function AdminBilling() {
             Infrastructure Billing
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Runpod & Modal spend, runtime, and storage analytics.
+            {filters.category === 'training'
+              ? 'Vast.ai training spend, GPU hours, and per-job breakdown.'
+              : 'Runpod & Modal spend, runtime, and storage analytics.'}
           </p>
         </div>
         <button
@@ -138,17 +142,51 @@ export default function AdminBilling() {
         </button>
       </div>
 
+      {/* Category tabs */}
+      <div className="flex gap-1 border-b border-gray-200 dark:border-white/10">
+        {([
+          ['inference', 'Inference (Runpod & Modal)', false],
+          ['training', 'Training (Vast.ai)', false],
+          ['cloud', 'Cloud (coming soon)', true],
+        ] as const).map(([cat, label, disabled]) => (
+          <button
+            key={cat}
+            disabled={disabled}
+            onClick={() => {
+              setFilters((f) => ({
+                ...f,
+                category: cat as BillingFilters['category'],
+                provider: 'all',
+              }));
+              setPage(1);
+            }}
+            className={
+              'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ' +
+              (disabled
+                ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed border-transparent'
+                : filters.category === cat
+                ? 'border-primary-600 text-primary-700 dark:text-primary-400'
+                : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200')
+            }
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
-        <select
-          value={filters.provider}
-          onChange={(e) => set({ provider: e.target.value as BillingFilters['provider'] })}
-          className="px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-secondary text-sm"
-        >
-          <option value="all">All Platforms</option>
-          <option value="runpod">Runpod</option>
-          <option value="modal">Modal</option>
-        </select>
+        {filters.category === 'inference' && (
+          <select
+            value={filters.provider}
+            onChange={(e) => set({ provider: e.target.value as BillingFilters['provider'] })}
+            className="px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-secondary text-sm"
+          >
+            <option value="all">All Platforms</option>
+            <option value="runpod">Runpod</option>
+            <option value="modal">Modal</option>
+          </select>
+        )}
         <select
           value={filters.range}
           onChange={(e) => set({ range: e.target.value })}
@@ -176,7 +214,7 @@ export default function AdminBilling() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <MetricCard label="Total Spend" value={`$${(summary?.total_spend || 0).toFixed(2)}`} icon={DollarSign} color="bg-blue-500" />
         <MetricCard label="Avg Daily Spend" value={`$${(summary?.avg_daily_spend || 0).toFixed(2)}`} icon={DollarSign} color="bg-green-500" />
-        <MetricCard label="Compute Time" value={`${((summary?.total_runtime_ms || 0) / 3_600_000).toFixed(1)}h`} icon={Clock} color="bg-orange-500" />
+        <MetricCard label="GPU Hours" value={`${((summary?.total_runtime_ms || 0) / 3_600_000).toFixed(1)}h`} icon={Clock} color="bg-orange-500" />
         <MetricCard label="Avg Storage" value={`${(summary?.avg_storage_gb || 0).toFixed(0)} GB`} icon={HardDrive} color="bg-purple-500" />
       </div>
 
@@ -189,7 +227,7 @@ export default function AdminBilling() {
           <p><b>Total / Avg Daily Spend</b> — USD billed by the provider for the selected
             range and platform(s), summed across all records. Modal amounts are pre-credit
             (before any credits or reservations), so your invoice may be lower.</p>
-          <p><b>Compute Time</b> — total billed run time, from Runpod's <code>timeBilledMs</code>
+          <p><b>GPU Hours</b> — total billed run time, from Runpod's <code>timeBilledMs</code>
             (worker-time across the period). Modal bills per-app cost and does not report a
             runtime, so this reflects Runpod only.</p>
           <p><b>Avg Storage (GB)</b> — providers bill storage as <b>GB-hours</b> (capacity ×
@@ -203,6 +241,11 @@ export default function AdminBilling() {
             (<code>/billing/networkvolumes</code>), shown as its own row and folded into totals.</p>
           <p><b>Cost Over Time</b> — per-bucket spend with a line per platform plus a dashed
             Total. Buckets roll up to the selected resolution (hour → year).</p>
+          <p><b>Training (Vast.ai)</b> — Vast.ai bills per contract (a whole job), not per
+            day. We spread each contract's cost and GPU-hours evenly across the days it ran so
+            the charts and totals are smooth and correct; the Training Jobs table lists one row
+            per contract (job/instance) with its total GPU-hours and cost. Storage is billed as
+            cost (not GB), so it appears in spend rather than the storage figure.</p>
           <p className="text-gray-500 dark:text-gray-400">Scope &amp; freshness: Runpod is scoped
             to the configured endpoints; Modal covers the whole workspace. Figures are cached
             briefly for consistency, so very recent usage settles within the cache window.</p>
@@ -216,7 +259,7 @@ export default function AdminBilling() {
             <div className="flex-1 min-h-0"><Line options={chartOptions} data={costLine} /></div>
           </ChartCard>
         </div>
-        <ChartCard title="Spend by Platform" description="Runpod vs Modal">
+        <ChartCard title="Spend by Platform" description={filters.category === 'training' ? 'Vast.ai' : 'Runpod vs Modal'}>
           <div className="flex-1 min-h-0 flex items-center justify-center">
             <Pie data={platformPie} options={{ responsive: true, maintainAspectRatio: false }} />
           </div>
@@ -224,8 +267,14 @@ export default function AdminBilling() {
         <div className="bg-white dark:bg-secondary rounded-xl border border-gray-200 dark:border-white/5 p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Highlights</h3>
           <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-2">
-            <li>Active endpoints: <b>{summary?.active_endpoints ?? 0}</b></li>
-            <li>Active Modal apps: <b>{summary?.active_modal_apps ?? 0}</b></li>
+            {filters.category === 'training' ? (
+              <li>Active jobs/instances: <b>{summary?.active_instances ?? 0}</b></li>
+            ) : (
+              <>
+                <li>Active endpoints: <b>{summary?.active_endpoints ?? 0}</b></li>
+                <li>Active Modal apps: <b>{summary?.active_modal_apps ?? 0}</b></li>
+              </>
+            )}
             <li>Top endpoint: <b>{summary?.highest_cost_endpoint?.name ?? 'N/A'}</b> (${(summary?.highest_cost_endpoint?.cost ?? 0).toFixed(2)})</li>
             <li>Top platform: <b>{summary?.highest_cost_platform?.name ?? 'N/A'}</b> (${(summary?.highest_cost_platform?.cost ?? 0).toFixed(2)})</li>
           </ul>
@@ -236,61 +285,86 @@ export default function AdminBilling() {
       <div className="bg-white dark:bg-secondary rounded-xl border border-gray-200 dark:border-white/5 p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-            <Server size={18} /> Billing Records
+            <Server size={18} /> {filters.category === 'training' ? 'Training Jobs' : 'Billing Records'}
           </h3>
-          <input
-            type="text" placeholder="Search object / GPU / env..."
-            onChange={(e) => set({ search: e.target.value || undefined })}
-            className="px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-secondary text-sm"
-          />
+          {filters.category === 'inference' && (
+            <input
+              type="text" placeholder="Search object / GPU / env..."
+              onChange={(e) => set({ search: e.target.value || undefined })}
+              className="px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-secondary text-sm"
+            />
+          )}
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-200 dark:border-white/10 text-left text-gray-500 dark:text-gray-400">
-                <th className="py-2 px-3">Provider</th><th className="py-2 px-3">Object</th>
-                <th
-                  className="py-2 px-3 cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200"
-                  onClick={() => toggleSort('timestamp')}
-                >
-                  Date{sortArrow('timestamp')}
-                </th>
-                <th
-                  className="py-2 px-3 text-right cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200"
-                  onClick={() => toggleSort('cost')}
-                >
-                  Cost{sortArrow('cost')}
-                </th>
-                <th className="py-2 px-3">GPU</th><th className="py-2 px-3">Env</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(table?.rows || []).map((r, i) => (
-                <tr
-                  key={`${r.provider}-${r.object_name}-${r.timestamp}-${i}`}
-                  className="border-b border-gray-100 dark:border-white/5"
-                >
-                  <td className="py-2 px-3">{r.provider}</td>
-                  <td className="py-2 px-3">{r.object_name}</td>
-                  <td className="py-2 px-3">{r.timestamp.slice(0, 10)}</td>
-                  <td className="py-2 px-3 text-right">${r.cost.toFixed(4)}</td>
-                  <td className="py-2 px-3">{r.gpu || '-'}</td>
-                  <td className="py-2 px-3">{r.environment || '-'}</td>
+          {filters.category === 'training' ? (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200 dark:border-white/10 text-left text-gray-500 dark:text-gray-400">
+                  <th className="py-2 px-3">Job / Instance</th>
+                  <th className="py-2 px-3 text-right">GPU Hours</th>
+                  <th className="py-2 px-3 text-right">Cost</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {(jobs?.rows || []).map((row) => (
+                  <tr key={row.key} className="border-b border-gray-100 dark:border-white/5">
+                    <td className="py-2 px-3">{row.key}</td>
+                    <td className="py-2 px-3 text-right">{(row.runtime_ms / 3_600_000).toFixed(1)}h</td>
+                    <td className="py-2 px-3 text-right">${row.cost.toFixed(3)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200 dark:border-white/10 text-left text-gray-500 dark:text-gray-400">
+                  <th className="py-2 px-3">Provider</th><th className="py-2 px-3">Object</th>
+                  <th
+                    className="py-2 px-3 cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200"
+                    onClick={() => toggleSort('timestamp')}
+                  >
+                    Date{sortArrow('timestamp')}
+                  </th>
+                  <th
+                    className="py-2 px-3 text-right cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200"
+                    onClick={() => toggleSort('cost')}
+                  >
+                    Cost{sortArrow('cost')}
+                  </th>
+                  <th className="py-2 px-3">GPU</th><th className="py-2 px-3">Env</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(table?.rows || []).map((r, i) => (
+                  <tr
+                    key={`${r.provider}-${r.object_name}-${r.timestamp}-${i}`}
+                    className="border-b border-gray-100 dark:border-white/5"
+                  >
+                    <td className="py-2 px-3">{r.provider}</td>
+                    <td className="py-2 px-3">{r.object_name}</td>
+                    <td className="py-2 px-3">{r.timestamp.slice(0, 10)}</td>
+                    <td className="py-2 px-3 text-right">${r.cost.toFixed(4)}</td>
+                    <td className="py-2 px-3">{r.gpu || '-'}</td>
+                    <td className="py-2 px-3">{r.environment || '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
-        <div className="flex items-center justify-between mt-4 text-sm text-gray-500 dark:text-gray-400">
-          <span>{table?.total ?? 0} records</span>
-          <div className="flex gap-2">
-            <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)}
-              className="px-3 py-1 rounded border border-gray-200 dark:border-white/10 disabled:opacity-40">Prev</button>
-            <button disabled={!table || page * table.page_size >= table.total}
-              onClick={() => setPage((p) => p + 1)}
-              className="px-3 py-1 rounded border border-gray-200 dark:border-white/10 disabled:opacity-40">Next</button>
+        {filters.category === 'inference' && (
+          <div className="flex items-center justify-between mt-4 text-sm text-gray-500 dark:text-gray-400">
+            <span>{table?.total ?? 0} records</span>
+            <div className="flex gap-2">
+              <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)}
+                className="px-3 py-1 rounded border border-gray-200 dark:border-white/10 disabled:opacity-40">Prev</button>
+              <button disabled={!table || page * table.page_size >= table.total}
+                onClick={() => setPage((p) => p + 1)}
+                className="px-3 py-1 rounded border border-gray-200 dark:border-white/10 disabled:opacity-40">Next</button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
