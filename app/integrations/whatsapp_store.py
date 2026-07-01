@@ -262,6 +262,35 @@ async def get_user_conversation_pairs(user_id: str, limit_pairs: int = 10) -> li
         return []
 
 
+async def claim_inbound_message(
+    message_id: str, user_id: Optional[str], stale_seconds: int
+) -> Optional[bool]:
+    """Claim an inbound message for processing (DB-backed dedup).
+
+    Returns True to process, False to skip (duplicate), or None if the dedup
+    store itself errored — callers should fail open (process) on None.
+    """
+    try:
+        async with async_session_maker() as db:
+            return await whatsapp_crud.claim_inbound_event(
+                db, message_id, user_id, stale_seconds
+            )
+    except Exception as e:
+        logger.error("Error claiming inbound message %s: %s", message_id, e)
+        return None
+
+
+async def finalize_inbound_message(
+    message_id: str, success: bool, error: Optional[str] = None
+) -> None:
+    """Mark a claimed inbound message as processed/failed (best-effort)."""
+    try:
+        async with async_session_maker() as db:
+            await whatsapp_crud.finalize_inbound_event(db, message_id, success, error)
+    except Exception as e:
+        logger.error("Error finalizing inbound message %s: %s", message_id, e)
+
+
 async def get_user_memory_note(user_id: str) -> Optional[str]:
     try:
         async with async_session_maker() as db:
@@ -300,4 +329,6 @@ __all__ = [
     "get_user_conversation_pairs",
     "get_user_memory_note",
     "upsert_user_memory_note",
+    "claim_inbound_message",
+    "finalize_inbound_message",
 ]
