@@ -92,3 +92,22 @@ async def test_fetch_records_raises_on_http_error(monkeypatch):
     ):
         with pytest.raises(ProviderUnavailable):
             await provider.fetch_records(_query())
+
+
+async def test_fetch_records_wraps_parse_errors(monkeypatch):
+    monkeypatch.setenv("VAST_API_KEY", "test-key")
+    provider = VastaiAnalyticsProvider()
+    bad = {
+        "start": 1730419200,
+        "end": 1730678400,
+        "type": "instance",
+        "source": "instance-1",
+        "amount": "not-a-number",
+        "items": [],
+    }
+    page = {"results": [bad], "next_token": None}
+    with patch.object(
+        provider, "_request", AsyncMock(return_value=httpx.Response(200, json=page))
+    ):
+        with pytest.raises(ProviderUnavailable):
+            await provider.fetch_records(_query())

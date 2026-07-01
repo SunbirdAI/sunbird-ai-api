@@ -170,13 +170,15 @@ class VastaiAnalyticsProvider(AnalyticsProvider):
             raise ProviderUnavailable("vastai", "VAST_API_KEY is not configured")
         try:
             contracts = await self._fetch_all_contracts(query)
+            records: list[BillingRecord] = []
+            for contract in contracts:
+                records.extend(self._amortize(contract))
+            return records
         except ProviderUnavailable:
             raise
         except httpx.HTTPError as exc:
             raise ProviderUnavailable(
                 "vastai", f"charges API request failed: {exc}"
             ) from exc
-        records: list[BillingRecord] = []
-        for contract in contracts:
-            records.extend(self._amortize(contract))
-        return records
+        except Exception as exc:
+            raise ProviderUnavailable("vastai", f"contract parse error: {exc}") from exc
